@@ -15,6 +15,8 @@ const [lojaAdmin, setLojaAdmin] = useState("Todas");
 const [paginaAtual, setPaginaAtual] = useState(1);
 const [ordenacao, setOrdenacao] = useState("recentes");
 const [mensagemSucesso, setMensagemSucesso] = useState("");
+const [preparandoProduto, setPreparandoProduto] = useState(false);
+const [linkProdutoDireto, setLinkProdutoDireto] = useState("");
 const totalProdutos = produtos.length;
 
 const totalDestaques = produtos.filter(
@@ -142,6 +144,54 @@ if (!confirmar) return;
 
   carregarProdutos();
 }
+
+async function prepararProdutoComIa() {
+if (!linkProdutoDireto.trim()) {
+  alert("Informe o link direto do produto.");
+  return;
+}
+  setPreparandoProduto(true);
+
+  try {
+    const resposta = await fetch("/api/preparar-produto", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+  link: linkProdutoDireto.trim(),
+}),
+    });
+
+    const resultado = await resposta.json();
+
+    if (!resposta.ok) {
+      alert(resultado.error || "Não foi possível preparar o produto.");
+      return;
+    }
+
+    const dados = resultado.dados;
+
+setFormulario((formularioAtual) => ({
+  ...formularioAtual,
+  nome: dados.nome || formularioAtual.nome,
+  categoria: dados.categoria || formularioAtual.categoria,
+  loja: dados.loja || formularioAtual.loja,
+  precoAntigo: dados.precoAntigo || formularioAtual.precoAntigo,
+  precoAtual: dados.precoAtual || formularioAtual.precoAtual,
+  imagem: dados.imagem || formularioAtual.imagem,
+}));
+
+setPreparandoProduto(false);
+alert("Produto preparado com sucesso.");
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao conectar com a API.");
+  } finally {
+    setPreparandoProduto(false);
+  }
+}
+
 async function salvarProduto() {
   let imagemUrl = formulario.imagem || "";
 
@@ -763,7 +813,12 @@ if (!autenticado) {
   className="rounded-xl border p-4"
 />
   </div>
-
+<input
+  placeholder="Link direto do produto"
+  value={linkProdutoDireto}
+  onChange={(e) => setLinkProdutoDireto(e.target.value)}
+  className="rounded-xl border p-4"
+/>
   <input
   placeholder="Link de afiliado"
   value={formulario.link}
@@ -775,6 +830,17 @@ if (!autenticado) {
   }
   className="rounded-xl border p-4"
 />
+
+<button
+  type="button"
+  onClick={prepararProdutoComIa}
+  disabled={preparandoProduto}
+  className="rounded-xl bg-violet-600 p-4 font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {preparandoProduto
+    ? "Preparando produto..."
+    : "✨ Preparar Produto com IA"}
+</button>
 
   <input
   placeholder="Cupom"
