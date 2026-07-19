@@ -27,8 +27,8 @@ export async function POST() {
       );
     }
 
-    const clientId = process.env.MERCADO_LIVRE_CLIENT_ID;
-    const clientSecret = process.env.MERCADO_LIVRE_CLIENT_SECRET;
+    const clientId = process.env.MELI_CLIENT_ID;
+const clientSecret = process.env.MELI_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
