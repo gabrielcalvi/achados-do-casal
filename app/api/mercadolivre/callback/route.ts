@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { salvarTokensMercadoLivre } from "@/lib/mercadolivre/token";
 
 type RespostaTokenMercadoLivre = {
   access_token: string;
@@ -109,17 +110,13 @@ export async function GET(request: NextRequest) {
     texto
   ) as RespostaTokenMercadoLivre;
 
-  const respostaFinal = NextResponse.json({
-    sucesso: true,
-    mensagem:
-      "Mercado Livre conectado com sucesso.",
-    userId: tokens.user_id,
-    expiresIn: tokens.expires_in,
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-  });
+ await salvarTokensMercadoLivre(tokens);
 
-  respostaFinal.cookies.delete("meli_oauth_state");
+const respostaFinal = NextResponse.redirect(
+  new URL("/admin?mercadolivre=conectado", request.url)
+);
 
-  return respostaFinal;
+respostaFinal.cookies.delete("meli_oauth_state");
+
+return respostaFinal;
 }
