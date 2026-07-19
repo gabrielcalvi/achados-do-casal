@@ -1,3 +1,4 @@
+import { buscarTokensMercadoLivre } from "@/lib/mercadolivre/token";
 
 export type ProdutoMercadoLivre = {
   id: string;
@@ -22,27 +23,35 @@ export type ProdutoMercadoLivre = {
 export async function buscarProdutoMercadoLivre(
   itemId: string
 ): Promise<ProdutoMercadoLivre> {
- 
+  const tokens = await buscarTokensMercadoLivre();
+
+  if (!tokens?.access_token) {
+    throw new Error(
+      "Não foi encontrado um token do Mercado Livre no Supabase."
+    );
+  }
+
   const idNormalizado = itemId
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
-  if (!idNormalizado.startsWith("MLB")) {
+  if (!/^MLB\d+$/.test(idNormalizado)) {
     throw new Error(
       "O ITEM_ID informado é inválido. Exemplo esperado: MLB1234567890."
     );
   }
 
   const resposta = await fetch(
-  `https://api.mercadolibre.com/items/${idNormalizado}`,
-  {
-    headers: {
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  }
-);
+    `https://api.mercadolibre.com/items/${idNormalizado}`,
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+      cache: "no-store",
+    }
+  );
 
   const texto = await resposta.text();
 
@@ -52,5 +61,13 @@ export async function buscarProdutoMercadoLivre(
     );
   }
 
-  return JSON.parse(texto) as ProdutoMercadoLivre;
+  const produto = JSON.parse(texto) as ProdutoMercadoLivre;
+
+  if (!produto?.id) {
+    throw new Error(
+      "O Mercado Livre não retornou informações válidas para esse produto."
+    );
+  }
+
+  return produto;
 }
