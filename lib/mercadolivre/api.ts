@@ -1,4 +1,3 @@
-import { buscarTokensMercadoLivre } from "@/lib/mercadolivre/token";
 
 export type ProdutoMercadoLivre = {
   id: string;
@@ -23,14 +22,7 @@ export type ProdutoMercadoLivre = {
 export async function buscarProdutoMercadoLivre(
   itemId: string
 ): Promise<ProdutoMercadoLivre> {
-  const tokens = await buscarTokensMercadoLivre();
-
-  if (!tokens?.access_token) {
-    throw new Error(
-      "Não foi encontrado um token do Mercado Livre no Supabase."
-    );
-  }
-
+ 
   const idNormalizado = itemId
     .trim()
     .toUpperCase()
@@ -43,16 +35,14 @@ export async function buscarProdutoMercadoLivre(
   }
 
   const resposta = await fetch(
-    `https://api.mercadolibre.com/items/${idNormalizado}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${tokens.access_token}`,
-      },
-      cache: "no-store",
-    }
-  );
+  `https://api.mercadolibre.com/items/${idNormalizado}`,
+  {
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  }
+);
 
   const texto = await resposta.text();
 
