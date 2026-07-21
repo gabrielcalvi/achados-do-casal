@@ -1,10 +1,32 @@
-﻿export async function resolverItemId(
+﻿function extrairItemId(valor: string): string | null {
+  const texto = decodeURIComponent(valor);
+
+  const itemIdParametro =
+    texto.match(/[?&](?:item_id|wid)=(MLB-?\d+)/i)?.[1];
+
+  if (itemIdParametro) {
+    return itemIdParametro.toUpperCase().replace("-", "");
+  }
+
+  const anuncioDireto =
+    texto.match(
+      /produto\.mercadolivre\.com\.br\/(MLB-?\d+)/i
+    )?.[1];
+
+  if (anuncioDireto) {
+    return anuncioDireto.toUpperCase().replace("-", "");
+  }
+
+  return null;
+}
+
+export async function resolverItemId(
   url: string
 ): Promise<string | null> {
-  const direto = url.match(/MLB-?(\d+)/i);
+  const itemIdOriginal = extrairItemId(url);
 
-  if (direto) {
-    return `MLB${direto[1]}`;
+  if (itemIdOriginal) {
+    return itemIdOriginal;
   }
 
   try {
@@ -19,15 +41,33 @@
       },
     });
 
-    const encontrado = resposta.url.match(/MLB-?(\d+)/i);
+    const itemIdFinal = extrairItemId(resposta.url);
 
-    if (encontrado) {
-      return `MLB${encontrado[1]}`;
+    if (itemIdFinal) {
+      return itemIdFinal;
+    }
+
+    const html = await resposta.text();
+
+    const itemIdDoHtml =
+      html.match(
+        /"(?:item_id|itemId|id)"\s*:\s*"(MLB-?\d{8,})"/i
+      )?.[1] ??
+      html.match(
+        /produto\.mercadolivre\.com\.br\/(MLB-?\d+)/i
+      )?.[1];
+
+    if (itemIdDoHtml) {
+      return itemIdDoHtml.toUpperCase().replace("-", "");
     }
 
     return null;
   } catch (erro) {
-    console.error("Erro ao resolver link do Mercado Livre:", erro);
+    console.error(
+      "Erro ao resolver link do Mercado Livre:",
+      erro
+    );
+
     return null;
   }
 }
