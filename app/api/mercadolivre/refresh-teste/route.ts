@@ -1,19 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { POST } from "../refresh/route";
 
-export async function GET(request: NextRequest) {
-  const urlRefresh = new URL(
-    "/api/mercadolivre/refresh",
-    request.nextUrl.origin
-  );
-
-  const resposta = await fetch(urlRefresh, {
-    method: "POST",
-    cache: "no-store",
-  });
-
-  const dados = await resposta.json();
-
-  return NextResponse.json(dados, {
-    status: resposta.status,
-  });
+export async function GET() {
+  return POST();
 }
