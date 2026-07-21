@@ -1,20 +1,57 @@
-﻿function extrairItemId(valor: string): string | null {
-  const texto = decodeURIComponent(valor);
+﻿export type ReferenciaMercadoLivre =
+  | { tipo: "item"; id: string }
+  | { tipo: "produto"; id: string };
 
-  const itemIdParametro =
-    texto.match(/[?&](?:item_id|wid)=(MLB-?\d+)/i)?.[1];
+function normalizarId(id: string): string {
+  return id.toUpperCase().replace("-", "");
+}
 
-  if (itemIdParametro) {
-    return itemIdParametro.toUpperCase().replace("-", "");
+function extrairReferencia(
+  valor: string
+): ReferenciaMercadoLivre | null {
+  let texto = valor;
+
+  try {
+    texto = decodeURIComponent(valor);
+  } catch {
+    // Mantém o valor original quando a URL tem codificação incompleta.
   }
 
-  const anuncioDireto =
-    texto.match(
-      /produto\.mercadolivre\.com\.br\/(MLB-?\d+)/i
-    )?.[1];
+  /*
+   * O wid ou item_id representa o anúncio real.
+   * Ele deve ter prioridade sobre o PRODUCT_ID do caminho /p/.
+   */
+  const itemIdParametro = texto.match(
+    /[?&#](?:item_id|wid)=(MLB-?\d+)/i
+  )?.[1];
 
-  if (anuncioDireto) {
-    return anuncioDireto.toUpperCase().replace("-", "");
+  if (itemIdParametro) {
+    return {
+      tipo: "item",
+      id: normalizarId(itemIdParametro),
+    };
+  }
+
+  const itemIdDireto = texto.match(
+    /produto\.mercadolivre\.com\.br\/(MLB-?\d+)/i
+  )?.[1];
+
+  if (itemIdDireto) {
+    return {
+      tipo: "item",
+      id: normalizarId(itemIdDireto),
+    };
+  }
+
+  const productId = texto.match(
+    /\/p\/(MLB-?\d+)(?:[/?#]|$)/i
+  )?.[1];
+
+  if (productId) {
+    return {
+      tipo: "produto",
+      id: normalizarId(productId),
+    };
   }
 
   return null;
@@ -22,11 +59,11 @@
 
 export async function resolverItemId(
   url: string
-): Promise<string | null> {
-  const itemIdOriginal = extrairItemId(url);
+): Promise<ReferenciaMercadoLivre | null> {
+  const referenciaOriginal = extrairReferencia(url);
 
-  if (itemIdOriginal) {
-    return itemIdOriginal;
+  if (referenciaOriginal) {
+    return referenciaOriginal;
   }
 
   try {
@@ -41,32 +78,19 @@ export async function resolverItemId(
       },
     });
 
-    console.log("URL FINAL:", resposta.url);
+    const referenciaFinal = extrairReferencia(
+      resposta.url
+    );
 
-    const itemIdFinal = extrairItemId(resposta.url);
-
-    if (itemIdFinal) {
-      return itemIdFinal;
+    if (referenciaFinal?.tipo === "item") {
+      return referenciaFinal;
     }
 
     const html = await resposta.text();
+    const referenciaHtml =
+      extrairReferencia(html);
 
-    console.log("Primeiros 1000 caracteres:");
-    console.log(html.substring(0, 1000));
-
-    const itemIdDoHtml =
-      html.match(
-        /"(?:item_id|itemId|id)"\s*:\s*"(MLB-?\d{8,})"/i
-      )?.[1] ??
-      html.match(
-        /produto\.mercadolivre\.com\.br\/(MLB-?\d+)/i
-      )?.[1];
-
-    if (itemIdDoHtml) {
-      return itemIdDoHtml.toUpperCase().replace("-", "");
-    }
-
-    return null;
+    return referenciaHtml ?? referenciaFinal;
   } catch (erro) {
     console.error(
       "Erro ao resolver link do Mercado Livre:",

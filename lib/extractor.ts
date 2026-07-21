@@ -1,18 +1,34 @@
 import { resolverItemId } from "@/lib/resolvers/mercadoLivre";
-import { buscarProdutoMercadoLivre } from "@/lib/mercadolivre/api";
+import {
+  buscarItemIdDoCatalogo,
+  buscarProdutoMercadoLivre,
+} from "@/lib/mercadolivre/api";
 
 export async function extrairProduto(link: string) {
   if (
     link.includes("mercadolivre") ||
     link.includes("meli.la")
   ) {
-    const itemId = await resolverItemId(link);
+    const referencia = await resolverItemId(link);
 
-    if (!itemId) {
-      throw new Error("Não foi possível identificar o produto.");
+    if (!referencia) {
+      throw new Error(
+        "Não foi possível identificar o produto."
+      );
     }
 
-    const produto = await buscarProdutoMercadoLivre(itemId);
+    let itemId: string;
+
+    if (referencia.tipo === "item") {
+      itemId = referencia.id;
+    } else {
+      itemId = await buscarItemIdDoCatalogo(
+        referencia.id
+      );
+    }
+
+    const produto =
+      await buscarProdutoMercadoLivre(itemId);
 
     return {
       nome: produto.title,
