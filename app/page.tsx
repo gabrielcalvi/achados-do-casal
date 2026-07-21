@@ -15,6 +15,7 @@ type Produto = {
   precoAtual: number;
   pagamento: string;
   link: string;
+  link_afiliado?: string | null;
   selo?: string;
    avaliacao?: number;
   vendas?: string;
@@ -91,6 +92,7 @@ export default function Home() {
         precoAtual: p.preco_atual,
         pagamento: p.cupom || "",
         link: p.link,
+        link_afiliado: p.link_afiliado,
         selo: p.destaque ? "Oferta" : "",
         avaliacao: p.avaliacao,
 vendas: p.vendas,

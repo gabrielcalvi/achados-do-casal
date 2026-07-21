@@ -68,8 +68,8 @@ function extrairInformacoesProduto(valor: string) {
   const texto = valor.trim();
 
   const productIdDaUrl =
-    texto.match(/\/p\/(MLB\d+)/i)?.[1] ??
-    texto.match(/products\/(MLB\d+)/i)?.[1];
+    texto.match(/\/(?:p|up)\/(MLBU?\d+)/i)?.[1] ??
+    texto.match(/products\/(MLBU?\d+)/i)?.[1];
 
   const itemIdDaUrl =
     texto.match(/[?&]item_id[:=](MLB\d+)/i)?.[1] ??
@@ -79,7 +79,7 @@ function extrairInformacoesProduto(valor: string) {
 
   const productId =
     productIdDaUrl?.toUpperCase() ??
-    (/^MLB\d+$/.test(idDireto) ? idDireto : null);
+    (/^MLBU?\d+$/.test(idDireto) ? idDireto : null);
 
   return {
     productId,
@@ -156,9 +156,11 @@ function escolherAnuncio(
 
   const anunciosDisponiveis = anuncios.filter((anuncio) => {
     const ativo = !anuncio.status || anuncio.status === "active";
+
     const disponivel =
       anuncio.available_quantity === undefined ||
       anuncio.available_quantity > 0;
+
     const possuiPreco =
       typeof anuncio.price === "number" && anuncio.price > 0;
 
@@ -209,7 +211,7 @@ export async function buscarProdutoMercadoLivre(
 
   if (!productId) {
     throw new Error(
-      "Não foi encontrado um código de catálogo válido. Informe um código como MLB29001054 ou cole o link completo do produto."
+      "Não foi encontrado um código de catálogo válido. Informe um código como MLB29001054, MLBU3748767043 ou cole o link completo do produto."
     );
   }
 

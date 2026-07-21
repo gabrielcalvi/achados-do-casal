@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function ProdutoPage() {
@@ -62,9 +63,16 @@ setImagemSelecionada(data.imagem);
     );
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
-      <div className="grid gap-10 lg:grid-cols-2">
+ return (
+  <main className="mx-auto max-w-6xl px-5 py-10">
+    <Link
+      href="/"
+      className="mb-8 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-700 shadow-sm transition hover:border-blue-950 hover:text-blue-950"
+    >
+      ← Voltar para os produtos
+    </Link>
+
+    <div className="grid gap-10 lg:grid-cols-2">
         <div>
         <div className="rounded-3xl border bg-white p-8 shadow-sm">
           <img
@@ -133,9 +141,18 @@ setImagemSelecionada(data.imagem);
               currency: "BRL",
             })}
           </p>
-
+{produto.updated_at && (
+  <p className="mt-3 text-sm font-semibold text-slate-500">
+    ✅ Preço atualizado em{" "}
+    {new Date(produto.updated_at).toLocaleDateString("pt-BR")} às{" "}
+    {new Date(produto.updated_at).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}
+  </p>
+)}
           <a
-            href={produto.link}
+            href={produto.link_afiliado || produto.link}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-8 inline-flex w-full justify-center rounded-xl bg-blue-950 px-6 py-4 font-black text-white hover:bg-blue-900"

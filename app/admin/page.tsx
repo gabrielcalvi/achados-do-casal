@@ -40,6 +40,7 @@ const [editandoId, setEditandoId] = useState<number | null>(null);
   precoAntigo: "",
   precoAtual: "",
   link: "",
+  linkAfiliado: "",
   cupom: "",
   imagem: "",
   destaque: false,
@@ -104,6 +105,7 @@ function editarProduto(produto: any) {
     precoAntigo: produto.preco_antigo?.toString() || "",
     precoAtual: produto.preco_atual?.toString() || "",
     link: produto.link,
+    linkAfiliado: produto.link_afiliado ?? "",
     cupom: produto.cupom || "",
     imagem: produto.imagem || "",
     destaque: produto.destaque || false,
@@ -153,6 +155,7 @@ if (!linkProdutoDireto.trim()) {
   setPreparandoProduto(true);
 
   try {
+    console.log(">>> ENVIANDO PARA API");
     const resposta = await fetch("/api/preparar-produto", {
       method: "POST",
       headers: {
@@ -164,6 +167,7 @@ if (!linkProdutoDireto.trim()) {
     });
 
     const resultado = await resposta.json();
+    console.log(">>> RETORNO DA API", resultado);
 
     if (!resposta.ok) {
       alert(resultado.error || "Não foi possível preparar o produto.");
@@ -174,6 +178,7 @@ if (!linkProdutoDireto.trim()) {
 
 setFormulario((formularioAtual) => ({
   ...formularioAtual,
+  link: linkProdutoDireto.trim(),
   nome: dados.nome || formularioAtual.nome,
   categoria: dados.categoria || formularioAtual.categoria,
   loja: dados.loja || formularioAtual.loja,
@@ -183,7 +188,10 @@ setFormulario((formularioAtual) => ({
 }));
 
 setPreparandoProduto(false);
-alert("Produto preparado com sucesso.");
+
+setTimeout(() => {
+  alert("Produto preparado com sucesso.");
+}, 100);
   } catch (error) {
     console.error(error);
     alert("Erro ao conectar com a API.");
@@ -221,6 +229,7 @@ const dadosProduto = {
   preco_atual: Number(formulario.precoAtual),
   imagem: imagemUrl,
   link: formulario.link,
+  link_afiliado: formulario.linkAfiliado,
   cupom: formulario.cupom,
   destaque: formulario.destaque,
     ativo: formulario.ativo,
@@ -319,6 +328,7 @@ carregarProdutos();
   precoAntigo: "",
   precoAtual: "",
   link: "",
+  linkAfiliado: "",
   cupom: "",
   imagem: "",
   destaque: false,
@@ -821,12 +831,12 @@ if (!autenticado) {
 />
   <input
   placeholder="Link de afiliado"
-  value={formulario.link}
+  value={formulario.linkAfiliado}
   onChange={(e) =>
     setFormulario({
-      ...formulario,
-      link: e.target.value,
-    })
+  ...formulario,
+  linkAfiliado: e.target.value,
+})
   }
   className="rounded-xl border p-4"
 />

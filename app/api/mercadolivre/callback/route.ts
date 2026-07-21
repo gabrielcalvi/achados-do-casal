@@ -12,8 +12,8 @@ type RespostaTokenMercadoLivre = {
 };
 
 export async function GET(request: NextRequest) {
- const clientId = process.env.MELI_CLIENT_ID;
-const clientSecret = process.env.MELI_CLIENT_SECRET;
+  const clientId = process.env.MELI_CLIENT_ID;
+  const clientSecret = process.env.MELI_CLIENT_SECRET;
   const redirectUri = process.env.MELI_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {

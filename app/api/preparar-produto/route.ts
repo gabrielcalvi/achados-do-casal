@@ -4,7 +4,7 @@ import { extrairProduto } from "@/lib/extractor";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TEMPO_LIMITE = 130000;
+const TEMPO_LIMITE = 600000;
 
 async function executarComTimeout<T>(
   operacao: Promise<T>,
@@ -16,7 +16,7 @@ async function executarComTimeout<T>(
     temporizador = setTimeout(() => {
       reject(
         new Error(
-          "A extração demorou mais de 130 segundos. Tente novamente."
+          "A extração demorou mais de 10 minutos. Tente novamente."
         )
       );
     }, tempo);
