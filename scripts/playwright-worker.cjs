@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const { chromium } = require("playwright");
 
-const PORTA = 4317;
+const PORTA = Number(process.env.PLAYWRIGHT_WORKER_PORT || 4317);
 
 const userDataDir = path.join(
   process.cwd(),
@@ -34,7 +34,7 @@ async function obterContexto() {
 
 const novoContexto =
   await chromium.launchPersistentContext(userDataDir, {
-    headless: true,
+    headless: process.env.PLAYWRIGHT_HEADLESS === "true",
     slowMo: 100,
     locale: "pt-BR",
     viewport: {
@@ -455,7 +455,7 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 
-servidor.listen(PORTA, "127.0.0.1", () => {
+servidor.listen(PORTA, process.env.PLAYWRIGHT_WORKER_HOST || "127.0.0.1", () => {
   console.log("");
   console.log("Playwright Worker iniciado.");
   console.log(`Health:  http://127.0.0.1:${PORTA}/health`);

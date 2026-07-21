@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "playwright": "node scripts/playwright-worker.cjs"
+    "playwright": "node scripts/playwright-worker.cjs",
+    "worker": "node scripts/playwright-worker.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
