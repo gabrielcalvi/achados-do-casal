@@ -21,6 +21,7 @@ export async function extrairProduto(link: string) {
       precoAntigo: produto.original_price ?? 0,
       precoAtual: produto.price,
       imagem: produto.thumbnail,
+      urlFinal: produto.permalink,
     };
   }
 
