@@ -41,6 +41,8 @@ export async function resolverItemId(
       },
     });
 
+    console.log("URL FINAL:", resposta.url);
+
     const itemIdFinal = extrairItemId(resposta.url);
 
     if (itemIdFinal) {
@@ -48,6 +50,9 @@ export async function resolverItemId(
     }
 
     const html = await resposta.text();
+
+    console.log("Primeiros 1000 caracteres:");
+    console.log(html.substring(0, 1000));
 
     const itemIdDoHtml =
       html.match(
