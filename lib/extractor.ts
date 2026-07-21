@@ -10,6 +10,7 @@ export async function extrairProduto(link: string) {
     link.includes("meli.la")
   ) {
     const referencia = await resolverItemId(link);
+    console.log("REFERENCIA:", referencia);
 
     if (!referencia) {
       throw new Error(
@@ -19,13 +20,17 @@ export async function extrairProduto(link: string) {
 
     let itemId: string;
 
-    if (referencia.tipo === "item") {
-      itemId = referencia.id;
-    } else {
-      itemId = await buscarItemIdDoCatalogo(
-        referencia.id
-      );
-    }
+   if (referencia.tipo === "item") {
+  itemId = referencia.id;
+
+  console.log("ITEM DIRETO:", itemId);
+} else {
+  itemId = await buscarItemIdDoCatalogo(
+    referencia.id
+  );
+
+  console.log("ITEM DO CATALOGO:", itemId);
+}
 
     const produto =
       await buscarProdutoMercadoLivre(itemId);
