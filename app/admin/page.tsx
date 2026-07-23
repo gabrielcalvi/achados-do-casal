@@ -1,14 +1,14 @@
 "use client";
-
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+import CadastroModal from "./CadastroModal";
 
 export default function AdminPage() {
+  const supabase = createClient();
   const [abrirFormulario, setAbrirFormulario] = useState(false);
-  const [email, setEmail] = useState("");
-const [senha, setSenha] = useState("");
-const [autenticado, setAutenticado] = useState(false);
-const [carregandoLogin, setCarregandoLogin] = useState(false);
+  const [abrirModalCadastro, setAbrirModalCadastro] = useState(false);
+const [modoCadastro, setModoCadastro] = useState<"ia" | "manual" | null>(null);
 const [produtos, setProdutos] = useState<any[]>([]);
 const [buscaAdmin, setBuscaAdmin] = useState("");
 const [lojaAdmin, setLojaAdmin] = useState("Todas");
@@ -18,6 +18,9 @@ const [mensagemSucesso, setMensagemSucesso] = useState("");
 const [preparandoProduto, setPreparandoProduto] = useState(false);
 const [linkProdutoDireto, setLinkProdutoDireto] = useState("");
 const totalProdutos = produtos.length;
+const totalPrecosAlterados = produtos.filter(
+  (produto) => produto.preco_alterado
+).length;
 
 const totalDestaques = produtos.filter(
   (produto) => produto.destaque
@@ -31,6 +34,7 @@ const totalLojas = new Set(
   produtos.map((produto) => produto.loja)
 ).size;
 const [imagem, setImagem] = useState<File | null>(null);
+const [imagensGaleria, setImagensGaleria] = useState<string[]>([]);
 const [imagensExtras, setImagensExtras] = useState<File[]>([]);
 const [editandoId, setEditandoId] = useState<number | null>(null);
   const [formulario, setFormulario] = useState({
@@ -43,6 +47,10 @@ const [editandoId, setEditandoId] = useState<number | null>(null);
   linkAfiliado: "",
   cupom: "",
   imagem: "",
+  parcelas: "",
+freteGratis: false,
+avaliacao: "",
+vendas: "",
   destaque: false,
   ativo: true,
   temEmCasa: false,
@@ -72,31 +80,32 @@ async function carregarProdutos() {
 useEffect(() => {
   carregarProdutos();
 
-  supabase.auth.getSession().then(({ data }) => {
-    if (data.session) {
-      setAutenticado(true);
-    }
-  });
 }, []);
-async function fazerLogin() {
-  setCarregandoLogin(true);
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password: senha,
-  });
-
-  setCarregandoLogin(false);
+async function sair() {
+  const { error } = await supabase.auth.signOut();
 
   if (error) {
-    alert("Email ou senha inválidos.");
+    console.error("Erro ao sair:", error);
+    alert("Não foi possível sair.");
     return;
   }
 
-  setAutenticado(true);
+  window.location.assign("/login");
 }
-function editarProduto(produto: any) {
+
+async function editarProduto(produto: any) {
   setEditandoId(produto.id);
+
+  const { data: imagensSalvas, error: erroImagens } =
+    await supabase
+      .from("produto_imagens")
+      .select("url")
+      .eq("produto_id", produto.id)
+      .order("ordem", { ascending: true });
+
+  if (erroImagens) {
+    console.error("Erro ao carregar galeria:", erroImagens);
+  }
 
   setFormulario({
     nome: produto.nome,
@@ -104,10 +113,14 @@ function editarProduto(produto: any) {
     loja: produto.loja,
     precoAntigo: produto.preco_antigo?.toString() || "",
     precoAtual: produto.preco_atual?.toString() || "",
-    link: produto.link,
+    link: produto.link || "",
     linkAfiliado: produto.link_afiliado ?? "",
     cupom: produto.cupom || "",
     imagem: produto.imagem || "",
+    parcelas: produto.parcelas || "",
+    freteGratis: produto.frete_gratis ?? false,
+    avaliacao: produto.avaliacao?.toString() || "",
+    vendas: produto.vendas || "",
     destaque: produto.destaque || false,
     ativo: produto.ativo ?? true,
     temEmCasa: produto.tem_em_casa ?? false,
@@ -115,12 +128,17 @@ function editarProduto(produto: any) {
     videoUrl: produto.video_url ?? "",
     opiniaoCasal: produto.opiniao_casal ?? "",
     notaCasal: produto.nota_casal?.toString() ?? "",
-tempoDeUso: produto.tempo_de_uso ?? "",
-pontosPositivos: produto.pontos_positivos ?? "",
-pontosNegativos: produto.pontos_negativos ?? "",
+    tempoDeUso: produto.tempo_de_uso ?? "",
+    pontosPositivos: produto.pontos_positivos ?? "",
+    pontosNegativos: produto.pontos_negativos ?? "",
   });
 
+  setLinkProdutoDireto(produto.link || "");
   setImagem(null);
+  setImagensGaleria(
+    imagensSalvas?.map((item) => item.url) || []
+  );
+  setImagensExtras([]);
   setAbrirFormulario(true);
 }
 
@@ -185,8 +203,17 @@ setFormulario((formularioAtual) => ({
   precoAntigo: dados.precoAntigo || formularioAtual.precoAntigo,
   precoAtual: dados.precoAtual || formularioAtual.precoAtual,
   imagem: dados.imagem || formularioAtual.imagem,
-}));
+  parcelas: dados.parcelas || formularioAtual.parcelas,
+freteGratis: dados.freteGratis ?? formularioAtual.freteGratis,
+avaliacao:
+  dados.avaliacao?.toString() ||
+  formularioAtual.avaliacao,
 
+vendas:
+  dados.vendas ||
+  formularioAtual.vendas,
+}));
+setImagensGaleria(dados.imagensGaleria || []);
 setPreparandoProduto(false);
 
 setTimeout(() => {
@@ -199,7 +226,39 @@ setTimeout(() => {
     setPreparandoProduto(false);
   }
 }
+function limparFormularioProduto() {
+  setEditandoId(null);
+  setImagem(null);
+  setImagensGaleria([]);
+  setImagensExtras([]);
+  setLinkProdutoDireto("");
 
+  setFormulario({
+    nome: "",
+    categoria: "",
+    loja: "Mercado Livre",
+    precoAntigo: "",
+    precoAtual: "",
+    link: "",
+    linkAfiliado: "",
+    cupom: "",
+    imagem: "",
+    parcelas: "",
+    freteGratis: false,
+    avaliacao: "",
+    vendas: "",
+    destaque: false,
+    ativo: true,
+    temEmCasa: false,
+    reviewCompleta: false,
+    videoUrl: "",
+    opiniaoCasal: "",
+    notaCasal: "",
+    tempoDeUso: "",
+    pontosPositivos: "",
+    pontosNegativos: "",
+  });
+}
 async function salvarProduto() {
   let imagemUrl = formulario.imagem || "";
 
@@ -231,6 +290,12 @@ const dadosProduto = {
   link: formulario.link,
   link_afiliado: formulario.linkAfiliado,
   cupom: formulario.cupom,
+ parcelas: formulario.parcelas || null,
+frete_gratis: formulario.freteGratis,
+avaliacao: formulario.avaliacao
+  ? Number(formulario.avaliacao)
+  : null,
+vendas: formulario.vendas || null,
   destaque: formulario.destaque,
     ativo: formulario.ativo,
     tem_em_casa: formulario.temEmCasa,
@@ -311,6 +376,32 @@ console.log({
       });
   }
 }
+if (editandoId) {
+  await supabase
+    .from("produto_imagens")
+    .delete()
+    .eq("produto_id", produtoSalvo.id);
+}
+if (imagensGaleria.length > 0) {
+  for (let i = 0; i < imagensGaleria.length; i++) {
+    const url = imagensGaleria[i];
+
+    const { error: erroImagemAutomatica } = await supabase
+      .from("produto_imagens")
+      .insert({
+        produto_id: produtoSalvo.id,
+        url,
+        ordem: imagensExtras.length + i + 1,
+      });
+
+    if (erroImagemAutomatica) {
+      console.error(
+        "Erro ao salvar imagem automática:",
+        erroImagemAutomatica
+      );
+    }
+  }
+}
 setMensagemSucesso("Produto salvo com sucesso!");
 
 setTimeout(() => {
@@ -331,6 +422,10 @@ carregarProdutos();
   linkAfiliado: "",
   cupom: "",
   imagem: "",
+  parcelas: "",
+freteGratis: false,
+avaliacao: "",
+vendas: "",
   destaque: false,
   ativo: true,
   temEmCasa: false,
@@ -393,60 +488,35 @@ const produtosPaginados = produtosOrdenados.slice(
   indiceInicial,
   indiceFinal
 );
-if (!autenticado) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-        <p className="text-sm font-black uppercase tracking-wider text-pink-500">
-          Achados do Casal
-        </p>
 
-        <h1 className="mt-2 text-3xl font-black">
-          Acesso administrativo
-        </h1>
-
-        <p className="mt-2 text-slate-500">
-          Entre com seu e-mail e senha.
-        </p>
-
-        <div className="mt-8 space-y-4">
-          <input
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border p-4"
-          />
-
-          <input
-            type="password"
-            placeholder="Senha"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            className="w-full rounded-xl border p-4"
-          />
-
-          <button
-            type="button"
-            onClick={fazerLogin}
-            disabled={carregandoLogin}
-            className="w-full rounded-xl bg-blue-950 p-4 font-black text-white disabled:opacity-60"
-          >
-            {carregandoLogin ? "Entrando..." : "Entrar"}
-          </button>
-        </div>
-      </div>
-    </main>
-  );
-}
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-950">
         {mensagemSucesso && (
   <div className="fixed right-6 top-6 z-[100] rounded-xl bg-green-600 px-5 py-4 font-bold text-white shadow-xl">
     ✅ {mensagemSucesso}
   </div>
+ )}{totalPrecosAlterados > 0 && (
+  <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-yellow-300 bg-yellow-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p className="text-lg font-bold text-yellow-900">
+        ⚠ {totalPrecosAlterados} produto(s) tiveram alteração de preço.
+      </p>
+
+      <p className="mt-1 text-sm text-yellow-700">
+        Revise as alterações antes de atualizar os preços publicados.
+      </p>
+    </div>
+
+   <Link
+  href="/admin/monitor"
+  className="rounded-xl bg-yellow-500 px-5 py-3 font-black text-yellow-950 hover:bg-yellow-400"
+>
+  Revisar alterações
+</Link>
+  </div>
 )}
-      <div className="mx-auto max-w-7xl">
+
+<div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-black uppercase tracking-wider text-pink-500">
@@ -488,14 +558,37 @@ if (!autenticado) {
   </div>
 </div>
           </div>
+<div className="flex items-center gap-3">
+  <Link
+    href="/admin"
+    className="rounded-xl border border-slate-300 bg-white px-5 py-4 font-black text-slate-700 hover:bg-slate-50"
+  >
+    📦 Produtos
+  </Link>
 
-          <button
-            type="button"
-            onClick={() => setAbrirFormulario(true)}
-            className="rounded-xl bg-blue-950 px-6 py-4 font-black text-white hover:bg-blue-900"
-          >
-            + Novo Produto
-          </button>
+  <Link
+    href="/admin/monitor"
+    className="rounded-xl border border-slate-300 bg-white px-5 py-4 font-black text-slate-700 hover:bg-slate-50"
+  >
+    📈 Monitor
+  </Link>
+
+  <button
+    type="button"
+    onClick={sair}
+    className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-black text-slate-700 hover:bg-slate-50"
+  >
+    Sair
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setAbrirModalCadastro(true)}
+    className="rounded-xl bg-blue-950 px-6 py-4 font-black text-white hover:bg-blue-900"
+  >
+    + Novo Produto
+  </button>
+</div>
         </div>
 
         <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -720,12 +813,16 @@ if (!autenticado) {
   className="rounded-xl border p-4"
 >
   <option value="">Selecione uma categoria</option>
-  <option value="Automotivo">Automotivo</option>
-  <option value="Casa e Cozinha">Casa e Cozinha</option>
-  <option value="Tecnologia">Tecnologia</option>
-  <option value="Ferramentas">Ferramentas</option>
-  <option value="Infantil">Infantil</option>
-  <option value="Moda">Moda</option>
+<option value="Tecnologia">Tecnologia</option>
+<option value="Casa e Cozinha">Casa e Cozinha</option>
+<option value="Automotivo">Automotivo</option>
+<option value="Esportes">Esportes</option>
+<option value="Saúde e Bem-estar">Saúde e Bem-estar</option>
+<option value="Alimentos e Bebidas">Alimentos e Bebidas</option>
+<option value="Ferramentas">Ferramentas</option>
+<option value="Moda">Moda</option>
+<option value="Infantil">Infantil</option>
+<option value="Pet">Pet</option>
 </select>
 
  <select
@@ -742,7 +839,6 @@ if (!autenticado) {
   <option value="Amazon">Amazon</option>
   <option value="Shopee">Shopee</option>
   <option value="Magalu">Magalu</option>
-  <option value="Casas Bahia">Casas Bahia</option>
   <option value="Renner">Renner</option>
   <option value="C&A">C&A</option>
   <option value="Calvin Klein">Calvin Klein</option>
@@ -761,7 +857,26 @@ if (!autenticado) {
       className="h-48 w-48 rounded-2xl border bg-white object-contain p-2 shadow"
     />
   </div>
+  )}
+  {imagensGaleria.length > 0 && (
+  <div className="mb-6">
+    <p className="mb-2 font-semibold">
+      Imagens encontradas no anúncio
+    </p>
+
+    <div className="grid grid-cols-5 gap-3">
+      {imagensGaleria.map((url, index) => (
+        <img
+          key={index}
+          src={url}
+          alt={`Imagem ${index + 1}`}
+          className="h-24 w-24 rounded-xl border bg-white object-contain p-2"
+        />
+      ))}
+    </div>
+  </div>
 )}
+
 <input
   type="file"
   accept="image/*"
@@ -823,34 +938,92 @@ if (!autenticado) {
   className="rounded-xl border p-4"
 />
   </div>
-<input
-  placeholder="Link direto do produto"
-  value={linkProdutoDireto}
-  onChange={(e) => setLinkProdutoDireto(e.target.value)}
-  className="rounded-xl border p-4"
-/>
+  <div className="grid gap-4 md:grid-cols-2">
   <input
+    placeholder="Parcelamento"
+    value={formulario.parcelas}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        parcelas: e.target.value,
+      })
+    }
+    className="rounded-xl border p-4"
+  />
+
+  <label className="flex items-center gap-3 rounded-xl border p-4">
+    <input
+      type="checkbox"
+      checked={formulario.freteGratis}
+      onChange={(e) =>
+        setFormulario({
+          ...formulario,
+          freteGratis: e.target.checked,
+        })
+      }
+    />
+    Frete grátis
+  </label>
+
+  <input
+    type="number"
+    step="0.1"
+    placeholder="Avaliação"
+    value={formulario.avaliacao}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        avaliacao: e.target.value,
+      })
+    }
+    className="rounded-xl border p-4"
+  />
+
+  <input
+    placeholder="Vendas"
+    value={formulario.vendas}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        vendas: e.target.value,
+      })
+    }
+    className="rounded-xl border p-4"
+  />
+</div>
+<input
   placeholder="Link de afiliado"
   value={formulario.linkAfiliado}
   onChange={(e) =>
     setFormulario({
-  ...formulario,
-  linkAfiliado: e.target.value,
-})
+      ...formulario,
+      linkAfiliado: e.target.value,
+    })
   }
   className="rounded-xl border p-4"
 />
 
-<button
-  type="button"
-  onClick={prepararProdutoComIa}
-  disabled={preparandoProduto}
-  className="rounded-xl bg-violet-600 p-4 font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
->
-  {preparandoProduto
-    ? "Preparando produto..."
-    : "✨ Preparar Produto com IA"}
-</button>
+{modoCadastro === "ia" && (
+  <>
+    <input
+      placeholder="Link direto do produto"
+      value={linkProdutoDireto}
+      onChange={(e) => setLinkProdutoDireto(e.target.value)}
+      className="rounded-xl border p-4"
+    />
+
+    <button
+      type="button"
+      onClick={prepararProdutoComIa}
+      disabled={preparandoProduto}
+      className="rounded-xl bg-violet-600 p-4 font-black text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {preparandoProduto
+        ? "Preparando produto..."
+        : "✨ Preparar Produto com IA"}
+    </button>
+  </>
+)}
 
   <input
   placeholder="Cupom"
@@ -1052,6 +1225,24 @@ if (!autenticado) {
     </div>
   </div>
 )}
-    </main>
-  );
+
+<CadastroModal
+  aberto={abrirModalCadastro}
+  aoFechar={() => setAbrirModalCadastro(false)}
+  aoEscolherIa={() => {
+    limparFormularioProduto();
+    setModoCadastro("ia");
+    setAbrirModalCadastro(false);
+    setAbrirFormulario(true);
+  }}
+  aoEscolherManual={() => {
+    limparFormularioProduto();
+    setModoCadastro("manual");
+    setAbrirModalCadastro(false);
+    setAbrirFormulario(true);
+  }}
+/>
+
+</main>
+);
 }

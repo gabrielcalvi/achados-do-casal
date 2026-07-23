@@ -1,8 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
 
 export async function consultarPrecoProduto(id: number) {
-  const { data: produto, error } = await supabase
+  const { data: produto, error } = await supabaseAdmin
     .from("produtos")
     .select("*")
     .eq("id", id)
@@ -20,7 +20,12 @@ export async function consultarPrecoProduto(id: number) {
 
   const precoBanco = Number(produto.preco_atual);
   const precoNovo = Number(dadosAtuais.precoAtual);
-
+console.log("================================");
+console.log("Produto:", produto.nome);
+console.log("Preço banco:", precoBanco);
+console.log("Preço encontrado:", precoNovo);
+console.log("Mudou?", precoBanco !== precoNovo);
+console.log("================================");
   if (!Number.isFinite(precoNovo)) {
     throw new Error("O Worker retornou um preço inválido.");
   }
@@ -33,10 +38,34 @@ export async function consultarPrecoProduto(id: number) {
   };
 
   if (precoMudou) {
-    atualizacao.preco_antigo = precoBanco;
-    atualizacao.preco_atual = precoNovo;
-    atualizacao.updated_at = agora;
+   atualizacao.preco_monitorado = precoNovo;
+atualizacao.preco_alterado = true;
+atualizacao.updated_at = agora;
+const {
+  data: monitorData,
+  error: monitorError,
+} = await supabaseAdmin
+  .from("monitor_alteracoes")
+  .insert({
+    produto_id: produto.id,
+    tipo: "preco",
+    valor_antigo: String(precoBanco),
+    valor_novo: String(precoNovo),
+    status: "pendente",
+  })
+  .select();
 
+console.log("Resultado monitor_alteracoes:", {
+  monitorData,
+  monitorError,
+});
+
+if (monitorError) {
+  console.error(
+    "Erro monitor_alteracoes:",
+    monitorError
+  );
+}
     if (dadosAtuais.nome) {
       atualizacao.nome = dadosAtuais.nome;
     }
@@ -53,8 +82,13 @@ export async function consultarPrecoProduto(id: number) {
       atualizacao.link = dadosAtuais.urlFinal;
     }
   }
-
-  const { error: updateError } = await supabase
+if (!precoMudou) {
+  atualizacao.preco_monitorado = precoNovo;
+  atualizacao.preco_alterado = false;
+}
+    
+  const { error: updateError } = await supabaseAdmin
+  
     .from("produtos")
     .update(atualizacao)
     .eq("id", id);
@@ -76,7 +110,7 @@ export async function consultarPrecoProduto(id: number) {
   };
 }
 export async function monitorarTodosProdutos() {
-  const { data: produtos, error } = await supabase
+  const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
     .select("id, nome")
     .eq("ativo", true)

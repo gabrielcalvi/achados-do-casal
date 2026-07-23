@@ -135,12 +135,54 @@ setImagemSelecionada(data.imagem);
             </span>
           )}
 
-          <p className="mt-6 text-3xl font-black text-pink-600">
-            {Number(produto.preco_atual).toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
+          <div className="mt-6">
+  {produto.preco_antigo &&
+    Number(produto.preco_antigo) >
+      Number(produto.preco_atual) && (
+      <p className="text-sm text-slate-400 line-through">
+        De{" "}
+        {Number(produto.preco_antigo).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })}
+      </p>
+    )}
+
+  <p className="mt-1 text-3xl font-black text-pink-600">
+    {Number(produto.preco_atual).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })}
+  </p>
+
+  {(produto.avaliacao || produto.vendas) && (
+    <div className="mt-4 flex flex-wrap gap-4 text-sm font-bold text-slate-700">
+      {produto.avaliacao && (
+        <span>⭐ {produto.avaliacao}</span>
+      )}
+
+      {produto.vendas && (
+        <span>🛒 {produto.vendas}</span>
+      )}
+    </div>
+  )}
+
+  {(produto.parcelas || produto.frete_gratis) && (
+    <div className="mt-4 space-y-2">
+      {produto.parcelas && (
+        <p className="font-bold text-slate-700">
+          💳 {produto.parcelas}
+        </p>
+      )}
+
+      {produto.frete_gratis && (
+        <p className="font-bold text-green-700">
+          🚚 Frete grátis
+        </p>
+      )}
+    </div>
+  )}
+</div>
 {produto.updated_at && (
   <p className="mt-3 text-sm font-semibold text-slate-500">
     ✅ Preço atualizado em{" "}

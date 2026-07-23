@@ -26,16 +26,18 @@ temEmCasa?: boolean;
 reviewCompleta?: boolean;
 };
 
-
-
 const categorias = [
   "Todos",
-  "Automotivo",
-  "Casa e Cozinha",
   "Tecnologia",
+  "Casa e Cozinha",
+  "Automotivo",
+  "Esportes",
+  "Saúde e Bem-estar",
+  "Alimentos e Bebidas",
   "Ferramentas",
-  "Infantil",
   "Moda",
+  "Infantil",
+  "Pet",
 ];
 
 function formatarPreco(preco: number) {

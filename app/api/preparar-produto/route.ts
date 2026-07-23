@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     );
 
     console.log("DADOS RETORNADOS:", dados);
+    console.log("GALERIA:", dados.imagensGaleria);
 
     return NextResponse.json({
       sucesso: true,

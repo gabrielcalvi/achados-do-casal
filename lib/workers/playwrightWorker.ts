@@ -9,7 +9,12 @@ export type ProdutoExtraidoWorker = {
   loja: string;
   precoAntigo: string;
   precoAtual: string;
+  parcelas?: string;
+  freteGratis?: boolean;
+  avaliacao?: number;
+  vendas?: string;
   imagem: string;
+  imagensGaleria?: string[];
   urlFinal: string;
 };
 
@@ -23,7 +28,7 @@ export async function extrairMercadoLivreWorker(
       `${WORKER_URL}/extrair?url=${encodeURIComponent(link)}`,
       {
         cache: "no-store",
-        signal: AbortSignal.timeout(120000),
+        signal: AbortSignal.timeout(300000),
       }
     );
   } catch (erro) {

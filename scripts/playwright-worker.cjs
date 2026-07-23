@@ -15,6 +15,7 @@ const userDataDir = path.join(
 );
 
 let context = null;
+let workerPage = null;
 let inicializacao = null;
 
 async function obterContexto() {
@@ -219,7 +220,12 @@ async function extrairValorMonetario(page, seletorBase) {
 
 async function extrairProduto(urlProduto) {
   const contexto = await obterContexto();
-  const page = await contexto.newPage();
+if (!workerPage || workerPage.isClosed()) {
+  workerPage = await contexto.newPage();
+}
+
+const page = workerPage;
+await page.bringToFront();
   console.log("[WORKER] Nova aba criada");
 
   try {
@@ -255,7 +261,7 @@ async function extrairProduto(urlProduto) {
     }
 
     const jsonLd = await extrairJsonLd(page);
-
+console.log("[WORKER] JSON-LD carregado");
     const oferta = Array.isArray(jsonLd?.offers)
       ? jsonLd.offers[0]
       : jsonLd?.offers || null;
@@ -321,8 +327,52 @@ async function extrairProduto(urlProduto) {
           "data-zoom"
         )
       );
+const urlsGaleria = [
+  ...(Array.isArray(jsonLd?.image)
+    ? jsonLd.image
+    : jsonLd?.image
+      ? [jsonLd.image]
+      : []),
 
-    const breadcrumbs = await page
+  ...(await page
+    .locator(".ui-pdp-gallery__figure img")
+    .evaluateAll((imagens) =>
+      imagens.flatMap((imagem) => [
+        imagem.getAttribute("data-zoom"),
+        imagem.getAttribute("src"),
+      ])
+    )
+    .catch(() => [])),
+]
+  .map((url) => limparTexto(url))
+  .filter((url) => url && url.startsWith("http"));
+
+const imagensUnicas = new Map();
+
+for (const url of urlsGaleria) {
+  const identificadorMercadoLivre =
+    url.match(/ML[A-Z]\d+_\d+/i)?.[0] || url;
+
+  if (!imagensUnicas.has(identificadorMercadoLivre)) {
+    imagensUnicas.set(identificadorMercadoLivre, url);
+  }
+}
+
+const imagensGaleria = Array.from(imagensUnicas.values());
+const avaliacaoTexto =
+  limparTexto(
+    await page
+      .locator(".ui-pdp-review__rating")
+      .first()
+      .textContent()
+      .catch(() => "")
+  ) || "";
+
+const avaliacao = Number(
+  avaliacaoTexto.replace(",", ".")
+) || null;   
+const breadcrumbs = await page
+
       .locator(".andes-breadcrumb__link")
       .allTextContents()
       .catch(() => []);
@@ -336,29 +386,77 @@ async function extrairProduto(urlProduto) {
         `Nome do produto não encontrado. URL final: ${page.url()}`
       );
     }
-
+const vendas =
+  limparTexto(
+    await page
+      .locator(".ui-pdp-subtitle")
+      .first()
+      .textContent()
+      .catch(() => "")
+  )
+    .split("|")
+    .find((parte) => /vendidos?/i.test(parte))
+    ?.trim() || "";
     if (!precoAtual) {
       throw new Error(
         `Preço do produto não encontrado. URL final: ${page.url()}`
       );
     }
+const textoPagina = (
+  await page.evaluate(() => document.body.innerText)
+).replace(/\s+/g, " ");
 
-    const dados = {
-      nome,
-      categoria,
-      loja: "Mercado Livre",
-      precoAntigo,
-      precoAtual,
-      imagem,
-      urlFinal: page.url(),
-    };
+const parcelasBrutas =
+  limparTexto(
+    await page
+      .locator("text=/\\d+x\\s*R\\$/i")
+      .first()
+      .innerText()
+      .catch(() => "")
+  ) || "";
+
+const parcelas =
+  parcelasBrutas
+    .replace(/\s*([.,])\s*/g, "$1")
+    .match(/\b\d+x\s+R\$\s*\d+(?:[.,]\d{2})?(?:\s+sem juros)?/i)?.[0] || "";
+
+const freteGratis =
+  (
+    await page
+      .locator("text=/Frete grátis/i")
+      .count()
+  ) > 0;
+  const vendasExtraidas =
+  limparTexto(
+    await page
+      .locator(".ui-pdp-subtitle")
+      .first()
+      .textContent()
+      .catch(() => "")
+  )
+    .split("|")
+    .find((parte) => /vendidos?/i.test(parte))
+    ?.trim() || "";
+  const dados = {
+  nome,
+  categoria,
+  loja: "Mercado Livre",
+  precoAntigo,
+  precoAtual,
+  parcelas,
+  freteGratis,
+  imagem,
+  imagensGaleria,
+  avaliacao,
+  vendas: vendasExtraidas,
+    urlFinal: page.url(),
+}; 
 
     console.log("Produto extraído:", dados);
 
     return dados;
   } finally {
-    await page.close().catch(() => undefined);
-  }
+     }
 }
 
 const servidor = http.createServer(async (req, res) => {
@@ -387,7 +485,7 @@ const servidor = http.createServer(async (req, res) => {
       urlRequisicao.pathname === "/login"
     ) {
       const contexto = await obterContexto();
-
+await contexto.newPage();
       let page = contexto.pages().find(
         (pagina) =>
           pagina.url().includes("mercadolivre.com.br")
@@ -459,10 +557,7 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 
-servidor.listen(
-  PORTA,
-  process.env.PLAYWRIGHT_WORKER_HOST || "0.0.0.0",
-  () => {
+servidor.listen(PORTA, "127.0.0.1", () => {
   console.log("");
   console.log("Playwright Worker iniciado.");
   console.log(`Health:  http://127.0.0.1:${PORTA}/health`);
@@ -475,7 +570,7 @@ async function encerrar() {
   console.log("\nEncerrando Playwright Worker...");
 
   if (context) {
-    await context.close().catch(() => undefined);
+    // await context.close().catch(() => undefined);
   }
 
   servidor.close(() => {

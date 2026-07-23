@@ -177,7 +177,12 @@ export default function CardProduto({
         {/* Preços */}
         <div
           className="mt-3 shrink-0"
-          style={{ height: "68px" }}
+          style={{
+  minHeight: "68px",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+}}
         >
           <p
             className="text-sm text-slate-400 line-through"
@@ -192,29 +197,37 @@ export default function CardProduto({
             {formatarPreco(produto.precoAtual)}
           </p>
         </div>
+<div
+  className="mt-2 shrink-0 overflow-hidden"
+  style={{
+    minHeight: "68px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-start",
+  }}
+>
+        {produto.parcelas ? (
+  <p className="text-sm font-bold text-slate-700">
+    💳 {produto.parcelas}
+  </p>
+) : (
+  <p className="text-sm text-slate-400">
+    Parcelamento indisponível
+  </p>
+)}
 
-        {/* Parcelas, frete e pagamento */}
-        <div
-          className="mt-2 shrink-0 overflow-hidden"
-          style={{ height: "68px" }}
-        >
-          {produto.parcelas && (
-            <p className="text-sm font-bold text-slate-700">
-              💳 {produto.parcelas}
-            </p>
-          )}
+{produto.freteGratis && (
+  <p className="mt-2 text-sm font-bold text-green-700">
+    🚚 Frete grátis
+  </p>
+)}
 
-          {produto.freteGratis && (
-            <p className="mt-2 text-sm font-bold text-green-700">
-              🚚 Frete grátis
-            </p>
-          )}
-
-          {produto.pagamento && (
-            <p className="mt-2 text-sm font-black text-green-700">
-              {produto.pagamento}
-            </p>
-          )}
+{produto.pagamento && (
+  <p className="mt-2 text-sm font-bold text-green-700">
+    {produto.pagamento}
+  </p>
+)}
+          
         </div>
 
         {/* BOTÕES FIXOS NO RODAPÉ */}
