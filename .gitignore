@@ -42,3 +42,5 @@ next-env.d.ts
 
 .playwright-profile/
 .playwright-profile-antigo/
+worker.log
+*.log

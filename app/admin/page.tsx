@@ -52,6 +52,7 @@ freteGratis: false,
 avaliacao: "",
 vendas: "",
   destaque: false,
+  gamer: false,
   ativo: true,
   temEmCasa: false,
   reviewCompleta: false,
@@ -122,6 +123,7 @@ async function editarProduto(produto: any) {
     avaliacao: produto.avaliacao?.toString() || "",
     vendas: produto.vendas || "",
     destaque: produto.destaque || false,
+    gamer: produto.gamer ?? false,
     ativo: produto.ativo ?? true,
     temEmCasa: produto.tem_em_casa ?? false,
     reviewCompleta: produto.review_completa ?? false,
@@ -248,6 +250,7 @@ function limparFormularioProduto() {
     avaliacao: "",
     vendas: "",
     destaque: false,
+    gamer: false,
     ativo: true,
     temEmCasa: false,
     reviewCompleta: false,
@@ -297,6 +300,7 @@ avaliacao: formulario.avaliacao
   : null,
 vendas: formulario.vendas || null,
   destaque: formulario.destaque,
+  gamer: formulario.gamer,
     ativo: formulario.ativo,
     tem_em_casa: formulario.temEmCasa,
     review_completa: formulario.reviewCompleta,
@@ -427,6 +431,7 @@ freteGratis: false,
 avaliacao: "",
 vendas: "",
   destaque: false,
+  gamer: false,
   ativo: true,
   temEmCasa: false,
   reviewCompleta: false,
@@ -841,6 +846,7 @@ const produtosPaginados = produtosOrdenados.slice(
   <option value="Magalu">Magalu</option>
   <option value="Renner">Renner</option>
   <option value="C&A">C&A</option>
+  <option value="Kabum">Kabum</option>
   <option value="Calvin Klein">Calvin Klein</option>
   <option value="Stanley">Stanley</option>
   <option value="Decolar">Decolar</option>
@@ -1052,6 +1058,24 @@ const produtosPaginados = produtosOrdenados.slice(
 
   <label htmlFor="destaque" className="font-medium">
     ⭐ Produto em destaque
+  </label>
+</div>
+<div className="flex items-center gap-3">
+  <input
+    type="checkbox"
+    id="gamer"
+    checked={formulario.gamer}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        gamer: e.target.checked,
+      })
+    }
+    className="h-5 w-5"
+  />
+
+  <label htmlFor="gamer" className="font-medium">
+    🎮 Produto Gamer
   </label>
 </div>
 <div className="flex items-center gap-3">

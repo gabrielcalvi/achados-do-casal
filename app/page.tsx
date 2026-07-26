@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import HeroDestaque from "@/components/HeroDestaque";
@@ -201,6 +201,12 @@ carregarProdutos();
             >
               WhatsApp
             </a>
+            <Link
+  href="/gamer"
+  className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-600"
+>
+  🎮 Gamer
+</Link>
           </div>
         </div>
 
@@ -221,6 +227,7 @@ carregarProdutos();
               </button>
             ))}
           </div>
+          
         </div>
       </header>
 
