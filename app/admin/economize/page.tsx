@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import NovaOportunidadeModal from "./NovaOportunidadeModal";
+
 
 type LojaEconomize = {
   id: string;
@@ -81,6 +83,7 @@ export default function AdminEconomizePage() {
     useState("todas");
   const [tipoSelecionado, setTipoSelecionado] =
     useState("todos");
+      const [modalAberto, setModalAberto] = useState(false);
 
   useEffect(() => {
     let componenteAtivo = true;
@@ -182,13 +185,13 @@ export default function AdminEconomizePage() {
             </Link>
 
             <button
-              type="button"
-              disabled
-              title="O formulário será criado no próximo passo."
-              className="cursor-not-allowed rounded-xl bg-emerald-600 px-5 py-3 font-black text-white opacity-60"
-            >
-              + Nova oportunidade
-            </button>
+  type="button"
+  onClick={() => setModalAberto(true)}
+  disabled={carregando || lojasAtivas.length === 0}
+  className="rounded-xl bg-emerald-600 px-5 py-3 font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  + Nova oportunidade
+</button>
           </div>
         </header>
 
@@ -353,8 +356,15 @@ export default function AdminEconomizePage() {
               </div>
             </>
           )}
-        </section>
+                  </section>
       </div>
+
+      <NovaOportunidadeModal
+        aberto={modalAberto}
+        lojas={lojasAtivas}
+        aoFechar={() => setModalAberto(false)}
+        aoCadastrar={() => setModalAberto(false)}
+      />
     </main>
   );
 }
