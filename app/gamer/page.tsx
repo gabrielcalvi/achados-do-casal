@@ -69,7 +69,7 @@ export default function GamerPage() {
         freteGratis: produto.frete_gratis,
         destaque: produto.destaque,
         gamer: produto.gamer ?? false,
-        itemEmCasa: produto.item_em_casa ?? false,
+        itemEmCasa: produto.tem_em_casa ?? false,
         reviewCompleta: produto.review_completa ?? false,
       }));
 
