@@ -688,3 +688,118 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  contexto: ContextoRota
+) {
+  try {
+    const usuario = await obterUsuarioAutenticado();
+
+    if (!usuario) {
+      return NextResponse.json(
+        {
+          error: "Não autorizado.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const { id } = await contexto.params;
+
+    if (!UUID_REGEX.test(id)) {
+      return NextResponse.json(
+        {
+          error: "A oportunidade informada não é válida.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const {
+      data: ofertaExistente,
+      error: erroLocalizacao,
+    } = await supabaseAdmin
+      .from("economize_ofertas")
+      .select("id, titulo")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (erroLocalizacao) {
+      console.error(
+        "Erro ao localizar oportunidade para exclusão:",
+        erroLocalizacao
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Não foi possível localizar a oportunidade.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (!ofertaExistente) {
+      return NextResponse.json(
+        {
+          error: "Oportunidade não encontrada.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const { error } = await supabaseAdmin
+      .from("economize_ofertas")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(
+        "Erro ao excluir oportunidade:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Não foi possível excluir a oportunidade.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    return NextResponse.json({
+      mensagem: "Oportunidade excluída com sucesso.",
+      oferta: {
+        id: ofertaExistente.id,
+        titulo: ofertaExistente.titulo,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Erro inesperado ao excluir oportunidade:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Erro interno ao excluir a oportunidade.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
