@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import NovaOportunidadeModal from "./NovaOportunidadeModal";
+import EditarOportunidadeModal from "./EditarOportunidadeModal";
 
 
 type LojaEconomize = {
@@ -195,6 +196,8 @@ export default function AdminEconomizePage() {
   const [tipoSelecionado, setTipoSelecionado] =
     useState("todos");
       const [modalAberto, setModalAberto] = useState(false);
+      const [ofertaEmEdicao, setOfertaEmEdicao] =
+  useState<OfertaEconomize | null>(null);
       const [ofertas, setOfertas] = useState<OfertaEconomize[]>([]);
 const [carregandoOfertas, setCarregandoOfertas] =
   useState(true);
@@ -748,15 +751,25 @@ useEffect(() => {
                 <p>Validade não informada</p>
               )}
             </div>
+<div className="flex flex-col gap-2 sm:flex-row">
+  <button
+    type="button"
+    onClick={() => setOfertaEmEdicao(oferta)}
+    className="rounded-xl bg-blue-600 px-4 py-2 text-center text-sm font-black text-white transition hover:bg-blue-700"
+  >
+    Editar
+  </button>
 
-            <a
-              href={oferta.link_destino}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-slate-300 px-4 py-2 text-center text-sm font-black text-slate-700 transition hover:bg-slate-100"
-            >
-              Abrir destino
-            </a>
+  <a
+    href={oferta.link_destino}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="rounded-xl border border-slate-300 px-4 py-2 text-center text-sm font-black text-slate-700 transition hover:bg-slate-100"
+  >
+    Abrir destino
+  </a>
+</div>
+           
           </div>
         </article>
       );
@@ -807,6 +820,30 @@ useEffect(() => {
   setAtualizacaoOfertas((valorAtual) => valorAtual + 1);
 }}
       />
+      <NovaOportunidadeModal
+  aberto={modalAberto}
+  lojas={lojasAtivas}
+  aoFechar={() => setModalAberto(false)}
+  aoCadastrar={() => {
+    setModalAberto(false);
+    setAtualizacaoOfertas(
+      (valorAtual) => valorAtual + 1
+    );
+  }}
+/>
+
+<EditarOportunidadeModal
+  aberto={ofertaEmEdicao !== null}
+  oferta={ofertaEmEdicao}
+  lojas={lojasAtivas}
+  aoFechar={() => setOfertaEmEdicao(null)}
+  aoAtualizar={() => {
+    setOfertaEmEdicao(null);
+    setAtualizacaoOfertas(
+      (valorAtual) => valorAtual + 1
+    );
+  }}
+/>
     </main>
   );
 }
