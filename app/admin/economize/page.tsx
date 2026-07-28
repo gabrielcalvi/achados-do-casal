@@ -198,6 +198,8 @@ export default function AdminEconomizePage() {
       const [modalAberto, setModalAberto] = useState(false);
       const [ofertaEmEdicao, setOfertaEmEdicao] =
   useState<OfertaEconomize | null>(null);
+  const [ofertaEmAcao, setOfertaEmAcao] =
+  useState<string | null>(null);
       const [ofertas, setOfertas] = useState<OfertaEconomize[]>([]);
 const [carregandoOfertas, setCarregandoOfertas] =
   useState(true);
@@ -377,8 +379,111 @@ useEffect(() => {
     ],
     [ofertas]
   );
+  
+ async function alternarStatusOferta(
+  oferta: OfertaEconomize
+) {
+  const novoStatus =
+    oferta.status === "ativo" ? "inativo" : "ativo";
 
-    return (
+  try {
+    setOfertaEmAcao(oferta.id);
+
+    const resposta = await fetch(
+      `/api/admin/economize/ofertas/${oferta.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: novoStatus,
+        }),
+      }
+    );
+
+    const resultado = (await resposta.json()) as {
+      error?: string;
+    };
+
+    if (!resposta.ok) {
+      throw new Error(
+        resultado.error ||
+          "Não foi possível alterar o status."
+      );
+    }
+
+    setAtualizacaoOfertas(
+      (valorAtual) => valorAtual + 1
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao alterar status da oportunidade:",
+      error
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Erro inesperado ao alterar o status."
+    );
+  } finally {
+    setOfertaEmAcao(null);
+  }
+}
+
+async function excluirOferta(
+  oferta: OfertaEconomize
+) {
+  const confirmou = window.confirm(
+    `Deseja realmente excluir a oportunidade "${oferta.titulo}"? Essa ação não poderá ser desfeita.`
+  );
+
+  if (!confirmou) {
+    return;
+  }
+
+  try {
+    setOfertaEmAcao(oferta.id);
+
+    const resposta = await fetch(
+      `/api/admin/economize/ofertas/${oferta.id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    const resultado = (await resposta.json()) as {
+      error?: string;
+    };
+
+    if (!resposta.ok) {
+      throw new Error(
+        resultado.error ||
+          "Não foi possível excluir a oportunidade."
+      );
+    }
+
+    setAtualizacaoOfertas(
+      (valorAtual) => valorAtual + 1
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao excluir oportunidade:",
+      error
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Erro inesperado ao excluir a oportunidade."
+    );
+  } finally {
+    setOfertaEmAcao(null);
+  }
+}
+
+     return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-950 sm:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
@@ -751,13 +856,40 @@ useEffect(() => {
                 <p>Validade não informada</p>
               )}
             </div>
-<div className="flex flex-col gap-2 sm:flex-row">
+<div className="flex flex-wrap gap-2">
   <button
     type="button"
     onClick={() => setOfertaEmEdicao(oferta)}
-    className="rounded-xl bg-blue-600 px-4 py-2 text-center text-sm font-black text-white transition hover:bg-blue-700"
+    disabled={ofertaEmAcao === oferta.id}
+    className="rounded-xl bg-blue-600 px-4 py-2 text-center text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
   >
     Editar
+  </button>
+
+  <button
+    type="button"
+    onClick={() => alternarStatusOferta(oferta)}
+    disabled={ofertaEmAcao === oferta.id}
+    className={`rounded-xl px-4 py-2 text-center text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      oferta.status === "ativo"
+        ? "bg-amber-500 text-white hover:bg-amber-600"
+        : "bg-emerald-600 text-white hover:bg-emerald-700"
+    }`}
+  >
+    {ofertaEmAcao === oferta.id
+      ? "Aguarde..."
+      : oferta.status === "ativo"
+        ? "Desativar"
+        : "Ativar"}
+  </button>
+
+  <button
+    type="button"
+    onClick={() => excluirOferta(oferta)}
+    disabled={ofertaEmAcao === oferta.id}
+    className="rounded-xl bg-red-600 px-4 py-2 text-center text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    Excluir
   </button>
 
   <a
@@ -811,15 +943,7 @@ useEffect(() => {
                   </section>
       </div>
 
-      <NovaOportunidadeModal
-        aberto={modalAberto}
-        lojas={lojasAtivas}
-        aoFechar={() => setModalAberto(false)}
-        aoCadastrar={() => {
-  setModalAberto(false);
-  setAtualizacaoOfertas((valorAtual) => valorAtual + 1);
-}}
-      />
+  
       <NovaOportunidadeModal
   aberto={modalAberto}
   lojas={lojasAtivas}
