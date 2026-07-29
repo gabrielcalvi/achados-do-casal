@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import NovaOportunidadeModal from "./NovaOportunidadeModal";
 import EditarOportunidadeModal from "./EditarOportunidadeModal";
 import PainelAgenteEconomia from "./PainelAgenteEconomia";
-
+import PainelFontesEconomia from "./PainelFontesEconomia";
 
 type LojaEconomize = {
   id: string;
@@ -553,6 +553,7 @@ async function excluirOferta(
           ))}
         </section>
 <PainelAgenteEconomia />
+<PainelFontesEconomia lojas={lojasAtivas} />
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
