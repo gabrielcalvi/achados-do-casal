@@ -356,6 +356,12 @@ useEffect(() => {
       ofertasSelecionadas.has(oferta.id) &&
       oferta.status !== "ativo"
   ).length;
+  const quantidadeSelecionadasSemAfiliado =
+  ofertas.filter(
+    (oferta) =>
+      ofertasSelecionadas.has(oferta.id) &&
+      !oferta.link_afiliado?.trim()
+  ).length;
 const todasOfertasFiltradasSelecionadas =
   ofertasFiltradas.length > 0 &&
   ofertasFiltradas.every((oferta) =>
@@ -510,6 +516,31 @@ function alternarTodasOfertasFiltradas() {
   } finally {
     setOfertaEmAcao(null);
   }
+}
+function prepararProximoLinkAfiliado() {
+  const ofertaParaPreparar = ofertas.find(
+    (oferta) =>
+      ofertasSelecionadas.has(oferta.id) &&
+      !oferta.link_afiliado?.trim()
+  );
+
+  if (!ofertaParaPreparar) {
+    alert(
+      "Todas as ofertas selecionadas já possuem link de afiliado."
+    );
+
+    return;
+  }
+
+  window.open(
+    ofertaParaPreparar.link_destino,
+    "_blank",
+    "noopener,noreferrer"
+  );
+
+  setOfertaEmEdicao(
+    ofertaParaPreparar
+  );
 }
 async function ativarOfertasSelecionadas() {
   const ofertasParaAtivar = ofertas.filter(
@@ -901,10 +932,31 @@ async function excluirOferta(
   <p className="text-sm font-bold text-slate-600">
    {ofertasSelecionadas.size} selecionada(s)
 {" • "}
-{quantidadeSelecionadasParaAtivar} disponível(is)
-para ativação
+{quantidadeSelecionadasParaAtivar} para ativar
+{" • "}
+<span
+  className={
+    quantidadeSelecionadasSemAfiliado > 0
+      ? "text-red-600"
+      : "text-emerald-700"
+  }
+>
+  {quantidadeSelecionadasSemAfiliado} sem afiliado
+</span>
   </p>
-
+   <button
+  type="button"
+  onClick={prepararProximoLinkAfiliado}
+  disabled={
+    quantidadeSelecionadasSemAfiliado === 0
+  }
+  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  Preparar afiliados
+  {quantidadeSelecionadasSemAfiliado > 0
+    ? ` (${quantidadeSelecionadasSemAfiliado})`
+    : ""}
+</button>
   <button
     type="button"
     onClick={ativarOfertasSelecionadas}
@@ -914,9 +966,10 @@ para ativação
 }
     className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
   >
+ 
     {ativandoSelecionadas
       ? "Ativando..."
-      : "Ativar selecionadas"}
+            : "Ativar selecionadas"}
   </button>
 </div>
   </div>
@@ -981,6 +1034,17 @@ para ativação
             >
               {rotulosStatus[oferta.status]}
             </span>
+            <span
+  className={`rounded-full px-3 py-1 text-xs font-black ${
+    oferta.link_afiliado?.trim()
+      ? "bg-emerald-100 text-emerald-700"
+      : "bg-red-100 text-red-700"
+  }`}
+>
+  {oferta.link_afiliado?.trim()
+    ? "✓ Afiliado configurado"
+    : "⚠ Afiliado pendente"}
+</span>
           </div>
 {oferta.imagem_url && (
   <div className="mt-4 flex h-52 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-4">
