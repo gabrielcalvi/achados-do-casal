@@ -294,7 +294,10 @@ export default function PainelCuponsEconomia({
     mostrarFormulario,
     setMostrarFormulario,
   ] = useState(false);
-
+const [
+  cupomEmEdicao,
+  setCupomEmEdicao,
+] = useState<CupomEconomize | null>(null);
   const [
     filtroStatus,
     setFiltroStatus,
@@ -444,7 +447,80 @@ export default function PainelCuponsEconomia({
       })
     );
   }
+function abrirEdicaoCupom(
+  cupom: CupomEconomize
+) {
+  setCupomEmEdicao(cupom);
 
+  setFormulario({
+    loja_id: cupom.loja_id,
+    codigo: cupom.codigo ?? "",
+    titulo: cupom.titulo,
+    descricao: cupom.descricao ?? "",
+    regras: cupom.regras ?? "",
+    tipo_desconto: cupom.tipo_desconto,
+
+    desconto_percentual:
+      cupom.desconto_percentual !== null
+        ? String(cupom.desconto_percentual)
+        : "",
+
+    valor_desconto:
+      cupom.valor_desconto !== null
+        ? String(cupom.valor_desconto)
+        : "",
+
+    pedido_minimo:
+      cupom.pedido_minimo !== null
+        ? String(cupom.pedido_minimo)
+        : "",
+
+    limite_desconto:
+      cupom.limite_desconto !== null
+        ? String(cupom.limite_desconto)
+        : "",
+
+    publico_alvo:
+      cupom.publico_alvo ?? "",
+
+    elegibilidade:
+      cupom.elegibilidade ?? "",
+
+    limite_por_usuario:
+      cupom.limite_por_usuario !== null
+        ? String(cupom.limite_por_usuario)
+        : "",
+
+    somente_app:
+      cupom.somente_app,
+
+    exige_mercado_pago:
+      cupom.exige_mercado_pago,
+
+    data_inicio:
+      cupom.data_inicio
+        ? cupom.data_inicio.slice(0, 16)
+        : "",
+
+    validade:
+      cupom.validade
+        ? cupom.validade.slice(0, 16)
+        : "",
+
+    link_destino:
+      cupom.link_destino ?? "",
+
+    link_afiliado:
+      cupom.link_afiliado ?? "",
+  });
+
+  setMostrarFormulario(true);
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}
   function limparFormulario() {
     setFormulario({
       ...FORMULARIO_INICIAL,
@@ -579,10 +655,18 @@ async function excluirCupom(
       setErro("");
       setMensagem("");
 
-      const resposta = await fetch(
-        "/api/admin/economize/cupons",
-        {
-          method: "POST",
+      const url = cupomEmEdicao
+  ? `/api/admin/economize/cupons/${cupomEmEdicao.id}`
+  : "/api/admin/economize/cupons";
+
+const metodo = cupomEmEdicao
+  ? "PATCH"
+  : "POST";
+
+const resposta = await fetch(
+  url,
+  {
+    method: metodo,
           headers: {
             "Content-Type":
               "application/json",
@@ -679,7 +763,7 @@ async function excluirCupom(
       );
 
       limparFormulario();
-
+setCupomEmEdicao(null);
       setMostrarFormulario(false);
 
       await carregarCupons();
@@ -810,7 +894,9 @@ async function excluirCupom(
         >
           <div>
             <h3 className="text-xl font-black text-slate-950">
-              Cadastrar novo cupom
+             {cupomEmEdicao
+  ? "Editar cupom"
+  : "Cadastrar novo cupom"}
             </h3>
 
             <p className="mt-1 text-sm text-slate-600">
@@ -1250,8 +1336,12 @@ async function excluirCupom(
               className="rounded-xl bg-emerald-600 px-5 py-3 font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {salvando
-                ? "Cadastrando..."
-                : "Cadastrar cupom"}
+  ? cupomEmEdicao
+    ? "Salvando..."
+    : "Cadastrando..."
+  : cupomEmEdicao
+    ? "Salvar alterações"
+    : "Cadastrar cupom"}
             </button>
           </div>
         </form>
@@ -1497,6 +1587,15 @@ async function excluirCupom(
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
                    <button
   type="button"
+  onClick={() =>
+    abrirEdicaoCupom(cupom)
+  }
+  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700"
+>
+  Editar
+</button>
+                   <button
+                     type="button"
   onClick={() =>
     alterarStatusCupom(cupom)
   }
