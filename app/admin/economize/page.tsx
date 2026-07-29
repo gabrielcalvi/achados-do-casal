@@ -743,7 +743,16 @@ async function excluirOferta(
               {rotulosStatus[oferta.status]}
             </span>
           </div>
-
+{oferta.imagem_url && (
+  <div className="mt-4 flex h-52 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-4">
+    <img
+      src={oferta.imagem_url}
+      alt={oferta.titulo}
+      loading="lazy"
+      className="h-full w-full object-contain"
+    />
+  </div>
+)}
           <h3 className="mt-4 text-xl font-black text-slate-950">
             {oferta.titulo}
           </h3>
