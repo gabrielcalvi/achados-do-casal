@@ -350,11 +350,12 @@ useEffect(() => {
       return correspondeLoja && correspondeTipo;
     });
   }, [ofertas, lojaSelecionada, tipoSelecionado]);
-  const quantidadeSelecionadasParaAtivar =
+ const quantidadeSelecionadasParaAtivar =
   ofertas.filter(
     (oferta) =>
       ofertasSelecionadas.has(oferta.id) &&
-      oferta.status !== "ativo"
+      oferta.status !== "ativo" &&
+      Boolean(oferta.link_afiliado?.trim())
   ).length;
   const quantidadeSelecionadasSemAfiliado =
   ofertas.filter(
@@ -469,6 +470,16 @@ function alternarTodasOfertasFiltradas() {
  async function alternarStatusOferta(
   oferta: OfertaEconomize
 ) {
+  if (
+  oferta.status !== "ativo" &&
+  !oferta.link_afiliado?.trim()
+) {
+  alert(
+    "Configure o link de afiliado antes de ativar esta oferta."
+  );
+
+  return;
+}
   const novoStatus =
     oferta.status === "ativo" ? "inativo" : "ativo";
 
@@ -544,14 +555,15 @@ function prepararProximoLinkAfiliado() {
 }
 async function ativarOfertasSelecionadas() {
   const ofertasParaAtivar = ofertas.filter(
-    (oferta) =>
-      ofertasSelecionadas.has(oferta.id) &&
-      oferta.status !== "ativo"
-  );
+  (oferta) =>
+    ofertasSelecionadas.has(oferta.id) &&
+    oferta.status !== "ativo" &&
+    Boolean(oferta.link_afiliado?.trim())
+);
 
   if (ofertasParaAtivar.length === 0) {
     alert(
-      "Nenhuma oferta selecionada precisa ser ativada."
+      "Nenhuma oferta selecionada está pronta para ativação. Configure primeiro os links de afiliado pendentes."
     );
 
     return;
@@ -908,7 +920,7 @@ async function excluirOferta(
 ) : (
   <div className="mt-8 grid gap-4 lg:grid-cols-2">
     {ofertasFiltradas.length > 0 && (
-  <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+  <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between lg:col-span-2">
     <label className="flex cursor-pointer items-center gap-3">
       <input
         type="checkbox"
