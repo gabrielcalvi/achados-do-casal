@@ -169,7 +169,7 @@ carregarProdutos();
             />
           </a>
 
-          <div className="flex flex-1 gap-2">
+          <div className="flex min-w-0 flex-1 gap-2 xl:max-w-2xl">
             <input
               type="search"
               value={pesquisa}
@@ -183,7 +183,13 @@ carregarProdutos();
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            <a
+  href="/economize"
+  className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+>
+  💰 Economize
+</a>
             <a
               href="https://www.instagram.com/achadosdocasal26/"
               target="_blank"
