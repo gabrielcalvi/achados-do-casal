@@ -123,54 +123,85 @@ export async function monitorarTodosProdutos() {
   const resultados = [];
   let alterados = 0;
   let erros = 0;
+const LIMITE_CONCORRENCIA = 4;
+const produtosAtivos = produtos ?? [];
 
-  for (const produto of produtos ?? []) {
-    try {
-      console.log(
-        `Monitorando (${produto.id}) ${produto.nome}...`
-      );
+for (
+  let indice = 0;
+  indice < produtosAtivos.length;
+  indice += LIMITE_CONCORRENCIA
+) {
+  const lote = produtosAtivos.slice(
+    indice,
+    indice + LIMITE_CONCORRENCIA
+  );
 
-      const resultado = await consultarPrecoProduto(produto.id);
+  const resultadosLote =
+    await Promise.all(
+      lote.map(async (produto) => {
+        try {
+          console.log(
+            `Monitorando (${produto.id}) ${produto.nome}...`
+          );
 
+          const resultado =
+            await consultarPrecoProduto(
+              produto.id
+            );
+
+          return {
+            id: produto.id,
+            nome: produto.nome,
+            sucesso: true as const,
+            precoMudou:
+              resultado.precoMudou,
+          };
+        } catch (erro) {
+          console.error(
+            `Erro ao monitorar (${produto.id}) ${produto.nome}:`,
+            erro
+          );
+
+          let mensagem =
+            "Erro desconhecido";
+
+          let causa: unknown = null;
+
+          if (erro instanceof Error) {
+            mensagem = erro.message;
+
+            causa =
+              "cause" in erro
+                ? erro.cause
+                : null;
+          }
+
+          return {
+            id: produto.id,
+            nome: produto.nome,
+            sucesso: false as const,
+            erro: mensagem,
+            causa,
+          };
+        }
+      })
+    );
+
+  for (
+    const resultado of resultadosLote
+  ) {
+    if (resultado.sucesso) {
       if (resultado.precoMudou) {
         alterados++;
       }
+    } else {
+      erros++;
+    }
 
-      resultados.push({
-        id: produto.id,
-        nome: produto.nome,
-        sucesso: true,
-        precoMudou: resultado.precoMudou,
-      });
-   } catch (erro) {
-  erros++;
-
-  console.error(
-    `Erro ao monitorar (${produto.id}) ${produto.nome}:`,
-    erro
-  );
-
-  let mensagem = "Erro desconhecido";
-  let causa: unknown = null;
-
-  if (erro instanceof Error) {
-    mensagem = erro.message;
-
-    causa =
-      "cause" in erro
-        ? erro.cause
-        : null;
+    resultados.push(resultado);
   }
+}
 
-  resultados.push({
-    id: produto.id,
-    nome: produto.nome,
-    sucesso: false,
-    erro: mensagem,
-    causa,
-  });
-}
-}
   return {
     total: produtos?.length ?? 0,
     alterados,

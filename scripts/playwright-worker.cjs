@@ -30,67 +30,95 @@ const userDataDir = path.join(
 );
 
 let context = null;
-let workerPage = null;
 let inicializacao = null;
+
 async function extrairProduto(urlProduto) {
   const contexto = await obterContexto();
+  const pagina = await contexto.newPage();
 
-  if (!workerPage || workerPage.isClosed()) {
-    workerPage = await contexto.newPage();
-  }
+  try {
+    const url = new URL(urlProduto);
+    const hostname =
+      url.hostname.toLowerCase();
 
-  const url = new URL(urlProduto);
-const hostname = url.hostname.toLowerCase();
+    let hostnameDestino = hostname;
 
-let hostnameDestino = hostname;
+    if (hostname.includes("awin1.com")) {
+      const destinoAwin =
+        url.searchParams.get("ued");
 
-if (hostname.includes("awin1.com")) {
-  const destinoAwin = url.searchParams.get("ued");
-
-  if (destinoAwin) {
-    try {
-      hostnameDestino = new URL(
-        destinoAwin
-      ).hostname.toLowerCase();
-    } catch {
-      hostnameDestino = hostname;
+      if (destinoAwin) {
+        try {
+          hostnameDestino = new URL(
+            destinoAwin
+          ).hostname.toLowerCase();
+        } catch {
+          hostnameDestino = hostname;
+        }
+      }
     }
+
+    if (
+      hostname.includes("mercadolivre") ||
+      hostname.includes("mercadolibre") ||
+      hostname.includes("meli.la")
+    ) {
+      return await extrairMercadoLivreModulo(
+        pagina,
+        urlProduto
+      );
+    }
+
+    if (hostname.includes("amazon")) {
+      return await extrairAmazon(
+        pagina,
+        urlProduto
+      );
+    }
+
+    if (
+      hostname.includes("magazineluiza") ||
+      hostname.includes("magalu") ||
+      hostname.includes("magazinevoce")
+    ) {
+      return await extrairMagalu(
+        pagina,
+        urlProduto
+      );
+    }
+
+    if (
+      hostname.includes("cea.com.br") ||
+      hostnameDestino.includes("cea.com.br")
+    ) {
+      return await extrairCea(
+        pagina,
+        urlProduto
+      );
+    }
+
+    if (
+      hostname.includes("kabum.com.br") ||
+      hostnameDestino.includes(
+        "kabum.com.br"
+      )
+    ) {
+      return await extrairKabum(
+        pagina,
+        urlProduto
+      );
+    }
+
+    throw new Error(
+      "Loja ainda não suportada."
+    );
+  } finally {
+    await pagina
+      .close()
+      .catch(() => undefined);
   }
 }
 
-  if (
-    hostname.includes("mercadolivre") ||
-    hostname.includes("mercadolibre") ||
-    hostname.includes("meli.la")
-  ) {
-    return extrairMercadoLivreModulo(workerPage, urlProduto);
-  }
-
-  if (hostname.includes("amazon")) {
-    return extrairAmazon(workerPage, urlProduto);
-  }
-
-  if (
-  hostname.includes("magazineluiza") ||
-  hostname.includes("magalu") ||
-  hostname.includes("magazinevoce")
-) {
-  return extrairMagalu(workerPage, urlProduto);
-}
-if (
-  hostname.includes("cea.com.br") ||
-  hostnameDestino.includes("cea.com.br")
-) {
-  return extrairCea(workerPage, urlProduto);
-}
-   if (
-  hostname.includes("kabum.com.br") ||
-  hostnameDestino.includes("kabum.com.br")
-) {
-  return extrairKabum(workerPage, urlProduto);
-}
-throw new Error("Loja ainda não suportada.");
-}
 async function obterContexto() {
   const browser = context?.browser();
 
@@ -629,7 +657,10 @@ await contexto.newPage();
   }
 });
 
-servidor.listen(PORTA, "127.0.0.1", () => {
+servidor.listen(
+  PORTA,
+  process.env.PLAYWRIGHT_WORKER_HOST || "127.0.0.1",
+  () => {
   console.log("");
   console.log("Playwright Worker iniciado.");
   console.log(`Health:  http://127.0.0.1:${PORTA}/health`);
