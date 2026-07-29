@@ -201,6 +201,10 @@ export default function AdminEconomizePage() {
   useState<OfertaEconomize | null>(null);
   const [ofertaEmAcao, setOfertaEmAcao] =
   useState<string | null>(null);
+  const [
+  ativandoSelecionadas,
+  setAtivandoSelecionadas,
+] = useState(false);
       const [ofertas, setOfertas] = useState<OfertaEconomize[]>([]);
       const [
   ofertasSelecionadas,
@@ -346,6 +350,12 @@ useEffect(() => {
       return correspondeLoja && correspondeTipo;
     });
   }, [ofertas, lojaSelecionada, tipoSelecionado]);
+  const quantidadeSelecionadasParaAtivar =
+  ofertas.filter(
+    (oferta) =>
+      ofertasSelecionadas.has(oferta.id) &&
+      oferta.status !== "ativo"
+  ).length;
 const todasOfertasFiltradasSelecionadas =
   ofertasFiltradas.length > 0 &&
   ofertasFiltradas.every((oferta) =>
@@ -501,7 +511,114 @@ function alternarTodasOfertasFiltradas() {
     setOfertaEmAcao(null);
   }
 }
+async function ativarOfertasSelecionadas() {
+  const ofertasParaAtivar = ofertas.filter(
+    (oferta) =>
+      ofertasSelecionadas.has(oferta.id) &&
+      oferta.status !== "ativo"
+  );
 
+  if (ofertasParaAtivar.length === 0) {
+    alert(
+      "Nenhuma oferta selecionada precisa ser ativada."
+    );
+
+    return;
+  }
+
+  const confirmou = window.confirm(
+    `Deseja ativar ${ofertasParaAtivar.length} oferta(s) selecionada(s)?`
+  );
+
+  if (!confirmou) {
+    return;
+  }
+
+  try {
+    setAtivandoSelecionadas(true);
+
+    const resultados =
+      await Promise.allSettled(
+        ofertasParaAtivar.map(
+          async (oferta) => {
+            const resposta = await fetch(
+              `/api/admin/economize/ofertas/${oferta.id}`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  status: "ativo",
+                }),
+              }
+            );
+
+            const resultado =
+              (await resposta.json()) as {
+                error?: string;
+              };
+
+            if (!resposta.ok) {
+              throw new Error(
+                resultado.error ||
+                  `Não foi possível ativar "${oferta.titulo}".`
+              );
+            }
+
+            return oferta.id;
+          }
+        )
+      );
+
+    const ativadas = resultados.filter(
+      (resultado) =>
+        resultado.status === "fulfilled"
+    ).length;
+
+    const falhas = resultados.filter(
+      (resultado) =>
+        resultado.status === "rejected"
+    );
+
+    setOfertasSelecionadas(new Set());
+
+    setAtualizacaoOfertas(
+      (valorAtual) => valorAtual + 1
+    );
+
+    if (falhas.length > 0) {
+      console.error(
+        "Erros na ativação em lote:",
+        falhas
+      );
+
+      alert(
+        `${ativadas} oferta(s) ativada(s) e ${falhas.length} com erro.`
+      );
+
+      return;
+    }
+
+    alert(
+      `${ativadas} oferta(s) ativada(s) com sucesso.`
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao ativar ofertas selecionadas:",
+      error
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Erro inesperado ao ativar as ofertas."
+    );
+  } finally {
+    setAtivandoSelecionadas(false);
+  }
+}
 async function excluirOferta(
   oferta: OfertaEconomize
 ) {
@@ -780,10 +897,28 @@ async function excluirOferta(
       </span>
     </label>
 
-    <p className="text-sm font-bold text-slate-600">
-      {ofertasSelecionadas.size} oferta(s)
-      selecionada(s)
-    </p>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+  <p className="text-sm font-bold text-slate-600">
+   {ofertasSelecionadas.size} selecionada(s)
+{" • "}
+{quantidadeSelecionadasParaAtivar} disponível(is)
+para ativação
+  </p>
+
+  <button
+    type="button"
+    onClick={ativarOfertasSelecionadas}
+    disabled={
+  ativandoSelecionadas ||
+  quantidadeSelecionadasParaAtivar === 0
+}
+    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {ativandoSelecionadas
+      ? "Ativando..."
+      : "Ativar selecionadas"}
+  </button>
+</div>
   </div>
 )}
     {ofertasFiltradas.map((oferta) => {
