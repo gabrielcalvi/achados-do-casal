@@ -716,14 +716,14 @@ export default function EconomizePage() {
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        disabled
-                        title="O redirecionamento seguro será conectado no próximo passo."
-                        className="cursor-not-allowed rounded-xl bg-emerald-600 px-5 py-3 font-black text-white opacity-60"
-                      >
-                        Ir para a oferta
-                      </button>
+                      <a
+  href={`/oferta/${oferta.id}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="rounded-xl bg-emerald-600 px-5 py-3 text-center font-black text-white transition hover:bg-emerald-700"
+>
+  Ir para a oferta
+</a>
                     </div>
                   </div>
                 </article>

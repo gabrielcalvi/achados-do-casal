@@ -248,7 +248,7 @@ export async function GET(
           user_agent: limitarTexto(
             request.headers.get("user-agent")
           ),
-          sessao_id: sessaoId,
+          session_id: sessaoId,
           ip_hash: ipHash,
         });
 
