@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import ExecutarMonitorButton from "./ExecutarMonitorButton";
 
 function formatarPreco(valor: string | null) {
   if (!valor) return "—";
@@ -176,7 +177,15 @@ export default async function MonitorPage() {
             Monitor
           </Link>
         </nav>
-
+<div
+  style={{
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: "28px",
+  }}
+>
+  <ExecutarMonitorButton />
+</div>
         <div
           style={{
             display: "grid",
