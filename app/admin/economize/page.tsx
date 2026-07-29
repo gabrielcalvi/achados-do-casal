@@ -202,6 +202,12 @@ export default function AdminEconomizePage() {
   const [ofertaEmAcao, setOfertaEmAcao] =
   useState<string | null>(null);
       const [ofertas, setOfertas] = useState<OfertaEconomize[]>([]);
+      const [
+  ofertasSelecionadas,
+  setOfertasSelecionadas,
+] = useState<Set<string>>(
+  new Set()
+);
 const [carregandoOfertas, setCarregandoOfertas] =
   useState(true);
 const [erroOfertas, setErroOfertas] = useState("");
@@ -327,9 +333,8 @@ useEffect(() => {
         .sort((a, b) => a.ordem - b.ordem),
     [lojas]
   );
-    
   const ofertasFiltradas = useMemo(() => {
-    return ofertas.filter((oferta) => {
+       return ofertas.filter((oferta) => {
       const correspondeLoja =
         lojaSelecionada === "todas" ||
         oferta.loja?.slug === lojaSelecionada;
@@ -341,7 +346,71 @@ useEffect(() => {
       return correspondeLoja && correspondeTipo;
     });
   }, [ofertas, lojaSelecionada, tipoSelecionado]);
+const todasOfertasFiltradasSelecionadas =
+  ofertasFiltradas.length > 0 &&
+  ofertasFiltradas.every((oferta) =>
+    ofertasSelecionadas.has(oferta.id)
+  );
 
+function alternarSelecaoOferta(
+  ofertaId: string
+) {
+  setOfertasSelecionadas(
+    (selecionadasAtuais) => {
+      const novasSelecionadas =
+        new Set(selecionadasAtuais);
+
+      if (
+        novasSelecionadas.has(ofertaId)
+      ) {
+        novasSelecionadas.delete(
+          ofertaId
+        );
+      } else {
+        novasSelecionadas.add(
+          ofertaId
+        );
+      }
+
+      return novasSelecionadas;
+    }
+  );
+}
+
+function alternarTodasOfertasFiltradas() {
+  setOfertasSelecionadas(
+    (selecionadasAtuais) => {
+      const novasSelecionadas =
+        new Set(selecionadasAtuais);
+
+      const todasJaSelecionadas =
+        ofertasFiltradas.length > 0 &&
+        ofertasFiltradas.every(
+          (oferta) =>
+            novasSelecionadas.has(
+              oferta.id
+            )
+        );
+
+      for (
+        const oferta
+        of ofertasFiltradas
+      ) {
+        if (todasJaSelecionadas) {
+          novasSelecionadas.delete(
+            oferta.id
+          );
+        } else {
+          novasSelecionadas.add(
+            oferta.id
+          );
+        }
+      }
+
+      return novasSelecionadas;
+    }
+  );
+}
   const indicadoresReais = useMemo(
     () => [
       {
@@ -690,6 +759,33 @@ async function excluirOferta(
   </div>
 ) : (
   <div className="mt-8 grid gap-4 lg:grid-cols-2">
+    {ofertasFiltradas.length > 0 && (
+  <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <label className="flex cursor-pointer items-center gap-3">
+      <input
+        type="checkbox"
+        checked={
+          todasOfertasFiltradasSelecionadas
+        }
+        onChange={() =>
+          alternarTodasOfertasFiltradas()
+        }
+        className="h-5 w-5 cursor-pointer rounded border-slate-300"
+      />
+
+      <span className="font-black text-slate-800">
+        {todasOfertasFiltradasSelecionadas
+          ? "Desmarcar todas"
+          : "Selecionar todas"}
+      </span>
+    </label>
+
+    <p className="text-sm font-bold text-slate-600">
+      {ofertasSelecionadas.size} oferta(s)
+      selecionada(s)
+    </p>
+  </div>
+)}
     {ofertasFiltradas.map((oferta) => {
       const validadeFormatada = formatarData(
         oferta.validade
@@ -717,7 +813,15 @@ async function excluirOferta(
               <span className="text-3xl">
                 {iconesTipo[oferta.tipo]}
               </span>
-
+<input
+  type="checkbox"
+  checked={ofertasSelecionadas.has(oferta.id)}
+  onChange={() =>
+    alternarSelecaoOferta(oferta.id)
+  }
+  aria-label={`Selecionar ${oferta.titulo}`}
+  className="h-5 w-5 cursor-pointer rounded border-slate-300"
+/>
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-emerald-600">
                   {rotulosTipo[oferta.tipo]}
