@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  mensagemErroProcessamentoMercadoLivre,
+  processarFonteMercadoLivre,
+  type FonteMercadoLivre,
+} from "@/lib/economize/processadores/mercadoLivre";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,19 +34,29 @@ type FonteAtiva = {
     | null;
 };
 
-type ResultadoConsultaFonte = {
+type ResultadoFonte = {
   fonte_id: string;
   fonte_nome: string;
   loja_id: string;
   loja_nome: string;
   tipo: string;
   url: string | null;
+  modo:
+    | "extracao"
+    | "consulta"
+    | "manual";
   consultada: boolean;
   sucesso: boolean;
   status_http: number | null;
   content_type: string | null;
   duracao_ms: number;
   mensagem: string;
+  ofertas_encontradas: number;
+  ofertas_novas: number;
+  ofertas_atualizadas: number;
+  ofertas_sem_alteracao: number;
+  total_erros: number;
+  erros: string[];
 };
 
 function obterMensagemErro(error: unknown) {
@@ -71,24 +86,58 @@ function calcularProximaExecucao(
   ).toISOString();
 }
 
-async function consultarFonte(
+function ehFonteMercadoLivre(
   fonte: FonteAtiva
-): Promise<ResultadoConsultaFonte> {
-  const loja = normalizarLoja(fonte.loja);
+) {
+  if (!fonte.url) {
+    return false;
+  }
 
-  const resultadoBase = {
+  try {
+    const url = new URL(fonte.url);
+
+    return (
+      url.hostname
+        .toLowerCase()
+        .includes("mercadolivre.com.br") &&
+      url.pathname
+        .toLowerCase()
+        .startsWith("/ofertas")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function criarResultadoBase(
+  fonte: FonteAtiva
+) {
+  const loja = normalizarLoja(
+    fonte.loja
+  );
+
+  return {
     fonte_id: fonte.id,
     fonte_nome: fonte.nome,
     loja_id: fonte.loja_id,
     loja_nome:
-      loja?.nome ?? "Loja não identificada",
+      loja?.nome ??
+      "Loja não identificada",
     tipo: fonte.tipo,
     url: fonte.url,
   };
+}
+
+async function consultarFonteGenerica(
+  fonte: FonteAtiva
+): Promise<ResultadoFonte> {
+  const resultadoBase =
+    criarResultadoBase(fonte);
 
   if (fonte.tipo === "manual") {
     return {
       ...resultadoBase,
+      modo: "manual",
       consultada: false,
       sucesso: true,
       status_http: null,
@@ -96,12 +145,19 @@ async function consultarFonte(
       duracao_ms: 0,
       mensagem:
         "Fonte manual registrada sem consulta automática.",
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 0,
+      erros: [],
     };
   }
 
   if (!fonte.url) {
     return {
       ...resultadoBase,
+      modo: "consulta",
       consultada: false,
       sucesso: false,
       status_http: null,
@@ -109,34 +165,51 @@ async function consultarFonte(
       duracao_ms: 0,
       mensagem:
         "A fonte não possui uma URL cadastrada.",
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 1,
+      erros: [
+        "A fonte não possui uma URL cadastrada.",
+      ],
     };
   }
 
   const inicio = Date.now();
-  const controlador = new AbortController();
+
+  const controlador =
+    new AbortController();
 
   const temporizador = setTimeout(() => {
     controlador.abort();
   }, 20000);
 
   try {
-    const resposta = await fetch(fonte.url, {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      signal: controlador.signal,
-      headers: {
-        Accept:
-          "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-        "Accept-Language":
-          "pt-BR,pt;q=0.9,en;q=0.8",
-        "User-Agent":
-          "AchadosDoCasal-EconomizeBot/1.0",
-      },
-    });
+    const resposta = await fetch(
+      fonte.url,
+      {
+        method: "GET",
+        redirect: "follow",
+        cache: "no-store",
+        signal: controlador.signal,
+        headers: {
+          Accept:
+            "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+
+          "Accept-Language":
+            "pt-BR,pt;q=0.9,en;q=0.8",
+
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+        },
+      }
+    );
 
     const contentType =
-      resposta.headers.get("content-type");
+      resposta.headers.get(
+        "content-type"
+      );
 
     const duracaoMs = Math.max(
       Date.now() - inicio,
@@ -148,26 +221,47 @@ async function consultarFonte(
     }
 
     if (!resposta.ok) {
+      const mensagem =
+        `A fonte respondeu com HTTP ${resposta.status}.`;
+
       return {
         ...resultadoBase,
+        modo: "consulta",
         consultada: true,
         sucesso: false,
-        status_http: resposta.status,
-        content_type: contentType,
+        status_http:
+          resposta.status,
+        content_type:
+          contentType,
         duracao_ms: duracaoMs,
-        mensagem: `A fonte respondeu com HTTP ${resposta.status}.`,
+        mensagem,
+        ofertas_encontradas: 0,
+        ofertas_novas: 0,
+        ofertas_atualizadas: 0,
+        ofertas_sem_alteracao: 0,
+        total_erros: 1,
+        erros: [mensagem],
       };
     }
 
     return {
       ...resultadoBase,
+      modo: "consulta",
       consultada: true,
       sucesso: true,
-      status_http: resposta.status,
-      content_type: contentType,
+      status_http:
+        resposta.status,
+      content_type:
+        contentType,
       duracao_ms: duracaoMs,
       mensagem:
-        "Fonte acessada com sucesso.",
+        "Fonte acessada com sucesso. Ainda não existe um extrator configurado para ela.",
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 0,
+      erros: [],
     };
   } catch (error) {
     const duracaoMs = Math.max(
@@ -183,23 +277,135 @@ async function consultarFonte(
 
     return {
       ...resultadoBase,
+      modo: "consulta",
       consultada: true,
       sucesso: false,
       status_http: null,
       content_type: null,
       duracao_ms: duracaoMs,
       mensagem,
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 1,
+      erros: [mensagem],
     };
   } finally {
     clearTimeout(temporizador);
   }
 }
 
-export async function POST() {
-  let execucaoId: string | null = null;
+async function processarFonte(
+  fonte: FonteAtiva
+): Promise<ResultadoFonte> {
+  if (!ehFonteMercadoLivre(fonte)) {
+    return consultarFonteGenerica(
+      fonte
+    );
+  }
+
+  const resultadoBase =
+    criarResultadoBase(fonte);
+
+  if (!fonte.url) {
+    return {
+      ...resultadoBase,
+      modo: "extracao",
+      consultada: false,
+      sucesso: false,
+      status_http: null,
+      content_type: null,
+      duracao_ms: 0,
+      mensagem:
+        "A fonte do Mercado Livre não possui URL.",
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 1,
+      erros: [
+        "A fonte do Mercado Livre não possui URL.",
+      ],
+    };
+  }
+
+  const fonteMercadoLivre: FonteMercadoLivre =
+    {
+      id: fonte.id,
+      loja_id: fonte.loja_id,
+      nome: fonte.nome,
+      url: fonte.url,
+      ativa: fonte.ativa,
+      prioridade: fonte.prioridade,
+      intervalo_minutos:
+        fonte.intervalo_minutos,
+    };
 
   try {
-    const supabase = await createClient();
+    const resultado =
+      await processarFonteMercadoLivre(
+        fonteMercadoLivre
+      );
+
+    return {
+      ...resultadoBase,
+      modo: "extracao",
+      consultada: true,
+      sucesso:
+        resultado.total_erros === 0,
+      status_http: 200,
+      content_type: "text/html",
+      duracao_ms:
+        resultado.duracao_ms,
+      mensagem:
+        resultado.total_erros > 0
+          ? `Mercado Livre processado com ${resultado.total_erros} erro(s).`
+          : "Ofertas do Mercado Livre processadas com sucesso.",
+      ofertas_encontradas:
+        resultado.ofertas_encontradas,
+      ofertas_novas:
+        resultado.ofertas_novas,
+      ofertas_atualizadas:
+        resultado.ofertas_atualizadas,
+      ofertas_sem_alteracao:
+        resultado.ofertas_sem_alteracao,
+      total_erros:
+        resultado.total_erros,
+      erros: resultado.erros,
+    };
+  } catch (error) {
+    const mensagem =
+      mensagemErroProcessamentoMercadoLivre(
+        error
+      );
+
+    return {
+      ...resultadoBase,
+      modo: "extracao",
+      consultada: true,
+      sucesso: false,
+      status_http: null,
+      content_type: null,
+      duracao_ms: 0,
+      mensagem,
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 1,
+      erros: [mensagem],
+    };
+  }
+}
+
+export async function POST() {
+  let execucaoId: string | null =
+    null;
+
+  try {
+    const supabase =
+      await createClient();
 
     const {
       data: { user },
@@ -225,10 +431,17 @@ export async function POST() {
       .insert({
         loja_id: null,
         status: "executando",
+
         detalhes: {
-          tipo: "coleta_fontes_manual",
-          origem: "painel_administrativo",
-          etapa: "inicializacao",
+          tipo:
+            "coleta_ofertas_manual",
+
+          origem:
+            "painel_administrativo",
+
+          etapa:
+            "inicializacao",
+
           usuario_id: user.id,
         },
       })
@@ -249,7 +462,10 @@ export async function POST() {
       `)
       .single();
 
-    if (erroCriacao || !execucaoCriada) {
+    if (
+      erroCriacao ||
+      !execucaoCriada
+    ) {
       console.error(
         "Erro ao criar execução do Agente de Economia:",
         erroCriacao
@@ -266,7 +482,8 @@ export async function POST() {
       );
     }
 
-    execucaoId = execucaoCriada.id;
+    execucaoId =
+      execucaoCriada.id;
 
     const {
       data: fontesEncontradas,
@@ -283,6 +500,7 @@ export async function POST() {
         prioridade,
         intervalo_minutos,
         configuracao,
+
         loja:economize_lojas (
           id,
           nome,
@@ -306,14 +524,42 @@ export async function POST() {
     }
 
     const fontes =
-      (fontesEncontradas ?? []) as FonteAtiva[];
+      (fontesEncontradas ??
+        []) as FonteAtiva[];
 
-    const resultados: ResultadoConsultaFonte[] =
+    const resultados: ResultadoFonte[] =
       [];
 
     for (const fonte of fontes) {
-      const resultado =
-        await consultarFonte(fonte);
+      let resultado: ResultadoFonte;
+
+      try {
+        resultado =
+          await processarFonte(fonte);
+      } catch (error) {
+        const mensagem =
+          obterMensagemErro(error);
+
+        resultado = {
+          ...criarResultadoBase(
+            fonte
+          ),
+
+          modo: "consulta",
+          consultada: false,
+          sucesso: false,
+          status_http: null,
+          content_type: null,
+          duracao_ms: 0,
+          mensagem,
+          ofertas_encontradas: 0,
+          ofertas_novas: 0,
+          ofertas_atualizadas: 0,
+          ofertas_sem_alteracao: 0,
+          total_erros: 1,
+          erros: [mensagem],
+        };
+      }
 
       const ultimaExecucaoEm =
         new Date().toISOString();
@@ -324,25 +570,80 @@ export async function POST() {
         );
 
       const {
-        error: erroAtualizacaoFonte,
+        error:
+          erroAtualizacaoFonte,
       } = await supabaseAdmin
         .from("economize_fontes")
         .update({
           ultima_execucao_em:
             ultimaExecucaoEm,
+
           proxima_execucao_em:
             proximaExecucaoEm,
-          updated_at: ultimaExecucaoEm,
+
+          updated_at:
+            ultimaExecucaoEm,
         })
         .eq("id", fonte.id);
 
       if (erroAtualizacaoFonte) {
+        const mensagemAtualizacao =
+          `Não foi possível atualizar as datas da fonte: ${erroAtualizacaoFonte.message}`;
+
         resultado.sucesso = false;
-        resultado.mensagem = `${resultado.mensagem} Não foi possível atualizar o histórico da fonte: ${erroAtualizacaoFonte.message}`;
+
+        resultado.total_erros += 1;
+
+        resultado.erros.push(
+          mensagemAtualizacao
+        );
+
+        resultado.mensagem =
+          `${resultado.mensagem} ${mensagemAtualizacao}`;
       }
 
       resultados.push(resultado);
     }
+
+    const ofertasEncontradas =
+      resultados.reduce(
+        (total, resultado) =>
+          total +
+          resultado.ofertas_encontradas,
+        0
+      );
+
+    const ofertasNovas =
+      resultados.reduce(
+        (total, resultado) =>
+          total +
+          resultado.ofertas_novas,
+        0
+      );
+
+    const ofertasAtualizadas =
+      resultados.reduce(
+        (total, resultado) =>
+          total +
+          resultado.ofertas_atualizadas,
+        0
+      );
+
+    const ofertasSemAlteracao =
+      resultados.reduce(
+        (total, resultado) =>
+          total +
+          resultado.ofertas_sem_alteracao,
+        0
+      );
+
+    const totalErros =
+      resultados.reduce(
+        (total, resultado) =>
+          total +
+          resultado.total_erros,
+        0
+      );
 
     const fontesConsultadas =
       resultados.filter(
@@ -352,12 +653,14 @@ export async function POST() {
 
     const fontesComSucesso =
       resultados.filter(
-        (resultado) => resultado.sucesso
+        (resultado) =>
+          resultado.sucesso
       ).length;
 
-    const totalErros =
+    const fontesComErro =
       resultados.filter(
-        (resultado) => !resultado.sucesso
+        (resultado) =>
+          !resultado.sucesso
       ).length;
 
     const lojasMap = new Map<
@@ -371,33 +674,46 @@ export async function POST() {
 
     for (const fonte of fontes) {
       const loja =
-        normalizarLoja(fonte.loja);
+        normalizarLoja(
+          fonte.loja
+        );
 
-      lojasMap.set(fonte.loja_id, {
-        id: fonte.loja_id,
-        nome:
-          loja?.nome ??
-          "Loja não identificada",
-        slug: loja?.slug ?? null,
-      });
+      lojasMap.set(
+        fonte.loja_id,
+        {
+          id: fonte.loja_id,
+
+          nome:
+            loja?.nome ??
+            "Loja não identificada",
+
+          slug:
+            loja?.slug ?? null,
+        }
+      );
     }
 
-    const lojasMonitoradas = Array.from(
-      lojasMap.values()
-    );
+    const lojasMonitoradas =
+      Array.from(
+        lojasMap.values()
+      );
 
-    const inicioRegistrado = new Date(
-      execucaoCriada.iniciado_em
-    ).getTime();
+    const inicioRegistrado =
+      new Date(
+        execucaoCriada.iniciado_em
+      ).getTime();
 
-    const finalizadoEm = new Date(
-      Number.isNaN(inicioRegistrado)
-        ? Date.now()
-        : Math.max(
-            Date.now(),
-            inicioRegistrado + 1
-          )
-    ).toISOString();
+    const finalizadoEm =
+      new Date(
+        Number.isNaN(
+          inicioRegistrado
+        )
+          ? Date.now()
+          : Math.max(
+              Date.now(),
+              inicioRegistrado + 1
+            )
+      ).toISOString();
 
     const statusExecucao =
       totalErros > 0
@@ -411,41 +727,71 @@ export async function POST() {
       .from("economize_execucoes")
       .update({
         status: statusExecucao,
-        ofertas_encontradas: 0,
-        ofertas_novas: 0,
-        ofertas_atualizadas: 0,
+
+        ofertas_encontradas:
+          ofertasEncontradas,
+
+        ofertas_novas:
+          ofertasNovas,
+
+        ofertas_atualizadas:
+          ofertasAtualizadas,
+
         ofertas_desativadas: 0,
-        total_erros: totalErros,
-        finalizado_em: finalizadoEm,
+
+        total_erros:
+          totalErros,
+
+        finalizado_em:
+          finalizadoEm,
+
         mensagem_erro:
           totalErros > 0
-            ? `${totalErros} fonte(s) apresentaram erro.`
+            ? `${totalErros} erro(s) foram encontrados durante a execução.`
             : null,
+
         detalhes: {
-          tipo: "coleta_fontes_manual",
+          tipo:
+            "coleta_ofertas_manual",
+
           origem:
             "painel_administrativo",
-          etapa: "fontes_consultadas",
-          usuario_id: user.id,
+
+          etapa:
+            "ofertas_processadas",
+
+          usuario_id:
+            user.id,
 
           lojas_ativas:
             lojasMonitoradas.length,
 
-          lojas: lojasMonitoradas,
+          lojas:
+            lojasMonitoradas,
 
-          fontes_ativas: fontes.length,
+          fontes_ativas:
+            fontes.length,
+
           fontes_consultadas:
             fontesConsultadas,
+
           fontes_sucesso:
             fontesComSucesso,
-          fontes_erro: totalErros,
+
+          fontes_erro:
+            fontesComErro,
+
+          ofertas_sem_alteracao:
+            ofertasSemAlteracao,
 
           resultados,
 
           mensagem:
             fontes.length === 0
               ? "Nenhuma fonte ativa foi encontrada."
-              : "As fontes ativas foram consultadas. A extração das oportunidades será realizada na próxima etapa.",
+              : totalErros > 0
+                ? "As fontes foram processadas com alguns erros."
+                : "As ofertas das fontes ativas foram processadas com sucesso.",
         },
       })
       .eq("id", execucaoId)
@@ -481,9 +827,11 @@ export async function POST() {
         fontes.length === 0
           ? "Execução concluída, mas nenhuma fonte ativa foi encontrada."
           : totalErros > 0
-            ? `Execução concluída com ${totalErros} erro(s) nas fontes.`
-            : "Fontes consultadas com sucesso.",
-      execucao: execucaoFinalizada,
+            ? `Execução concluída com ${totalErros} erro(s).`
+            : "Ofertas processadas com sucesso.",
+
+      execucao:
+        execucaoFinalizada,
     });
   } catch (error) {
     const mensagemErro =
@@ -495,24 +843,37 @@ export async function POST() {
     );
 
     if (execucaoId) {
-      const { error: erroRegistro } =
-        await supabaseAdmin
-          .from("economize_execucoes")
-          .update({
-            status: "erro",
-            total_erros: 1,
-            finalizado_em:
-              new Date().toISOString(),
-            mensagem_erro: mensagemErro,
-            detalhes: {
-              tipo: "coleta_fontes_manual",
-              origem:
-                "painel_administrativo",
-              etapa: "erro",
-              mensagem: mensagemErro,
-            },
-          })
-          .eq("id", execucaoId);
+      const {
+        error: erroRegistro,
+      } = await supabaseAdmin
+        .from(
+          "economize_execucoes"
+        )
+        .update({
+          status: "erro",
+
+          total_erros: 1,
+
+          finalizado_em:
+            new Date().toISOString(),
+
+          mensagem_erro:
+            mensagemErro,
+
+          detalhes: {
+            tipo:
+              "coleta_ofertas_manual",
+
+            origem:
+              "painel_administrativo",
+
+            etapa: "erro",
+
+            mensagem:
+              mensagemErro,
+          },
+        })
+        .eq("id", execucaoId);
 
       if (erroRegistro) {
         console.error(
@@ -526,7 +887,9 @@ export async function POST() {
       {
         error:
           "A execução do agente não foi concluída.",
-        detalhes: mensagemErro,
+
+        detalhes:
+          mensagemErro,
       },
       {
         status: 500,
