@@ -115,8 +115,18 @@ export async function POST() {
     const lojasAtivas =
       (lojas ?? []) as LojaAtiva[];
 
-    const finalizadoEm =
-      new Date().toISOString();
+   const inicioRegistrado = new Date(
+  execucaoCriada.iniciado_em
+).getTime();
+
+const finalizadoEm = new Date(
+  Number.isNaN(inicioRegistrado)
+    ? Date.now()
+    : Math.max(
+        Date.now(),
+        inicioRegistrado + 1
+      )
+).toISOString();
 
     const {
       data: execucaoFinalizada,
