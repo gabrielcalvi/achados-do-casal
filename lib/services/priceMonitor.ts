@@ -76,14 +76,31 @@ function extrairItemIdMercadoLivre(
   const texto =
     decodificarLink(link);
 
-  const parametroItem =
+  // Exemplos:
+  // ?item_id=MLB5307388652
+  // &wid=MLB5307388652
+  // #...&wid=MLB5307388652
+  const itemEmParametro =
     texto.match(
-      /[?&](?:item_id|itemId)=([^&#]+)/i
+      /[?&#](?:item_id|itemId|wid)=((?:ML[A-Z])[-_]?\d{6,})/i
     )?.[1];
 
-  if (parametroItem) {
+  if (itemEmParametro) {
     return normalizarItemId(
-      parametroItem
+      itemEmParametro
+    );
+  }
+
+  // Exemplo:
+  // pdp_filters=item_id:MLB5307388652
+  const itemEmFiltro =
+    texto.match(
+      /\bitem_id[:=]((?:ML[A-Z])[-_]?\d{6,})/i
+    )?.[1];
+
+  if (itemEmFiltro) {
+    return normalizarItemId(
+      itemEmFiltro
     );
   }
 
