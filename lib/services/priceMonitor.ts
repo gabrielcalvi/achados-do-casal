@@ -205,20 +205,39 @@ async function obterDadosAtuais(
     categoria?: string | null;
   }
 ): Promise<DadosAtuaisMonitor> {
-  if (
-    !ehLinkMercadoLivre(
-      produto.link
-    )
-  ) {
-    return extrairProduto(
-      produto.link
-    );
-  }
-
   const linkResolvido =
     await resolverLinkMercadoLivre(
       produto.link
     );
+
+  const linkEhMercadoLivre =
+    ehLinkMercadoLivre(
+      produto.link
+    ) ||
+    ehLinkMercadoLivre(
+      linkResolvido
+    );
+
+  console.log(
+    "Link original:",
+    produto.link
+  );
+
+  console.log(
+    "Link resolvido:",
+    linkResolvido
+  );
+
+  console.log(
+    "É Mercado Livre:",
+    linkEhMercadoLivre
+  );
+
+  if (!linkEhMercadoLivre) {
+    return extrairProduto(
+      produto.link
+    );
+  }
 
   const itemId =
     extrairItemIdMercadoLivre(
@@ -252,7 +271,8 @@ async function obterDadosAtuais(
 
   return {
     nome: produtoApi.title,
-    categoria: categoriaAtual,
+    categoria:
+      categoriaAtual,
     precoAtual:
       produtoApi.price,
     imagem:
@@ -260,10 +280,8 @@ async function obterDadosAtuais(
         /^http:/,
         "https:"
       ),
-
-    // Mantém o link afiliado
-    // cadastrado no produto.
-    urlFinal: produto.link,
+    urlFinal:
+      produto.link,
   };
 }
 
