@@ -16,6 +16,7 @@ const [paginaAtual, setPaginaAtual] = useState(1);
 const [ordenacao, setOrdenacao] = useState("recentes");
 const [mensagemSucesso, setMensagemSucesso] = useState("");
 const [preparandoProduto, setPreparandoProduto] = useState(false);
+const [salvandoProduto, setSalvandoProduto] = useState(false);
 const [linkProdutoDireto, setLinkProdutoDireto] = useState("");
 const totalProdutos = produtos.length;
 const totalPrecosAlterados = produtos.filter(
@@ -328,7 +329,115 @@ if (editandoId) {
   produtoSalvo = data;
   error = erroUpdate;
 } else {
-  const { data, error: erroInsert } = await supabase
+  const linksParaVerificar = Array.from(
+    new Set(
+      [
+        dadosProduto.link,
+        dadosProduto.link_afiliado,
+      ]
+        .map((link) =>
+          link?.trim()
+        )
+        .filter(
+          (link): link is string =>
+            Boolean(link)
+        )
+    )
+  );
+
+  let produtoExistente:
+    | {
+        id: number;
+        nome: string;
+        loja: string;
+      }
+    | null = null;
+
+  if (
+    linksParaVerificar.length > 0
+  ) {
+    const {
+      data: encontradoNoLink,
+      error: erroBuscaLink,
+    } = await supabase
+      .from("produtos")
+      .select("id, nome, loja")
+      .in(
+        "link",
+        linksParaVerificar
+      )
+      .limit(1)
+      .maybeSingle();
+
+    if (erroBuscaLink) {
+      console.error(
+        "Erro ao verificar duplicação:",
+        erroBuscaLink
+      );
+
+      alert(
+        "Não foi possível verificar se o produto já está cadastrado."
+      );
+
+      return;
+    }
+
+    produtoExistente =
+      encontradoNoLink;
+
+    if (!produtoExistente) {
+      const {
+        data:
+          encontradoNoLinkAfiliado,
+        error:
+          erroBuscaLinkAfiliado,
+      } = await supabase
+        .from("produtos")
+        .select(
+          "id, nome, loja"
+        )
+        .in(
+          "link_afiliado",
+          linksParaVerificar
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (
+        erroBuscaLinkAfiliado
+      ) {
+        console.error(
+          "Erro ao verificar link afiliado:",
+          erroBuscaLinkAfiliado
+        );
+
+        alert(
+          "Não foi possível verificar se o produto já está cadastrado."
+        );
+
+        return;
+      }
+
+      produtoExistente =
+        encontradoNoLinkAfiliado;
+    }
+  }
+
+  if (produtoExistente) {
+    alert(
+      `Este produto já está cadastrado.\n\n` +
+        `ID: ${produtoExistente.id}\n` +
+        `Produto: ${produtoExistente.nome}\n` +
+        `Loja: ${produtoExistente.loja}`
+    );
+
+    return;
+  }
+
+  const {
+    data,
+    error: erroInsert,
+  } = await supabase
     .from("produtos")
     .insert(dadosProduto)
     .select()
@@ -446,7 +555,17 @@ pontosNegativos: "",
   setAbrirFormulario(false);
 
 }
+async function executarSalvamentoProduto() {
+  if (salvandoProduto) return;
 
+  setSalvandoProduto(true);
+
+  try {
+    await salvarProduto();
+  } finally {
+    setSalvandoProduto(false);
+  }
+}
 const produtosFiltrados = produtos.filter((produto) => {
   const termo = buscaAdmin.toLowerCase();
 
@@ -1239,10 +1358,15 @@ const produtosPaginados = produtosOrdenados.slice(
 </div>
   <button
   type="button"
-   onClick={salvarProduto}
+   onClick={executarSalvamentoProduto}
+   disabled={salvandoProduto}
     className="rounded-xl bg-pink-500 p-4 font-black text-white hover:bg-pink-600"
 >
-    {editandoId ? "💾 Salvar Alterações" : "➕ Cadastrar Produto"}
+    {salvandoProduto
+  ? "⏳ Salvando..."
+  : editandoId
+    ? "💾 Salvar Alterações"
+    : "➕ Cadastrar Produto"}
     </button>
 
 </form>
