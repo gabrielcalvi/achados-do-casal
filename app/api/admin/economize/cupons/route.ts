@@ -25,6 +25,9 @@ const TIPOS_DESCONTO_PERMITIDOS =
     "outro",
   ]);
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type NovoCupom = {
   loja_id?: unknown;
   status?: unknown;
@@ -48,6 +51,7 @@ type NovoCupom = {
   link_afiliado?: unknown;
   origem?: unknown;
   origem_url?: unknown;
+  oferta_ids?: unknown;
 };
 
 function obterMensagemErro(
@@ -85,6 +89,45 @@ function textoObrigatorio(
   }
 
   return texto;
+}
+
+function listaIdsUuid(
+  valor: unknown,
+  campo: string
+) {
+  if (valor === undefined || valor === null) {
+    return [] as string[];
+  }
+
+  if (!Array.isArray(valor)) {
+    throw new Error(
+      `O campo "${campo}" deve ser uma lista.`
+    );
+  }
+
+  const ids = Array.from(
+    new Set(
+      valor
+        .filter(
+          (item): item is string =>
+            typeof item === "string"
+        )
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+
+  const invalido = ids.find(
+    (id) => !UUID_REGEX.test(id)
+  );
+
+  if (invalido) {
+    throw new Error(
+      `O campo "${campo}" possui um ID inválido.`
+    );
+  }
+
+  return ids;
 }
 
 function numeroOuNull(
@@ -348,9 +391,67 @@ export async function GET(
       );
     }
 
+    const cuponsLista = cupons ?? [];
+    const idsCupons = cuponsLista.map(
+      (cupom) => cupom.id
+    );
+
+    let ofertaIdsPorCupom =
+      new Map<string, string[]>();
+
+    if (idsCupons.length > 0) {
+      const {
+        data: vinculos,
+        error: erroVinculos,
+      } = await supabaseAdmin
+        .from("economize_cupons_ofertas")
+        .select("cupom_id, oferta_id")
+        .in("cupom_id", idsCupons);
+
+      if (erroVinculos) {
+        console.error(
+          "Erro ao carregar vínculos dos cupons:",
+          erroVinculos
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível carregar os vínculos dos cupons.",
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      for (const vinculo of vinculos ?? []) {
+        const atuais =
+          ofertaIdsPorCupom.get(
+            vinculo.cupom_id
+          ) ?? [];
+
+        atuais.push(vinculo.oferta_id);
+
+        ofertaIdsPorCupom.set(
+          vinculo.cupom_id,
+          atuais
+        );
+      }
+    }
+
+    const cuponsComOfertas =
+      cuponsLista.map((cupom) => ({
+        ...cupom,
+        oferta_ids:
+          ofertaIdsPorCupom.get(
+            cupom.id
+          ) ?? [],
+      }));
+
     return NextResponse.json({
-      cupons: cupons ?? [],
-      total: cupons?.length ?? 0,
+      cupons: cuponsComOfertas,
+      total: cuponsComOfertas.length,
     });
   } catch (error) {
     console.error(
@@ -398,11 +499,53 @@ export async function POST(
     const corpo =
       (await request.json()) as NovoCupom;
 
+    const ofertaIds = listaIdsUuid(
+      corpo.oferta_ids,
+      "oferta_ids"
+    );
+
     const lojaId =
       textoObrigatorio(
         corpo.loja_id,
         "loja_id"
       );
+
+    if (ofertaIds.length > 0) {
+      const {
+        data: ofertasVinculadas,
+        error: erroOfertasVinculadas,
+      } = await supabaseAdmin
+        .from("economize_ofertas")
+        .select("id, loja_id")
+        .in("id", ofertaIds);
+
+      if (erroOfertasVinculadas) {
+        throw new Error(
+          "Não foi possível validar as ofertas vinculadas."
+        );
+      }
+
+      if (
+        (ofertasVinculadas?.length ?? 0) !==
+        ofertaIds.length
+      ) {
+        throw new Error(
+          "Uma ou mais ofertas vinculadas não existem."
+        );
+      }
+
+      const ofertaDeOutraLoja =
+        ofertasVinculadas?.find(
+          (oferta) =>
+            oferta.loja_id !== lojaId
+        );
+
+      if (ofertaDeOutraLoja) {
+        throw new Error(
+          "O cupom só pode ser vinculado a ofertas da mesma loja."
+        );
+      }
+    }
 
     const titulo =
       textoObrigatorio(
@@ -654,11 +797,55 @@ export async function POST(
       );
     }
 
+    if (
+      cupomCriado &&
+      ofertaIds.length > 0
+    ) {
+      const { error: erroVinculo } =
+        await supabaseAdmin
+          .from(
+            "economize_cupons_ofertas"
+          )
+          .insert(
+            ofertaIds.map((ofertaId) => ({
+              cupom_id: cupomCriado.id,
+              oferta_id: ofertaId,
+            }))
+          );
+
+      if (erroVinculo) {
+        console.error(
+          "Erro ao vincular cupom às ofertas:",
+          erroVinculo
+        );
+
+        await supabaseAdmin
+          .from("economize_cupons")
+          .delete()
+          .eq("id", cupomCriado.id);
+
+        return NextResponse.json(
+          {
+            error:
+              "O cupom foi validado, mas o vínculo com as ofertas não pôde ser salvo.",
+            detalhes:
+              erroVinculo.message,
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         mensagem:
           "Cupom cadastrado com sucesso.",
-        cupom: cupomCriado,
+        cupom: {
+          ...cupomCriado,
+          oferta_ids: ofertaIds,
+        },
       },
       {
         status: 201,
