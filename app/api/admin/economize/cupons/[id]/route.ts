@@ -53,6 +53,7 @@ type AtualizacaoCupom = {
   link_afiliado?: unknown;
   origem?: unknown;
   origem_url?: unknown;
+  oferta_ids?: unknown;
 };
 
 function obterMensagemErro(
@@ -75,6 +76,30 @@ function textoOuNull(
   const texto = valor.trim();
 
   return texto || null;
+}
+
+function normalizarOfertaIds(
+  valor: unknown
+): string[] {
+  if (!Array.isArray(valor)) {
+    throw new Error(
+      'O campo "oferta_ids" deve ser uma lista.'
+    );
+  }
+
+  const ids = valor.map((item) => {
+    const id = textoOuNull(item);
+
+    if (!id) {
+      throw new Error(
+        'O campo "oferta_ids" possui um identificador inválido.'
+      );
+    }
+
+    return id;
+  });
+
+  return Array.from(new Set(ids));
 }
 
 function numeroOuNull(
@@ -476,9 +501,122 @@ export async function PATCH(
         );
     }
 
+    const ofertaIdsInformados =
+      corpo.oferta_ids !== undefined;
+
+    const ofertaIds =
+      ofertaIdsInformados
+        ? normalizarOfertaIds(
+            corpo.oferta_ids
+          )
+        : null;
+
+    if (ofertaIdsInformados) {
+      const {
+        data: cupomExistente,
+        error: erroCupomExistente,
+      } = await supabaseAdmin
+        .from("economize_cupons")
+        .select("id, loja_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (erroCupomExistente) {
+        console.error(
+          "Erro ao localizar cupom antes de atualizar vínculos:",
+          erroCupomExistente
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível localizar o cupom para atualizar os vínculos.",
+            detalhes:
+              erroCupomExistente.message,
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      if (!cupomExistente) {
+        return NextResponse.json(
+          {
+            error:
+              "Cupom não encontrado.",
+          },
+          {
+            status: 404,
+          }
+        );
+      }
+
+      const lojaIdFinal =
+        typeof atualizacoes.loja_id ===
+        "string"
+          ? atualizacoes.loja_id
+          : cupomExistente.loja_id;
+
+      if (
+        ofertaIds &&
+        ofertaIds.length > 0
+      ) {
+        const {
+          data: ofertasVinculadas,
+          error: erroOfertas,
+        } = await supabaseAdmin
+          .from("economize_ofertas")
+          .select("id, loja_id")
+          .in("id", ofertaIds);
+
+        if (erroOfertas) {
+          console.error(
+            "Erro ao validar ofertas do cupom:",
+            erroOfertas
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "Não foi possível validar as ofertas selecionadas.",
+              detalhes:
+                erroOfertas.message,
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+
+        if (
+          (ofertasVinculadas?.length ??
+            0) !== ofertaIds.length
+        ) {
+          throw new Error(
+            "Uma ou mais ofertas selecionadas não foram encontradas."
+          );
+        }
+
+        const possuiOfertaOutraLoja =
+          ofertasVinculadas?.some(
+            (oferta) =>
+              oferta.loja_id !==
+              lojaIdFinal
+          );
+
+        if (possuiOfertaOutraLoja) {
+          throw new Error(
+            "A oferta vinculada deve pertencer à mesma loja do cupom."
+          );
+        }
+      }
+    }
+
     if (
       Object.keys(atualizacoes)
-        .length === 0
+        .length === 0 &&
+      !ofertaIdsInformados
     ) {
       return NextResponse.json(
         {
@@ -590,10 +728,87 @@ export async function PATCH(
       );
     }
 
+    if (
+      ofertaIdsInformados &&
+      ofertaIds
+    ) {
+      const {
+        error: erroRemocaoVinculos,
+      } = await supabaseAdmin
+        .from(
+          "economize_cupons_ofertas"
+        )
+        .delete()
+        .eq("cupom_id", id);
+
+      if (erroRemocaoVinculos) {
+        console.error(
+          "Erro ao remover vínculos anteriores do cupom:",
+          erroRemocaoVinculos
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "O cupom foi atualizado, mas não foi possível atualizar os vínculos das ofertas.",
+            detalhes:
+              erroRemocaoVinculos.message,
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      if (ofertaIds.length > 0) {
+        const {
+          error: erroCriacaoVinculos,
+        } = await supabaseAdmin
+          .from(
+            "economize_cupons_ofertas"
+          )
+          .insert(
+            ofertaIds.map(
+              (ofertaId) => ({
+                cupom_id: id,
+                oferta_id: ofertaId,
+              })
+            )
+          );
+
+        if (erroCriacaoVinculos) {
+          console.error(
+            "Erro ao criar novos vínculos do cupom:",
+            erroCriacaoVinculos
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "O cupom foi atualizado, mas não foi possível salvar os novos vínculos das ofertas.",
+              detalhes:
+                erroCriacaoVinculos.message,
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+      }
+    }
+
     return NextResponse.json({
       mensagem:
         "Cupom atualizado com sucesso.",
-      cupom: cupomAtualizado,
+      cupom: {
+        ...cupomAtualizado,
+        ...(ofertaIdsInformados
+          ? {
+              oferta_ids:
+                ofertaIds ?? [],
+            }
+          : {}),
+      },
     });
   } catch (error) {
     const mensagem =
@@ -647,6 +862,32 @@ export async function DELETE(
         },
         {
           status: 400,
+        }
+      );
+    }
+
+    const {
+      error: erroExclusaoVinculos,
+    } = await supabaseAdmin
+      .from("economize_cupons_ofertas")
+      .delete()
+      .eq("cupom_id", id);
+
+    if (erroExclusaoVinculos) {
+      console.error(
+        "Erro ao excluir vínculos do cupom:",
+        erroExclusaoVinculos
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Não foi possível excluir os vínculos do cupom.",
+          detalhes:
+            erroExclusaoVinculos.message,
+        },
+        {
+          status: 500,
         }
       );
     }

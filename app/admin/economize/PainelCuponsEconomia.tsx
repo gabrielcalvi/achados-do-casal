@@ -66,6 +66,7 @@ type CupomEconomize = {
   updated_at: string;
 
   loja: LojaCupom | LojaCupom[] | null;
+  oferta_ids?: string[];
 };
 
 type RespostaCupons = {
@@ -88,6 +89,17 @@ type LojaDisponivel = {
   slug: string;
 };
 
+type OfertaDisponivelCupom = {
+  id: string;
+  loja_id: string;
+  titulo: string;
+};
+
+type RespostaOfertasPublicas = {
+  ofertas?: OfertaDisponivelCupom[];
+  error?: string;
+};
+
 type PainelCuponsEconomiaProps = {
   lojas: LojaDisponivel[];
 };
@@ -100,6 +112,7 @@ type TipoDesconto =
 
 type FormularioCupom = {
   loja_id: string;
+  oferta_id: string;
   codigo: string;
   titulo: string;
   descricao: string;
@@ -122,6 +135,7 @@ type FormularioCupom = {
 
 const FORMULARIO_INICIAL: FormularioCupom = {
   loja_id: "",
+  oferta_id: "",
   codigo: "",
   titulo: "",
   descricao: "",
@@ -309,6 +323,16 @@ const [
   ] = useState("todas");
 
   const [
+    ofertasDisponiveis,
+    setOfertasDisponiveis,
+  ] = useState<OfertaDisponivelCupom[]>([]);
+
+  const [
+    carregandoOfertas,
+    setCarregandoOfertas,
+  ] = useState(false);
+
+  const [
     formulario,
     setFormulario,
   ] = useState<FormularioCupom>({
@@ -413,6 +437,77 @@ const [
     lojas,
   ]);
 
+  useEffect(() => {
+    const lojaSelecionada = lojas.find(
+      (loja) =>
+        loja.id === formulario.loja_id
+    );
+
+    if (!lojaSelecionada) {
+      setOfertasDisponiveis([]);
+      return;
+    }
+
+    const slugLojaSelecionada =
+      lojaSelecionada.slug;
+
+    let cancelado = false;
+
+    async function carregarOfertas() {
+      try {
+        setCarregandoOfertas(true);
+
+        const resposta = await fetch(
+          `/api/economize/ofertas?loja=${encodeURIComponent(
+            slugLojaSelecionada
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const resultado =
+          (await resposta.json()) as RespostaOfertasPublicas;
+
+        if (!resposta.ok) {
+          throw new Error(
+            resultado.error ||
+              "Não foi possível carregar as ofertas da loja."
+          );
+        }
+
+        if (!cancelado) {
+          setOfertasDisponiveis(
+            resultado.ofertas ?? []
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Erro ao carregar ofertas para o cupom:",
+          error
+        );
+
+        if (!cancelado) {
+          setOfertasDisponiveis([]);
+        }
+      } finally {
+        if (!cancelado) {
+          setCarregandoOfertas(false);
+        }
+      }
+    }
+
+    carregarOfertas();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    formulario.loja_id,
+    lojas,
+  ]);
+
   const resumo = useMemo(() => {
     return {
       total: cupons.length,
@@ -454,6 +549,8 @@ function abrirEdicaoCupom(
 
   setFormulario({
     loja_id: cupom.loja_id,
+    oferta_id:
+      cupom.oferta_ids?.[0] ?? "",
     codigo: cupom.codigo ?? "",
     titulo: cupom.titulo,
     descricao: cupom.descricao ?? "",
@@ -674,6 +771,13 @@ const resposta = await fetch(
           body: JSON.stringify({
             loja_id:
               formulario.loja_id,
+
+            oferta_ids:
+              formulario.oferta_id
+                ? [
+                    formulario.oferta_id,
+                  ]
+                : [],
 
             status: "pendente",
 
@@ -917,9 +1021,13 @@ setCupomEmEdicao(null);
                   formulario.loja_id
                 }
                 onChange={(event) =>
-                  atualizarCampo(
-                    "loja_id",
-                    event.target.value
+                  setFormulario(
+                    (formularioAtual) => ({
+                      ...formularioAtual,
+                      loja_id:
+                        event.target.value,
+                      oferta_id: "",
+                    })
                   )
                 }
                 className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-emerald-600"
@@ -938,6 +1046,50 @@ setCupomEmEdicao(null);
                 ))}
               </select>
             </label>
+
+            <label className="grid gap-2">
+                <span className="text-sm font-bold text-slate-700">
+                  Oferta vinculada
+                </span>
+
+                <select
+                  value={
+                    formulario.oferta_id
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "oferta_id",
+                      event.target.value
+                    )
+                  }
+                  disabled={
+                    !formulario.loja_id ||
+                    carregandoOfertas
+                  }
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">
+                    {carregandoOfertas
+                      ? "Carregando ofertas..."
+                      : "Sem vínculo"}
+                  </option>
+
+                  {ofertasDisponiveis.map(
+                    (oferta) => (
+                      <option
+                        key={oferta.id}
+                        value={oferta.id}
+                      >
+                        {oferta.titulo}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <span className="text-xs text-slate-500">
+                  Mostra somente ofertas ativas da loja selecionada.
+                </span>
+              </label>
 
             <label className="grid gap-2">
               <span className="text-sm font-bold text-slate-700">
