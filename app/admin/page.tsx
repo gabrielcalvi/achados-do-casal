@@ -3,7 +3,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import CadastroModal from "./CadastroModal";
-
+function normalizarTexto(valor: string) {
+  return valor
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
 export default function AdminPage() {
   const supabase = createClient();
   const [abrirFormulario, setAbrirFormulario] = useState(false);
@@ -422,7 +427,44 @@ if (editandoId) {
         encontradoNoLinkAfiliado;
     }
   }
+if (
+  !produtoExistente &&
+  dadosProduto.nome.trim()
+) {
+  const {
+    data: produtosMesmaLoja,
+    error: erroBuscaNome,
+  } = await supabase
+    .from("produtos")
+    .select("id, nome, loja")
+    .eq("loja", dadosProduto.loja);
 
+  if (erroBuscaNome) {
+    console.error(
+      "Erro ao verificar nome duplicado:",
+      erroBuscaNome
+    );
+
+    alert(
+      "Não foi possível verificar se o produto já está cadastrado."
+    );
+
+    return;
+  }
+
+  const nomeNormalizado =
+    normalizarTexto(
+      dadosProduto.nome
+    );
+
+  produtoExistente =
+    produtosMesmaLoja?.find(
+      (produto) =>
+        normalizarTexto(
+          produto.nome
+        ) === nomeNormalizado
+    ) ?? null;
+}
   if (produtoExistente) {
     alert(
       `Este produto já está cadastrado.\n\n` +
