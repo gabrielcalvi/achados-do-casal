@@ -1,4 +1,4 @@
-﻿{
+{
   "crons": [
     {
       "path": "/api/admin/economize/agente/executar",
