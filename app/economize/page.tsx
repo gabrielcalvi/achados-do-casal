@@ -238,10 +238,11 @@ export default function EconomizePage() {
         lojaSelecionada === "todas" ||
         oferta.loja?.slug === lojaSelecionada;
 
-      const correspondeTipo =
-        tipoSelecionado === "todos" ||
-        oferta.tipo === tipoSelecionado;
-
+     const correspondeTipo =
+  tipoSelecionado === "todos" ||
+  (tipoSelecionado === "cupom"
+    ? Boolean(oferta.codigo)
+    : oferta.tipo === tipoSelecionado);
       return correspondeLoja && correspondeTipo;
     });
   }, [
