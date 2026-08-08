@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
@@ -399,28 +402,93 @@ async function processarFonte(
   }
 }
 
-export async function POST() {
+export async function POST(
+  request: NextRequest
+) {
   let execucaoId: string | null =
     null;
 
+  let tipoExecucao =
+    "coleta_ofertas_manual";
+
+  let origemExecucao =
+    "painel_administrativo";
+
+  let usuarioId: string | null =
+    null;
+
   try {
-    const supabase =
-      await createClient();
+    const segredoCron =
+      process.env.CRON_SECRET?.trim() ??
+      "";
 
-    const {
-      data: { user },
-      error: erroUsuario,
-    } = await supabase.auth.getUser();
+    const autorizacao =
+      request.headers.get(
+        "authorization"
+      ) ?? "";
 
-    if (erroUsuario || !user) {
+    const prefixoBearer = "Bearer ";
+
+    const tokenCron =
+      autorizacao.startsWith(
+        prefixoBearer
+      )
+        ? autorizacao
+            .slice(
+              prefixoBearer.length
+            )
+            .trim()
+        : "";
+
+    const tentouExecutarComoCron =
+      tokenCron.length > 0;
+
+    const execucaoAutomatica =
+      segredoCron.length > 0 &&
+      tokenCron === segredoCron;
+
+    if (
+      tentouExecutarComoCron &&
+      !execucaoAutomatica
+    ) {
       return NextResponse.json(
         {
-          error: "Não autorizado.",
+          error:
+            "Chave do agendamento inválida.",
         },
         {
           status: 401,
         }
       );
+    }
+
+    if (execucaoAutomatica) {
+      tipoExecucao =
+        "coleta_ofertas_automatica";
+
+      origemExecucao =
+        "railway_cron";
+    } else {
+      const supabase =
+        await createClient();
+
+      const {
+        data: { user },
+        error: erroUsuario,
+      } = await supabase.auth.getUser();
+
+      if (erroUsuario || !user) {
+        return NextResponse.json(
+          {
+            error: "Não autorizado.",
+          },
+          {
+            status: 401,
+          }
+        );
+      }
+
+      usuarioId = user.id;
     }
 
     const {
@@ -434,15 +502,15 @@ export async function POST() {
 
         detalhes: {
           tipo:
-            "coleta_ofertas_manual",
+            tipoExecucao,
 
           origem:
-            "painel_administrativo",
+            origemExecucao,
 
           etapa:
             "inicializacao",
 
-          usuario_id: user.id,
+          usuario_id: usuarioId,
         },
       })
       .select(`
@@ -752,16 +820,16 @@ export async function POST() {
 
         detalhes: {
           tipo:
-            "coleta_ofertas_manual",
+            tipoExecucao,
 
           origem:
-            "painel_administrativo",
+            origemExecucao,
 
           etapa:
             "ofertas_processadas",
 
           usuario_id:
-            user.id,
+            usuarioId,
 
           lojas_ativas:
             lojasMonitoradas.length,
@@ -862,10 +930,10 @@ export async function POST() {
 
           detalhes: {
             tipo:
-              "coleta_ofertas_manual",
+              tipoExecucao,
 
             origem:
-              "painel_administrativo",
+              origemExecucao,
 
             etapa: "erro",
 
