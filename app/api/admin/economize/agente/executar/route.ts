@@ -1,4 +1,4 @@
-import {
+﻿import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -67,7 +67,7 @@ function obterMensagemErro(error: unknown) {
     return error.message;
   }
 
-  return "Erro inesperado durante a execução do agente.";
+  return "Erro inesperado durante a execuÃ§Ã£o do agente.";
 }
 
 function normalizarLoja(
@@ -125,7 +125,7 @@ function criarResultadoBase(
     loja_id: fonte.loja_id,
     loja_nome:
       loja?.nome ??
-      "Loja não identificada",
+      "Loja nÃ£o identificada",
     tipo: fonte.tipo,
     url: fonte.url,
   };
@@ -147,7 +147,7 @@ async function consultarFonteGenerica(
       content_type: null,
       duracao_ms: 0,
       mensagem:
-        "Fonte manual registrada sem consulta automática.",
+        "Fonte manual registrada sem consulta automÃ¡tica.",
       ofertas_encontradas: 0,
       ofertas_novas: 0,
       ofertas_atualizadas: 0,
@@ -167,14 +167,14 @@ async function consultarFonteGenerica(
       content_type: null,
       duracao_ms: 0,
       mensagem:
-        "A fonte não possui uma URL cadastrada.",
+        "A fonte nÃ£o possui uma URL cadastrada.",
       ofertas_encontradas: 0,
       ofertas_novas: 0,
       ofertas_atualizadas: 0,
       ofertas_sem_alteracao: 0,
       total_erros: 1,
       erros: [
-        "A fonte não possui uma URL cadastrada.",
+        "A fonte nÃ£o possui uma URL cadastrada.",
       ],
     };
   }
@@ -258,7 +258,7 @@ async function consultarFonteGenerica(
         contentType,
       duracao_ms: duracaoMs,
       mensagem:
-        "Fonte acessada com sucesso. Ainda não existe um extrator configurado para ela.",
+        "Fonte acessada com sucesso. Ainda nÃ£o existe um extrator configurado para ela.",
       ofertas_encontradas: 0,
       ofertas_novas: 0,
       ofertas_atualizadas: 0,
@@ -321,14 +321,14 @@ async function processarFonte(
       content_type: null,
       duracao_ms: 0,
       mensagem:
-        "A fonte do Mercado Livre não possui URL.",
+        "A fonte do Mercado Livre nÃ£o possui URL.",
       ofertas_encontradas: 0,
       ofertas_novas: 0,
       ofertas_atualizadas: 0,
       ofertas_sem_alteracao: 0,
       total_erros: 1,
       erros: [
-        "A fonte do Mercado Livre não possui URL.",
+        "A fonte do Mercado Livre nÃ£o possui URL.",
       ],
     };
   }
@@ -454,7 +454,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Chave do agendamento inválida.",
+            "Chave do agendamento invÃ¡lida.",
         },
         {
           status: 401,
@@ -467,7 +467,7 @@ export async function POST(
         "coleta_ofertas_automatica";
 
       origemExecucao =
-        "railway_cron";
+        "vercel_cron"
     } else {
       const supabase =
         await createClient();
@@ -480,7 +480,7 @@ export async function POST(
       if (erroUsuario || !user) {
         return NextResponse.json(
           {
-            error: "Não autorizado.",
+            error: "NÃ£o autorizado.",
           },
           {
             status: 401,
@@ -535,14 +535,14 @@ export async function POST(
       !execucaoCriada
     ) {
       console.error(
-        "Erro ao criar execução do Agente de Economia:",
+        "Erro ao criar execuÃ§Ã£o do Agente de Economia:",
         erroCriacao
       );
 
       return NextResponse.json(
         {
           error:
-            "Não foi possível iniciar a execução do agente.",
+            "NÃ£o foi possÃ­vel iniciar a execuÃ§Ã£o do agente.",
         },
         {
           status: 500,
@@ -587,7 +587,7 @@ export async function POST(
 
     if (erroFontes) {
       throw new Error(
-        `Não foi possível consultar as fontes ativas: ${erroFontes.message}`
+        `NÃ£o foi possÃ­vel consultar as fontes ativas: ${erroFontes.message}`
       );
     }
 
@@ -656,7 +656,7 @@ export async function POST(
 
       if (erroAtualizacaoFonte) {
         const mensagemAtualizacao =
-          `Não foi possível atualizar as datas da fonte: ${erroAtualizacaoFonte.message}`;
+          `NÃ£o foi possÃ­vel atualizar as datas da fonte: ${erroAtualizacaoFonte.message}`;
 
         resultado.sucesso = false;
 
@@ -753,7 +753,7 @@ export async function POST(
 
           nome:
             loja?.nome ??
-            "Loja não identificada",
+            "Loja nÃ£o identificada",
 
           slug:
             loja?.slug ?? null,
@@ -815,7 +815,7 @@ export async function POST(
 
         mensagem_erro:
           totalErros > 0
-            ? `${totalErros} erro(s) foram encontrados durante a execução.`
+            ? `${totalErros} erro(s) foram encontrados durante a execuÃ§Ã£o.`
             : null,
 
         detalhes: {
@@ -886,16 +886,16 @@ export async function POST(
     ) {
       throw new Error(
         erroFinalizacao?.message ||
-          "Não foi possível finalizar o histórico da execução."
+          "NÃ£o foi possÃ­vel finalizar o histÃ³rico da execuÃ§Ã£o."
       );
     }
 
     return NextResponse.json({
       mensagem:
         fontes.length === 0
-          ? "Execução concluída, mas nenhuma fonte ativa foi encontrada."
+          ? "ExecuÃ§Ã£o concluÃ­da, mas nenhuma fonte ativa foi encontrada."
           : totalErros > 0
-            ? `Execução concluída com ${totalErros} erro(s).`
+            ? `ExecuÃ§Ã£o concluÃ­da com ${totalErros} erro(s).`
             : "Ofertas processadas com sucesso.",
 
       execucao:
@@ -945,7 +945,7 @@ export async function POST(
 
       if (erroRegistro) {
         console.error(
-          "Erro ao registrar falha da execução:",
+          "Erro ao registrar falha da execuÃ§Ã£o:",
           erroRegistro
         );
       }
@@ -954,7 +954,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "A execução do agente não foi concluída.",
+          "A execuÃ§Ã£o do agente nÃ£o foi concluÃ­da.",
 
         detalhes:
           mensagemErro,
@@ -970,3 +970,4 @@ export async function GET(
 ) {
   return POST(request);
 }
+
