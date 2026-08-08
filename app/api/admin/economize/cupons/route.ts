@@ -293,7 +293,40 @@ export async function GET(
         }
       );
     }
+const agora =
+  new Date().toISOString();
 
+const {
+  error: erroExpiracao,
+} = await supabaseAdmin
+  .from("economize_cupons")
+  .update({
+    status: "expirado",
+    updated_at: agora,
+  })
+  .lt("validade", agora)
+  .in("status", [
+    "pendente",
+    "ativo",
+    "inativo",
+  ]);
+
+if (erroExpiracao) {
+  console.error(
+    "Erro ao expirar cupons automaticamente:",
+    erroExpiracao
+  );
+
+  return NextResponse.json(
+    {
+      error:
+        "Não foi possível atualizar os cupons expirados.",
+    },
+    {
+      status: 500,
+    }
+  );
+}
     const limite =
       obterLimite(request);
 
