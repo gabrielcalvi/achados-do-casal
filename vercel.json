@@ -7,6 +7,10 @@
                   {
                       "path":  "/api/admin/economize/awin/kabum/executar",
                       "schedule":  "0 0,6,12,18 * * *"
+                  },
+                  {
+                      "path":  "/api/admin/economize/awin/multiloja/executar",
+                      "schedule":  "0 1,7,13,19 * * *"
                   }
               ]
 }
