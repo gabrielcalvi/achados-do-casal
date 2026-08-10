@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -259,32 +259,61 @@ export default function EconomizePage() {
     [ofertasFiltradas]
   );
 
-  async function copiarCodigo(
-    ofertaId: string,
-    codigo: string
-  ) {
-    try {
-      await navigator.clipboard.writeText(codigo);
+async function copiarCodigo(
+  ofertaId: string,
+  codigo: string
+): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(codigo);
 
-      setCodigoCopiado(ofertaId);
+    setCodigoCopiado(ofertaId);
 
-      window.setTimeout(() => {
-        setCodigoCopiado((idAtual) =>
-          idAtual === ofertaId ? null : idAtual
-        );
-      }, 2000);
-    } catch (error) {
-      console.error(
-        "Erro ao copiar código:",
-        error
+    window.setTimeout(() => {
+      setCodigoCopiado((idAtual) =>
+        idAtual === ofertaId ? null : idAtual
       );
+    }, 2000);
 
-      alert(
-        "Não foi possível copiar o código automaticamente."
-      );
-    }
+    return true;
+  } catch (error) {
+    console.error(
+      "Erro ao copiar código:",
+      error
+    );
+
+    alert(
+      "Não foi possível copiar o código automaticamente."
+    );
+
+    return false;
+  }
+}
+
+async function usarCupom(
+  ofertaId: string,
+  codigo: string
+) {
+  const novaAba = window.open("about:blank", "_blank");
+
+  if (novaAba) {
+    novaAba.opener = null;
   }
 
+  const copiado = await copiarCodigo(ofertaId, codigo);
+
+  if (!copiado) {
+    novaAba?.close();
+    return;
+  }
+
+  const destino = `/oferta/${ofertaId}`;
+
+  if (novaAba) {
+    novaAba.location.href = destino;
+  } else {
+    window.location.href = destino;
+  }
+}
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-950 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-7xl">
@@ -513,27 +542,27 @@ export default function EconomizePage() {
               return (
                 <article
                   key={oferta.id}
-                  className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg ${
+                  className={`grid overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg lg:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)] ${
                     oferta.destaque
                       ? "border-orange-300 ring-2 ring-orange-100"
                       : "border-slate-200"
                   }`}
                 >
                   {oferta.imagem_url && (
-                    <div className="flex h-56 items-center justify-center bg-slate-50 p-5">
+                    <div className="flex h-48 items-center justify-center bg-gradient-to-br from-white to-slate-50 p-4 lg:h-full lg:min-h-[300px] lg:border-r lg:border-slate-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={oferta.imagem_url}
                         alt={oferta.titulo}
-                        className="max-h-full max-w-full object-contain"
+                        className="max-h-40 w-full object-contain sm:max-h-44 lg:max-h-56"
                       />
                     </div>
                   )}
 
-                  <div className="p-5 sm:p-6">
+                  <div className="min-w-0 p-4 sm:p-5 lg:p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl">
                           {iconesTipo[oferta.tipo]}
                         </span>
 
@@ -556,11 +585,11 @@ export default function EconomizePage() {
                       )}
                     </div>
 
-                    <h3 className="mt-4 text-xl font-black leading-7 sm:text-2xl">
+                    <h3 className="mt-3 line-clamp-3 text-lg font-black leading-6 text-slate-900 sm:text-xl">
                       {oferta.titulo}
                     </h3>
 
-                    {oferta.descricao && (
+                    {oferta.descricao && oferta.tipo !== "cupom" && (
                       <p className="mt-3 leading-7 text-slate-600">
                         {oferta.descricao}
                       </p>
@@ -584,113 +613,99 @@ export default function EconomizePage() {
                     </div>
 
                     {oferta.codigo && (
-                      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-wider text-emerald-700">
-                            Código do cupom
-                          </p>
+                      <div className="mt-3 overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-emerald-50">
+                        <div className="px-3.5 py-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                              Código do cupom
+                            </p>
 
-                          <p className="mt-1 text-xl font-black text-emerald-950">
-                            {oferta.codigo}
-                          </p>
+                            <p className="mt-0.5 break-all text-lg font-black tracking-tight text-emerald-950 sm:whitespace-nowrap sm:text-xl">
+                              {oferta.codigo}
+                            </p>
+                          </div>
+
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            copiarCodigo(
-                              oferta.id,
-                              oferta.codigo as string
-                            )
-                          }
-                          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"
-                        >
-                          {codigoCopiado === oferta.id
-                            ? "Copiado!"
-                            : "Copiar código"}
-                        </button>
                       </div>
                     )}
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                      {oferta.desconto_percentual !==
-                        null && (
-                        <div className="rounded-2xl bg-slate-50 p-4">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {precoOferta && (
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3">
+                          <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                                Preço da oferta
+                              </p>
+
+                              <p className="mt-0.5 text-2xl font-black tracking-tight text-emerald-900">
+                                {precoOferta}
+                              </p>
+
+                              {precoOriginal && (
+                                <p className="mt-1 text-sm text-slate-400">
+                                  De{" "}
+                                  <span className="line-through">
+                                    {precoOriginal}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+
+                            {valorDesconto && (
+                              <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                  Você economiza
+                                </p>
+                                <p className="text-lg font-black text-emerald-700">
+                                  {valorDesconto}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {oferta.desconto_percentual !== null && (
+                        <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3">
                           <p className="text-xs font-bold text-slate-500">
                             Desconto
                           </p>
 
-                          <p className="mt-1 text-xl font-black text-emerald-700">
-                            {
-                              oferta.desconto_percentual
-                            }
-                            %
+                          <p className="mt-0.5 text-2xl font-black text-emerald-700">
+                            {oferta.desconto_percentual}%
                           </p>
                         </div>
                       )}
 
-                      {valorDesconto && (
-                        <div className="rounded-2xl bg-slate-50 p-4">
-                          <p className="text-xs font-bold text-slate-500">
-                            Economia
-                          </p>
-
-                          <p className="mt-1 text-xl font-black text-emerald-700">
-                            {valorDesconto}
-                          </p>
-                        </div>
-                      )}
-
-                      {oferta.cashback_percentual !==
-                        null && (
-                        <div className="rounded-2xl bg-slate-50 p-4">
+                      {oferta.cashback_percentual !== null && (
+                        <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3">
                           <p className="text-xs font-bold text-slate-500">
                             Cashback
                           </p>
 
-                          <p className="mt-1 text-xl font-black text-emerald-700">
-                            {
-                              oferta.cashback_percentual
-                            }
-                            %
+                          <p className="mt-0.5 text-2xl font-black text-emerald-700">
+                            {oferta.cashback_percentual}%
                           </p>
                         </div>
                       )}
 
                       {pedidoMinimo && (
-                        <div className="rounded-2xl bg-slate-50 p-4">
+                        <div className="rounded-xl bg-slate-50 px-4 py-3 sm:col-span-2">
                           <p className="text-xs font-bold text-slate-500">
                             Pedido mínimo
                           </p>
 
-                          <p className="mt-1 text-lg font-black">
+                          <p className="mt-0.5 font-black text-slate-800">
                             {pedidoMinimo}
                           </p>
-                        </div>
-                      )}
-
-                      {precoOferta && (
-                        <div className="rounded-2xl bg-emerald-50 p-4 sm:col-span-2">
-                          <p className="text-xs font-bold text-emerald-700">
-                            Preço da oferta
-                          </p>
-
-                          <p className="mt-1 text-2xl font-black text-emerald-800">
-                            {precoOferta}
-                          </p>
-
-                          {precoOriginal && (
-                            <p className="mt-1 text-sm text-slate-400 line-through">
-                              {precoOriginal}
-                            </p>
-                          )}
                         </div>
                       )}
                     </div>
 
                     {oferta.regras && (
-                      <details className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <summary className="cursor-pointer font-black text-slate-700">
+                      <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <summary className="cursor-pointer text-sm font-black text-slate-700">
                           Ver regras e condições
                         </summary>
 
@@ -700,7 +715,7 @@ export default function EconomizePage() {
                       </details>
                     )}
 
-                    <div className="mt-6 flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-sm text-slate-500">
                         {validade ? (
                           <p>
@@ -711,20 +726,44 @@ export default function EconomizePage() {
                           </p>
                         ) : (
                           <p>
-                            Consulte as condições da
-                            oportunidade.
+                            Consulte as condições da oportunidade.
                           </p>
                         )}
                       </div>
 
-                      <a
-  href={`/oferta/${oferta.id}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="rounded-xl bg-emerald-600 px-5 py-3 text-center font-black text-white transition hover:bg-emerald-700"
->
-  Ir para a oferta
-</a>
+                      {oferta.codigo ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const copiado = await copiarCodigo(
+                              oferta.id,
+                              oferta.codigo as string
+                            );
+
+                            if (!copiado) {
+                              return;
+                            }
+
+                            window.setTimeout(() => {
+                              window.location.href = `/oferta/${oferta.id}`;
+                            }, 700);
+                          }}
+                          className="w-full rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto sm:min-w-[220px]"
+                        >
+                          {codigoCopiado === oferta.id
+                            ? "✅ Cupom copiado! Abrindo oferta..."
+                            : "🛒 USAR CUPOM"}
+                        </button>
+                      ) : (
+                        <a
+                          href={`/oferta/${oferta.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto sm:min-w-[220px]"
+                        >
+                          Ir para a oferta
+                        </a>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -749,3 +788,5 @@ export default function EconomizePage() {
     </main>
   );
 }
+
+
