@@ -1063,6 +1063,14 @@ async function main() {
   );
 
   for (const loja of lojas) {
+    if (loja.monitorOnly) {
+      console.log(`\n=== ${loja.nome.toUpperCase()} ===`);
+      console.log(
+        "MONITOR ONLY: coleta ativa; publicacao bloqueada ate o classificador dedicado de viagens."
+      );
+      continue;
+    }
+
     await processarLoja(
       loja,
       banco

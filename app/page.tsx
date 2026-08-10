@@ -191,6 +191,12 @@ carregarProdutos();
   💰 Economize
 </a>
             <a
+              href="/viagens"
+              className="rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
+            >
+              ✈️ Viagens
+            </a>
+            <a
               href="https://www.instagram.com/achadosdocasal26/"
               target="_blank"
               rel="noopener noreferrer"

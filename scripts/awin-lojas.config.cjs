@@ -30,5 +30,14 @@ module.exports = [
     advertiserId: "30599",
     dominio: "stanley1913.com.br",
     logoUrl: null
+  },
+  {
+    slug: "decolar",
+    dbSlug: "decolar",
+    nome: "Decolar",
+    advertiserId: "102459",
+    dominio: "decolar.com",
+    logoUrl: null,
+    monitorOnly: true
   }
 ];

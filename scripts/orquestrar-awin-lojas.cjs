@@ -245,7 +245,8 @@ async function main() {
       "cea",
       "renner",
       "calvin-klein",
-      "stanley"
+      "stanley",
+      "decolar"
     ];
 
     for (const loja of lojas) {
@@ -284,7 +285,8 @@ async function main() {
         "cea",
         "renner",
         "calvin-klein",
-        "stanley"
+        "stanley",
+        "decolar"
       ]
     });
 
