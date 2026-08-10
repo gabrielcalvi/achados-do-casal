@@ -1,8 +1,12 @@
 {
-  "crons": [
-    {
-      "path": "/api/admin/economize/agente/executar",
-      "schedule": "0 3,9,15,21 * * *"
-    }
-  ]
+    "crons":  [
+                  {
+                      "path":  "/api/admin/economize/agente/executar",
+                      "schedule":  "0 3,9,15,21 * * *"
+                  },
+                  {
+                      "path":  "/api/admin/economize/awin/kabum/executar",
+                      "schedule":  "0 0,6,12,18 * * *"
+                  }
+              ]
 }
