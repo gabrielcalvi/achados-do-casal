@@ -51,10 +51,69 @@ const ROTAS:
     origemProvider: "POA",
     destinoProvider: "LIS",
   },
+
+  // SAO PAULO - CALIBRACAO INICIAL VIA GRU
+
+  "gru-orlando": {
+    origemProvider: "GRU",
+    destinoProvider: "MCO",
+  },
+
+  "gru-new-york": {
+    origemProvider: "GRU",
+    destinoProvider: "JFK",
+  },
+
+  "gru-miami": {
+    origemProvider: "GRU",
+    destinoProvider: "MIA",
+  },
+
+  "gru-los-angeles": {
+    origemProvider: "GRU",
+    destinoProvider: "LAX",
+  },
+
+  "gru-lisboa": {
+    origemProvider: "GRU",
+    destinoProvider: "LIS",
+  },
+
+  "gru-madrid": {
+    origemProvider: "GRU",
+    destinoProvider: "MAD",
+  },
+
+  // RIO DE JANEIRO - CALIBRACAO INICIAL VIA GIG
+
+  "gig-orlando": {
+    origemProvider: "GIG",
+    destinoProvider: "MCO",
+  },
+
+  "gig-new-york": {
+    origemProvider: "GIG",
+    destinoProvider: "JFK",
+  },
+
+  "gig-miami": {
+    origemProvider: "GIG",
+    destinoProvider: "MIA",
+  },
+
+  "gig-los-angeles": {
+    origemProvider: "GIG",
+    destinoProvider: "LAX",
+  },
+
+  "gig-lisboa": {
+    origemProvider: "GIG",
+    destinoProvider: "LIS",
+  },
 };
 
 const PERMANENCIAS =
-  [8, 9, 10, 11, 12];
+  [8, 12, 15];
 
 const LIMITE_PADRAO =
   6;
@@ -406,16 +465,24 @@ function selecionarCombinacoes(
   anteriores: ObservacaoAnterior[],
   limite: number
 ) {
+  /*
+   * INTELIGENCIA DE COBERTURA
+   *
+   * Prioridades:
+   * 1. Meses menos cobertos.
+   * 2. Permanencias menos cobertas dentro do mes.
+   * 3. Permanencias menos cobertas no historico geral.
+   * 4. Combinacoes nunca consultadas.
+   * 5. Combinacoes consultadas ha mais tempo.
+   *
+   * Consultas repetidas da mesma ida/volta contam apenas
+   * uma vez para a COBERTURA, evitando distorcer a amostra.
+   */
+
   const ultimaPorCombinacao =
     new Map<
       string,
       ObservacaoAnterior
-    >();
-
-  const observacoesPorMes =
-    new Map<
-      string,
-      number
     >();
 
   for (
@@ -447,10 +514,78 @@ function selecionarCombinacoes(
         observacao
       );
     }
+  }
 
+  function calcularPermanencia(
+    ida: string,
+    volta: string
+  ) {
+    const inicio =
+      new Date(
+        `${ida}T00:00:00Z`
+      ).getTime();
+
+    const fim =
+      new Date(
+        `${volta}T00:00:00Z`
+      ).getTime();
+
+    return Math.round(
+      (
+        fim -
+        inicio
+      ) /
+        86400000
+    );
+  }
+
+  function chaveMesPermanencia(
+    mes: string,
+    permanencia: number
+  ) {
+    return (
+      mes +
+      "|" +
+      permanencia
+    );
+  }
+
+  const observacoesPorMes =
+    new Map<
+      string,
+      number
+    >();
+
+  const observacoesPorMesPermanencia =
+    new Map<
+      string,
+      number
+    >();
+
+  const observacoesPorPermanencia =
+    new Map<
+      number,
+      number
+    >();
+
+  /*
+   * COBERTURA HISTORICA:
+   * usa somente a observacao mais recente de cada
+   * combinacao ida/volta.
+   */
+  for (
+    const observacao of
+    ultimaPorCombinacao.values()
+  ) {
     const mes =
       chaveMes(
         observacao.ida
+      );
+
+    const permanencia =
+      calcularPermanencia(
+        observacao.ida,
+        observacao.volta
       );
 
     observacoesPorMes.set(
@@ -458,6 +593,30 @@ function selecionarCombinacoes(
       (
         observacoesPorMes.get(
           mes
+        ) || 0
+      ) + 1
+    );
+
+    const chaveMP =
+      chaveMesPermanencia(
+        mes,
+        permanencia
+      );
+
+    observacoesPorMesPermanencia.set(
+      chaveMP,
+      (
+        observacoesPorMesPermanencia.get(
+          chaveMP
+        ) || 0
+      ) + 1
+    );
+
+    observacoesPorPermanencia.set(
+      permanencia,
+      (
+        observacoesPorPermanencia.get(
+          permanencia
         ) || 0
       ) + 1
     );
@@ -493,83 +652,10 @@ function selecionarCombinacoes(
     );
   }
 
-  function compararDentroMes(
-    a: Combinacao,
-    b: Combinacao
-  ) {
-    const obsA =
-      ultimaPorCombinacao.get(
-        chaveCombinacao(
-          a.ida,
-          a.volta
-        )
-      );
-
-    const obsB =
-      ultimaPorCombinacao.get(
-        chaveCombinacao(
-          b.ida,
-          b.volta
-        )
-      );
-
-    if (!obsA && obsB) {
-      return -1;
-    }
-
-    if (obsA && !obsB) {
-      return 1;
-    }
-
-    if (!obsA && !obsB) {
-      return (
-        a.ida.localeCompare(
-          b.ida
-        ) ||
-        a.permanencia -
-          b.permanencia
-      );
-    }
-
-    const tempoA =
-      new Date(
-        obsA!.observado_em
-      ).getTime();
-
-    const tempoB =
-      new Date(
-        obsB!.observado_em
-      ).getTime();
-
-    if (
-      tempoA !==
-      tempoB
-    ) {
-      return (
-        tempoA -
-        tempoB
-      );
-    }
-
-    return (
-      Number(
-        obsA!.preco_por_pessoa
-      ) -
-      Number(
-        obsB!.preco_por_pessoa
-      )
-    );
-  }
-
-  for (
-    const lista of
-    porMes.values()
-  ) {
-    lista.sort(
-      compararDentroMes
-    );
-  }
-
+  /*
+   * Meses com menos combinacoes historicas
+   * ficam primeiro.
+   */
   const meses =
     Array.from(
       porMes.keys()
@@ -602,11 +688,219 @@ function selecionarCombinacoes(
     Combinacao[] =
     [];
 
-  const indicePorMes =
+  const selecionadasChaves =
+    new Set<
+      string
+    >();
+
+  /*
+   * Contadores TEMPORARIOS da propria rodada.
+   *
+   * Isso e importante:
+   * se uma rodada pedir varias consultas,
+   * a primeira escolha ja influencia a segunda.
+   *
+   * Assim uma rodada vazia tende a distribuir:
+   * 8 -> 12 -> 15 -> 8 -> 12 -> 15...
+   */
+  const novasPorMesPermanencia =
     new Map<
       string,
       number
     >();
+
+  const novasPorPermanencia =
+    new Map<
+      number,
+      number
+    >();
+
+  function quantidadeMesPermanencia(
+    mes: string,
+    permanencia: number
+  ) {
+    const chave =
+      chaveMesPermanencia(
+        mes,
+        permanencia
+      );
+
+    return (
+      (
+        observacoesPorMesPermanencia.get(
+          chave
+        ) || 0
+      ) +
+      (
+        novasPorMesPermanencia.get(
+          chave
+        ) || 0
+      )
+    );
+  }
+
+  function quantidadePermanencia(
+    permanencia: number
+  ) {
+    return (
+      (
+        observacoesPorPermanencia.get(
+          permanencia
+        ) || 0
+      ) +
+      (
+        novasPorPermanencia.get(
+          permanencia
+        ) || 0
+      )
+    );
+  }
+
+  function compararCandidatos(
+    mes: string,
+    a: Combinacao,
+    b: Combinacao
+  ) {
+    /*
+     * 1. Menor cobertura MES + PERMANENCIA.
+     */
+    const mesPermanenciaA =
+      quantidadeMesPermanencia(
+        mes,
+        a.permanencia
+      );
+
+    const mesPermanenciaB =
+      quantidadeMesPermanencia(
+        mes,
+        b.permanencia
+      );
+
+    if (
+      mesPermanenciaA !==
+      mesPermanenciaB
+    ) {
+      return (
+        mesPermanenciaA -
+        mesPermanenciaB
+      );
+    }
+
+    /*
+     * 2. Menor cobertura GLOBAL da permanencia.
+     */
+    const permanenciaA =
+      quantidadePermanencia(
+        a.permanencia
+      );
+
+    const permanenciaB =
+      quantidadePermanencia(
+        b.permanencia
+      );
+
+    if (
+      permanenciaA !==
+      permanenciaB
+    ) {
+      return (
+        permanenciaA -
+        permanenciaB
+      );
+    }
+
+    const obsA =
+      ultimaPorCombinacao.get(
+        chaveCombinacao(
+          a.ida,
+          a.volta
+        )
+      );
+
+    const obsB =
+      ultimaPorCombinacao.get(
+        chaveCombinacao(
+          b.ida,
+          b.volta
+        )
+      );
+
+    /*
+     * 3. Combinacao nunca consultada primeiro.
+     */
+    if (
+      !obsA &&
+      obsB
+    ) {
+      return -1;
+    }
+
+    if (
+      obsA &&
+      !obsB
+    ) {
+      return 1;
+    }
+
+    /*
+     * 4. Entre duas nunca consultadas:
+     * data mais proxima primeiro.
+     */
+    if (
+      !obsA &&
+      !obsB
+    ) {
+      return (
+        a.ida.localeCompare(
+          b.ida
+        ) ||
+        a.permanencia -
+          b.permanencia
+      );
+    }
+
+    /*
+     * 5. Entre duas ja monitoradas:
+     * a mais antiga precisa ser revisitada primeiro.
+     */
+    const tempoA =
+      new Date(
+        obsA!.observado_em
+      ).getTime();
+
+    const tempoB =
+      new Date(
+        obsB!.observado_em
+      ).getTime();
+
+    if (
+      tempoA !==
+      tempoB
+    ) {
+      return (
+        tempoA -
+        tempoB
+      );
+    }
+
+    /*
+     * Empate final:
+     * menor preco historico e depois data.
+     */
+    return (
+      Number(
+        obsA!.preco_por_pessoa
+      ) -
+        Number(
+          obsB!.preco_por_pessoa
+        ) ||
+      a.ida.localeCompare(
+        b.ida
+      ) ||
+      a.permanencia -
+        b.permanencia
+    );
+  }
 
   while (
     selecionadas.length <
@@ -615,6 +909,12 @@ function selecionarCombinacoes(
     let adicionou =
       false;
 
+    /*
+     * Round-robin entre os meses.
+     *
+     * Isso evita consumir varias datas de setembro
+     * antes de olhar outubro, novembro, dezembro...
+     */
     for (
       const mes of meses
     ) {
@@ -623,25 +923,82 @@ function selecionarCombinacoes(
           mes
         ) || [];
 
-      const indice =
-        indicePorMes.get(
-          mes
-        ) || 0;
+      const disponiveis =
+        lista.filter(
+          (
+            combinacao
+          ) =>
+            !selecionadasChaves.has(
+              chaveCombinacao(
+                combinacao.ida,
+                combinacao.volta
+              )
+            )
+        );
 
       if (
-        indice >=
-        lista.length
+        disponiveis.length ===
+        0
       ) {
         continue;
       }
 
-      selecionadas.push(
-        lista[indice]
+      /*
+       * O ranking e recalculado A CADA ESCOLHA,
+       * pois os contadores da rodada mudam.
+       */
+      disponiveis.sort(
+        (
+          a,
+          b
+        ) =>
+          compararCandidatos(
+            mes,
+            a,
+            b
+          )
       );
 
-      indicePorMes.set(
-        mes,
-        indice + 1
+      const escolhida =
+        disponiveis[0];
+
+      if (!escolhida) {
+        continue;
+      }
+
+      selecionadas.push(
+        escolhida
+      );
+
+      selecionadasChaves.add(
+        chaveCombinacao(
+          escolhida.ida,
+          escolhida.volta
+        )
+      );
+
+      const chaveMP =
+        chaveMesPermanencia(
+          mes,
+          escolhida.permanencia
+        );
+
+      novasPorMesPermanencia.set(
+        chaveMP,
+        (
+          novasPorMesPermanencia.get(
+            chaveMP
+          ) || 0
+        ) + 1
+      );
+
+      novasPorPermanencia.set(
+        escolhida.permanencia,
+        (
+          novasPorPermanencia.get(
+            escolhida.permanencia
+          ) || 0
+        ) + 1
       );
 
       adicionou =

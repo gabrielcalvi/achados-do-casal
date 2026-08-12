@@ -20,6 +20,19 @@ const RADARES_PUBLICOS =
     "poa-miami",
     "poa-los-angeles",
     "poa-lisboa",
+
+    "gru-orlando",
+    "gru-new-york",
+    "gru-miami",
+    "gru-los-angeles",
+    "gru-lisboa",
+    "gru-madrid",
+
+    "gig-orlando",
+    "gig-new-york",
+    "gig-miami",
+    "gig-los-angeles",
+    "gig-lisboa",
   ]);
 
 function criarSupabase() {

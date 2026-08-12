@@ -13,37 +13,36 @@ export const maxDuration =
   300;
 
 const ROTAS = [
-  {
-    slug:
-      "poa-orlando",
-    limite:
-      2,
-  },
-  {
-    slug:
-      "poa-new-york",
-    limite:
-      1,
-  },
-  {
-    slug:
-      "poa-miami",
-    limite:
-      1,
-  },
-  {
-    slug:
-      "poa-los-angeles",
-    limite:
-      1,
-  },
-  {
-    slug:
-      "poa-lisboa",
-    limite:
-      1,
-  },
+  { slug: "poa-orlando", limite: 1 },
+  { slug: "poa-new-york", limite: 1 },
+  { slug: "poa-miami", limite: 1 },
+  { slug: "poa-los-angeles", limite: 1 },
+  { slug: "poa-lisboa", limite: 1 },
+
+  { slug: "gru-orlando", limite: 1 },
+  { slug: "gru-new-york", limite: 1 },
+  { slug: "gru-miami", limite: 1 },
+  { slug: "gru-los-angeles", limite: 1 },
+  { slug: "gru-lisboa", limite: 1 },
+  { slug: "gru-madrid", limite: 1 },
+
+  { slug: "gig-orlando", limite: 1 },
+  { slug: "gig-new-york", limite: 1 },
+  { slug: "gig-miami", limite: 1 },
+  { slug: "gig-los-angeles", limite: 1 },
+  { slug: "gig-lisboa", limite: 1 },
 ] as const;
+
+const CONSULTAS_PLANEJADAS =
+  ROTAS.reduce(
+    (
+      total,
+      rota
+    ) =>
+      total +
+      rota.limite,
+    0
+  );
 
 function autorizado(
   request: NextRequest
@@ -241,7 +240,7 @@ export async function GET(
       sucesso,
 
       consultas_planejadas:
-        6,
+        CONSULTAS_PLANEJADAS,
 
       consultas_realizadas:
         consultas,

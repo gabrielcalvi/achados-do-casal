@@ -47,31 +47,119 @@ type DadosRadar = {
     Oferta[];
 };
 
+const ORIGENS = [
+  {
+    codigo: "POA",
+    label: "Porto Alegre",
+  },
+  {
+    codigo: "GRU",
+    label: "S\u00e3o Paulo",
+  },
+  {
+    codigo: "GIG",
+    label: "Rio de Janeiro",
+  },
+] as const;
+
 const RADARES = [
   {
+    origem: "POA",
     slug: "poa-orlando",
     label: "Orlando",
-    emoji: "✈️",
+    emoji: "\u2708\ufe0f",
   },
   {
+    origem: "POA",
     slug: "poa-new-york",
     label: "Nova York",
-    emoji: "🗽",
+    emoji: "\ud83d\uddfd",
   },
   {
+    origem: "POA",
     slug: "poa-miami",
     label: "Miami",
-    emoji: "🌴",
+    emoji: "\ud83c\udf34",
   },
   {
+    origem: "POA",
     slug: "poa-los-angeles",
     label: "Los Angeles",
-    emoji: "🎬",
+    emoji: "\ud83c\udfac",
   },
   {
+    origem: "POA",
     slug: "poa-lisboa",
     label: "Lisboa",
-    emoji: "🇵🇹",
+    emoji: "\ud83c\uddf5\ud83c\uddf9",
+  },
+
+  {
+    origem: "GRU",
+    slug: "gru-orlando",
+    label: "Orlando",
+    emoji: "\u2708\ufe0f",
+  },
+  {
+    origem: "GRU",
+    slug: "gru-new-york",
+    label: "Nova York",
+    emoji: "\ud83d\uddfd",
+  },
+  {
+    origem: "GRU",
+    slug: "gru-miami",
+    label: "Miami",
+    emoji: "\ud83c\udf34",
+  },
+  {
+    origem: "GRU",
+    slug: "gru-los-angeles",
+    label: "Los Angeles",
+    emoji: "\ud83c\udfac",
+  },
+  {
+    origem: "GRU",
+    slug: "gru-lisboa",
+    label: "Lisboa",
+    emoji: "\ud83c\uddf5\ud83c\uddf9",
+  },
+  {
+    origem: "GRU",
+    slug: "gru-madrid",
+    label: "Madrid",
+    emoji: "\ud83c\uddea\ud83c\uddf8",
+  },
+
+  {
+    origem: "GIG",
+    slug: "gig-orlando",
+    label: "Orlando",
+    emoji: "\u2708\ufe0f",
+  },
+  {
+    origem: "GIG",
+    slug: "gig-new-york",
+    label: "Nova York",
+    emoji: "\ud83d\uddfd",
+  },
+  {
+    origem: "GIG",
+    slug: "gig-miami",
+    label: "Miami",
+    emoji: "\ud83c\udf34",
+  },
+  {
+    origem: "GIG",
+    slug: "gig-los-angeles",
+    label: "Los Angeles",
+    emoji: "\ud83c\udfac",
+  },
+  {
+    origem: "GIG",
+    slug: "gig-lisboa",
+    label: "Lisboa",
+    emoji: "\ud83c\uddf5\ud83c\uddf9",
   },
 ] as const;
 
@@ -256,7 +344,9 @@ export default function RadarPublico() {
         try {
           const resposta =
             await fetch(
-              `/api/viagens/radar/destaque?slug=${encodeURIComponent(radarSlug)}`,
+              `/api/viagens/radar/destaque?slug=${encodeURIComponent(
+                radarSlug
+              )}`,
               {
                 cache: "no-store",
               }
@@ -271,22 +361,29 @@ export default function RadarPublico() {
           ) {
             throw new Error(
               json.erro ||
-              "Radar indisponível."
+              "Radar indisponivel."
             );
           }
 
-          if (ativo) {
-            setDados(json);
+          if (!ativo) {
+            return;
           }
+
+          setDados(
+            json as DadosRadar
+          );
         }
-        catch (falha) {
-          if (ativo) {
-            setErro(
-              falha instanceof Error
-                ? falha.message
-                : "Radar indisponível."
-            );
+        catch (erroCarregamento) {
+
+          if (!ativo) {
+            return;
           }
+
+          setErro(
+            erroCarregamento instanceof Error
+              ? erroCarregamento.message
+              : "Nao foi possivel carregar o Radar."
+          );
         }
       }
 
@@ -300,6 +397,41 @@ export default function RadarPublico() {
       radarSlug,
     ]
   );
+
+  const origemAtiva =
+    radarSlug.startsWith(
+      "gru-"
+    )
+      ? "GRU"
+      : radarSlug.startsWith(
+          "gig-"
+        )
+        ? "GIG"
+        : "POA";
+
+  const radaresVisiveis =
+    RADARES.filter(
+      (radar) =>
+        radar.origem ===
+        origemAtiva
+    );
+
+  function selecionarOrigem(
+    codigo: string
+  ) {
+    const primeiro =
+      RADARES.find(
+        (radar) =>
+          radar.origem ===
+          codigo
+      );
+
+    if (primeiro) {
+      setRadarSlug(
+        primeiro.slug
+      );
+    }
+  }
 
   if (erro) {
     return (
@@ -382,32 +514,71 @@ export default function RadarPublico() {
       id="radar-real"
       className="mx-auto max-w-7xl px-5 py-10"
     >
-      <div className="mb-4 flex flex-wrap gap-2">
-        {RADARES.map(
-          (radar) => (
-            <button
-              key={radar.slug}
-              type="button"
-              onClick={() =>
-                setRadarSlug(
-                  radar.slug
-                )
-              }
-              className={
-                "rounded-full border px-4 py-2 text-sm font-black transition " +
-                (
-                  radarSlug ===
-                  radar.slug
-                    ? "border-blue-700 bg-blue-700 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
-                )
-              }
-            >
-              {radar.emoji}{" "}
-              {radar.label}
-            </button>
-          )
-        )}
+      <div className="mb-5 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          Saindo de
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {ORIGENS.map(
+            (origem) => (
+              <button
+                key={origem.codigo}
+                type="button"
+                onClick={() =>
+                  selecionarOrigem(
+                    origem.codigo
+                  )
+                }
+                className={
+                  "rounded-full border px-4 py-2 text-sm font-black transition " +
+                  (
+                    origemAtiva ===
+                    origem.codigo
+                      ? "border-slate-950 bg-slate-950 text-white shadow-sm"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                  )
+                }
+              >
+                {origem.label}
+              </button>
+            )
+          )}
+        </div>
+
+        <div className="my-4 border-t border-slate-100" />
+
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          Destino
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {radaresVisiveis.map(
+            (radar) => (
+              <button
+                key={radar.slug}
+                type="button"
+                onClick={() =>
+                  setRadarSlug(
+                    radar.slug
+                  )
+                }
+                className={
+                  "rounded-full border px-4 py-2 text-sm font-black transition " +
+                  (
+                    radarSlug ===
+                    radar.slug
+                      ? "border-blue-700 bg-blue-700 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                  )
+                }
+              >
+                {radar.emoji}{" "}
+                {radar.label}
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-xl shadow-slate-900/5">
@@ -424,9 +595,7 @@ export default function RadarPublico() {
                 </span>
 
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
-                  {radarSlug === "poa-orlando"
-                    ? "Atualização automática 4x/dia"
-                    : "Monitoramento real iniciado"}
+                  {"Atualiza\u00e7\u00e3o autom\u00e1tica 4x/dia"}
                 </span>
 
               </div>
