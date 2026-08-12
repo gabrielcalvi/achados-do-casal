@@ -11,6 +11,10 @@
                   {
                       "path":  "/api/admin/economize/awin/multiloja/executar",
                       "schedule":  "0 1,7,13,19 * * *"
+                  },
+                  {
+                      "path":  "/api/admin/viagens/radar/executar",
+                      "schedule":  "0 2,8,14,20 * * *"
                   }
               ]
 }
