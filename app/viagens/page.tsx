@@ -118,10 +118,10 @@ export default function ViagensPage() {
             <div className="mt-8 flex flex-wrap gap-3">
 
               <a
-                href="#achados"
+                href="#radar-real"
                 className="rounded-xl bg-white px-6 py-4 font-black text-sky-950"
               >
-                🔥 Ver achados
+                🔥 Ver Radar inteligente
               </a>
 
               <a
@@ -176,6 +176,9 @@ export default function ViagensPage() {
 
         </div>
       </section>
+
+      {/* PRODUTO PRINCIPAL DA VERTICAL VIAGENS */}
+      <RadarPublico />
 
       <section
         id="achados"
@@ -327,7 +330,6 @@ export default function ViagensPage() {
         </div>
       </section>
 
-            <RadarPublico />
 
 <section className="mx-auto max-w-7xl px-5 py-16">
 
