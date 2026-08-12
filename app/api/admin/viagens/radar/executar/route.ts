@@ -14,14 +14,44 @@ export const maxDuration = 300;
 const IGNAV_BASE_URL =
   "https://ignav.com/api";
 
-const RADAR_SLUG =
+const RADAR_PADRAO =
   "poa-orlando";
 
-const ORIGEM_PROVIDER =
-  "POA";
+type RotaProvider = {
+  origemProvider: string;
+  destinoProvider: string;
+};
 
-const DESTINO_PROVIDER =
-  "MCO";
+const ROTAS:
+  Record<
+    string,
+    RotaProvider
+  > = {
+  "poa-orlando": {
+    origemProvider: "POA",
+    destinoProvider: "MCO",
+  },
+
+  "poa-new-york": {
+    origemProvider: "POA",
+    destinoProvider: "JFK",
+  },
+
+  "poa-miami": {
+    origemProvider: "POA",
+    destinoProvider: "MIA",
+  },
+
+  "poa-los-angeles": {
+    origemProvider: "POA",
+    destinoProvider: "LAX",
+  },
+
+  "poa-lisboa": {
+    origemProvider: "POA",
+    destinoProvider: "LIS",
+  },
+};
 
 const PERMANENCIAS =
   [8, 9, 10, 11, 12];
@@ -432,7 +462,8 @@ function selecionarCombinacoes(
 
 async function lerIgnav(
   apiKey: string,
-  combinacao: Combinacao
+  combinacao: Combinacao,
+  rota: RotaProvider
 ) {
   const resposta =
     await fetch(
@@ -455,10 +486,9 @@ async function lerIgnav(
         body:
           JSON.stringify({
             origin:
-              ORIGEM_PROVIDER,
-
+              rota.origemProvider,
             destination:
-              DESTINO_PROVIDER,
+              rota.destinoProvider,
 
             departure_date:
               combinacao.ida,
@@ -641,6 +671,28 @@ async function executar(
       request.url
     );
 
+  const radarSlug =
+    url.searchParams
+      .get("slug")
+      ?.trim() ||
+    RADAR_PADRAO;
+
+  const rota =
+    ROTAS[radarSlug];
+
+  if (!rota) {
+    return NextResponse.json(
+      {
+        sucesso: false,
+        erro:
+          "Radar informado nao existe.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
   const solicitado =
     Number(
       url.searchParams.get(
@@ -706,7 +758,7 @@ async function executar(
         `)
         .eq(
           "slug",
-          RADAR_SLUG
+          radarSlug
         )
         .single();
 
@@ -841,13 +893,13 @@ async function executar(
               "radar_automatico",
 
             slug:
-              RADAR_SLUG,
+              radarSlug,
 
             origem_provider:
-              ORIGEM_PROVIDER,
+              rota.origemProvider,
 
             destino_provider:
-              DESTINO_PROVIDER,
+              rota.destinoProvider,
 
             limite:
               selecionadas.length,
@@ -907,7 +959,8 @@ async function executar(
         const resposta =
           await lerIgnav(
             ignavKey,
-            combinacao
+            combinacao,
+            rota
           );
 
         if (
@@ -1006,10 +1059,10 @@ async function executar(
                   : "indicative",
 
               origem_codigo:
-                ORIGEM_PROVIDER,
+                rota.origemProvider,
 
               destino_codigo:
-                DESTINO_PROVIDER,
+                rota.destinoProvider,
 
               ida:
                 combinacao.ida,
@@ -1199,13 +1252,13 @@ async function executar(
               "radar_automatico",
 
             slug:
-              RADAR_SLUG,
+              radarSlug,
 
             origem_provider:
-              ORIGEM_PROVIDER,
+              rota.origemProvider,
 
             destino_provider:
-              DESTINO_PROVIDER,
+              rota.destinoProvider,
 
             limite,
 
@@ -1249,7 +1302,7 @@ async function executar(
           statusFinal,
 
         radar:
-          RADAR_SLUG,
+          radarSlug,
 
         provider:
           "ignav",

@@ -47,6 +47,81 @@ type DadosRadar = {
     Oferta[];
 };
 
+const RADARES = [
+  {
+    slug: "poa-orlando",
+    label: "Orlando",
+    emoji: "✈️",
+  },
+  {
+    slug: "poa-new-york",
+    label: "Nova York",
+    emoji: "🗽",
+  },
+  {
+    slug: "poa-miami",
+    label: "Miami",
+    emoji: "🌴",
+  },
+  {
+    slug: "poa-los-angeles",
+    label: "Los Angeles",
+    emoji: "🎬",
+  },
+  {
+    slug: "poa-lisboa",
+    label: "Lisboa",
+    emoji: "🇵🇹",
+  },
+] as const;
+
+function rotuloFaixaRota(
+  faixa: string,
+  slug: string,
+  padrao: string
+) {
+  if (
+    faixa === "achado_absurdo" &&
+    (
+      slug === "poa-new-york" ||
+      slug === "poa-los-angeles"
+    )
+  ) {
+    return "Muito bom";
+  }
+
+  if (
+    faixa === "achado_absurdo" &&
+    slug === "poa-lisboa"
+  ) {
+    return "Achado";
+  }
+
+  if (
+    faixa === "preco_comum" &&
+    (
+      slug === "poa-new-york" ||
+      slug === "poa-los-angeles" ||
+      slug === "poa-lisboa"
+    )
+  ) {
+    return "Preço normal";
+  }
+
+  if (
+    faixa === "nao_promocao" &&
+    (
+      slug === "poa-new-york" ||
+      slug === "poa-los-angeles" ||
+      slug === "poa-lisboa"
+    )
+  ) {
+    return "Caro";
+  }
+
+  return padrao;
+}
+
 function dinheiro(
   valor: number
 ) {
@@ -147,6 +222,14 @@ function leituraRadar(
 
 export default function RadarPublico() {
   const [
+    radarSlug,
+    setRadarSlug,
+  ] =
+    useState(
+      "poa-orlando"
+    );
+
+  const [
     dados,
     setDados,
   ] =
@@ -166,11 +249,14 @@ export default function RadarPublico() {
     () => {
       let ativo = true;
 
+      setDados(null);
+      setErro(null);
+
       async function carregar() {
         try {
           const resposta =
             await fetch(
-              "/api/viagens/radar/destaque",
+              `/api/viagens/radar/destaque?slug=${encodeURIComponent(radarSlug)}`,
               {
                 cache: "no-store",
               }
@@ -210,7 +296,9 @@ export default function RadarPublico() {
         ativo = false;
       };
     },
-    []
+    [
+      radarSlug,
+    ]
   );
 
   if (erro) {
@@ -272,11 +360,56 @@ export default function RadarPublico() {
         ) * 100
       : 0;
 
+  const mostrarPrecoBom =
+    dados.radar.regua
+      .precoBomAte >
+    dados.radar.regua
+      .achadoAbsurdoAte;
+
+  const mostrarInteressante =
+    dados.radar.regua
+      .interessanteAte >
+    dados.radar.regua
+      .precoBomAte;
+
+  const limiteComumAberto =
+    dados.radar.regua
+      .precoComumAte >=
+    900000;
+
   return (
     <section
       id="radar-real"
       className="mx-auto max-w-7xl px-5 py-10"
     >
+      <div className="mb-4 flex flex-wrap gap-2">
+        {RADARES.map(
+          (radar) => (
+            <button
+              key={radar.slug}
+              type="button"
+              onClick={() =>
+                setRadarSlug(
+                  radar.slug
+                )
+              }
+              className={
+                "rounded-full border px-4 py-2 text-sm font-black transition " +
+                (
+                  radarSlug ===
+                  radar.slug
+                    ? "border-blue-700 bg-blue-700 text-white shadow-sm"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                )
+              }
+            >
+              {radar.emoji}{" "}
+              {radar.label}
+            </button>
+          )
+        )}
+      </div>
+
       <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-xl shadow-slate-900/5">
 
         <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-cyan-800 px-6 py-7 text-white sm:px-8">
@@ -291,17 +424,19 @@ export default function RadarPublico() {
                 </span>
 
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
-                  Atualização automática 4x/dia
+                  {radarSlug === "poa-orlando"
+                    ? "Atualização automática 4x/dia"
+                    : "Monitoramento real iniciado"}
                 </span>
 
               </div>
 
               <h2 className="mt-4 text-3xl font-black sm:text-4xl">
-                Porto Alegre → Orlando
+                {dados.radar.nome}
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">
-                Preços reais monitorados pelo Achados do Casal para identificar quando Orlando realmente entra em promoção.
+                Preços reais monitorados pelo Achados do Casal para identificar quando esta rota realmente entra em promoção.
               </p>
             </div>
 
@@ -357,7 +492,7 @@ export default function RadarPublico() {
                     }
                   >
                     {melhor.emojiFaixa}{" "}
-                    {melhor.tituloFaixa}
+                    {rotuloFaixaRota(melhor.faixa, radarSlug, melhor.tituloFaixa)}
                   </span>
 
                   {melhor.companhia && (
@@ -435,7 +570,11 @@ export default function RadarPublico() {
                         )}
                       </strong>{" "}
                       para entrar na faixa
-                      🔥 Achado Absurdo
+                      🔥 {rotuloFaixaRota(
+                        "achado_absurdo",
+                        radarSlug,
+                        "Achado Absurdo"
+                      )}
                       {" "}
                       (
                       {percentualAcima.toFixed(
@@ -459,7 +598,7 @@ export default function RadarPublico() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
 
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Régua de preço POA → Orlando
+              Régua de preço {dados.radar.origem} → {dados.radar.destino}
             </p>
 
             <h3 className="mt-2 text-2xl font-black text-slate-950">
@@ -471,7 +610,11 @@ export default function RadarPublico() {
               <div className="flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50 p-4">
                 <div>
                   <p className="font-black text-orange-900">
-                    🔥 Achado absurdo
+                    🔥 {rotuloFaixaRota(
+                      "achado_absurdo",
+                      radarSlug,
+                      "Achado absurdo"
+                    )}
                   </p>
                   <p className="text-xs text-orange-700">
                     Valor que merece atenção imediata
@@ -486,7 +629,15 @@ export default function RadarPublico() {
                 </strong>
               </div>
 
-              <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div
+                style={{
+                  display:
+                    mostrarPrecoBom
+                      ? undefined
+                      : "none",
+                }}
+                className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+              >
                 <div>
                   <p className="font-black text-emerald-900">
                     🟢 Preço bom
@@ -501,7 +652,15 @@ export default function RadarPublico() {
                 </strong>
               </div>
 
-              <div className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div
+                style={{
+                  display:
+                    mostrarInteressante
+                      ? undefined
+                      : "none",
+                }}
+                className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 p-4"
+              >
                 <div>
                   <p className="font-black text-amber-900">
                     🟡 Interessante
@@ -519,21 +678,49 @@ export default function RadarPublico() {
               <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div>
                   <p className="font-black text-slate-800">
-                    ⚪ Preço comum
+                    ⚪ {rotuloFaixaRota(
+                      "preco_comum",
+                      radarSlug,
+                      "Preço comum"
+                    )}
                   </p>
                 </div>
                 <strong className="text-slate-800">
-                  até{" "}
-                  {dinheiro(
-                    dados.radar.regua
-                      .precoComumAte
+{limiteComumAberto ? (
+                    <>
+                      acima de{" "}
+                      {dinheiro(
+                        dados.radar.regua
+                          .interessanteAte
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      até{" "}
+                      {dinheiro(
+                        dados.radar.regua
+                          .precoComumAte
+                      )}
+                    </>
                   )}
                 </strong>
               </div>
 
-              <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4">
+              <div
+                style={{
+                  display:
+                    limiteComumAberto
+                      ? "none"
+                      : undefined,
+                }}
+                className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4"
+              >
                 <p className="font-black text-red-800">
-                  ❌ Não é promoção
+                  ❌ {rotuloFaixaRota(
+                    "nao_promocao",
+                    radarSlug,
+                    "Não é promoção"
+                  )}
                 </p>
                 <strong className="text-red-800">
                   acima de{" "}
@@ -606,7 +793,7 @@ export default function RadarPublico() {
                       }
                     >
                       {oferta.emojiFaixa}{" "}
-                      {oferta.tituloFaixa}
+                      {rotuloFaixaRota(oferta.faixa, radarSlug, oferta.tituloFaixa)}
                     </span>
 
                   </div>

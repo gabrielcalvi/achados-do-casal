@@ -1,4 +1,5 @@
 import {
+  NextRequest,
   NextResponse,
 } from "next/server";
 
@@ -9,8 +10,17 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const RADAR_SLUG =
+const RADAR_PADRAO =
   "poa-orlando";
+
+const RADARES_PUBLICOS =
+  new Set([
+    "poa-orlando",
+    "poa-new-york",
+    "poa-miami",
+    "poa-los-angeles",
+    "poa-lisboa",
+  ]);
 
 function criarSupabase() {
   const url =
@@ -153,8 +163,33 @@ function normalizarOferta(
   };
 }
 
-export async function GET() {
+export async function GET(
+  request: NextRequest
+) {
   try {
+    const radarSlug =
+      request.nextUrl.searchParams
+        .get("slug")
+        ?.trim() ||
+      RADAR_PADRAO;
+
+    if (
+      !RADARES_PUBLICOS.has(
+        radarSlug
+      )
+    ) {
+      return NextResponse.json(
+        {
+          sucesso: false,
+          erro:
+            "Radar nao encontrado.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
     const supabase =
       criarSupabase();
 
@@ -179,7 +214,7 @@ export async function GET() {
         `)
         .eq(
           "slug",
-          RADAR_SLUG
+          radarSlug
         )
         .single();
 
