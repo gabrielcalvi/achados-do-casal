@@ -106,6 +106,59 @@ function textoFaixa(
   );
 }
 
+function mediana(
+  valores: number[]
+) {
+  if (!valores.length) {
+    return 0;
+  }
+
+  const ordenados =
+    [...valores].sort(
+      (
+        a,
+        b
+      ) =>
+        a - b
+    );
+
+  const meio =
+    Math.floor(
+      ordenados.length / 2
+    );
+
+  if (
+    ordenados.length %
+      2 ===
+    1
+  ) {
+    return ordenados[
+      meio
+    ];
+  }
+
+  return (
+    ordenados[
+      meio - 1
+    ] +
+    ordenados[
+      meio
+    ]
+  ) / 2;
+}
+
+function chaveMes(
+  data: unknown
+) {
+  return String(
+    data || ""
+  ).slice(
+    0,
+    7
+  );
+}
+
+
 function normalizarOferta(
   item: any
 ) {
@@ -293,8 +346,10 @@ export async function GET(
     }
 
     const {
-      data: menores,
-      error: erroMenores,
+      data:
+        historicoMensalRaw,
+      error:
+        erroHistoricoMensal,
     } =
       await supabase
         .from(
@@ -319,64 +374,265 @@ export async function GET(
           "ignav"
         )
         .order(
-          "preco_por_pessoa",
-          {
-            ascending:
-              true,
-          }
-        )
-        .order(
           "observado_em",
           {
             ascending:
               false,
           }
         )
-        .limit(100);
+        .limit(
+          1000
+        );
 
-    if (erroMenores) {
+    if (
+      erroHistoricoMensal
+    ) {
       throw new Error(
-        erroMenores.message
+        erroHistoricoMensal
+          .message
       );
     }
 
-    const unicas =
+    const registros =
+      (
+        historicoMensalRaw ||
+        []
+      ).filter(
+        (
+          item: any
+        ) => {
+          const preco =
+            Number(
+              item
+                .preco_por_pessoa
+            );
+
+          return (
+            Number.isFinite(
+              preco
+            ) &&
+            preco > 0 &&
+            chaveMes(
+              item.ida
+            ).length ===
+              7
+          );
+        }
+      );
+
+    const hoje =
+      new Date()
+        .toISOString()
+        .slice(
+          0,
+          10
+        );
+
+    const futuros =
+      registros.filter(
+        (
+          item: any
+        ) =>
+          String(
+            item.ida
+          ) >= hoje
+      );
+
+    const melhorPorMes =
       new Map<
         string,
         any
       >();
 
+    const valoresPorMes =
+      new Map<
+        string,
+        number[]
+      >();
+
     for (
-      const item of
-      menores || []
+      const item of registros
     ) {
-      const chave =
-        `${item.ida}|${item.volta}`;
+      const mes =
+        chaveMes(
+          item.ida
+        );
+
+      const preco =
+        Number(
+          item
+            .preco_por_pessoa
+        );
+
+      const lista =
+        valoresPorMes.get(
+          mes
+        ) || [];
+
+      lista.push(
+        preco
+      );
+
+      valoresPorMes.set(
+        mes,
+        lista
+      );
+    }
+
+    for (
+      const item of futuros
+    ) {
+      const mes =
+        chaveMes(
+          item.ida
+        );
+
+      const atual =
+        melhorPorMes.get(
+          mes
+        );
+
+      const preco =
+        Number(
+          item
+            .preco_por_pessoa
+        );
+
+      const precoAtual =
+        atual
+          ? Number(
+              atual
+                .preco_por_pessoa
+            )
+          : Infinity;
+
+      const atualizacaoAtual =
+        atual
+          ? new Date(
+              atual
+                .observado_em
+            ).getTime()
+          : 0;
+
+      const atualizacaoNova =
+        new Date(
+          item.observado_em
+        ).getTime();
 
       if (
-        !unicas.has(
-          chave
+        !atual ||
+        preco <
+          precoAtual ||
+        (
+          preco ===
+            precoAtual &&
+          atualizacaoNova >
+            atualizacaoAtual
         )
       ) {
-        unicas.set(
-          chave,
+        melhorPorMes.set(
+          mes,
           item
         );
-      }
-
-      if (
-        unicas.size >= 5
-      ) {
-        break;
       }
     }
 
     const melhores =
       Array.from(
-        unicas.values()
-      ).map(
-        normalizarOferta
+        melhorPorMes.values()
+      )
+        .sort(
+          (
+            a: any,
+            b: any
+          ) =>
+            Number(
+              a
+                .preco_por_pessoa
+            ) -
+              Number(
+                b
+                  .preco_por_pessoa
+              ) ||
+            String(
+              b.observado_em
+            ).localeCompare(
+              String(
+                a.observado_em
+              )
+            )
+        )
+        .slice(
+          0,
+          5
+        )
+        .map(
+          normalizarOferta
+        );
+
+    const resumoMensal =
+      Array.from(
+        valoresPorMes.entries()
+      )
+        .map(
+          (
+            [
+              mes,
+              valores,
+            ]
+          ) => ({
+            mes,
+
+            minimo:
+              Number(
+                Math.min(
+                  ...valores
+                ).toFixed(
+                  2
+                )
+              ),
+
+            mediana:
+              Number(
+                mediana(
+                  valores
+                ).toFixed(
+                  2
+                )
+              ),
+
+            observacoes:
+              valores.length,
+          })
+        )
+        .sort(
+          (
+            a,
+            b
+          ) =>
+            a.mediana -
+              b.mediana ||
+            a.minimo -
+              b.minimo
+        );
+
+    const mesesComAmostra =
+      resumoMensal.filter(
+        (
+          item
+        ) =>
+          item.observacoes >=
+          3
       );
+
+    const historicoMensalSuficiente =
+      mesesComAmostra.length >=
+      3;
+
+    const mesMaisBarato =
+      historicoMensalSuficiente
+        ? mesesComAmostra[0]
+        : null;
 
     const melhor =
       melhores[0] ||
@@ -433,6 +689,19 @@ export async function GET(
         melhor,
 
         melhores,
+
+        historicoMensal: {
+          suficiente:
+            historicoMensalSuficiente,
+
+          mesMaisBarato,
+
+          meses:
+            resumoMensal.slice(
+              0,
+              12
+            ),
+        },
       },
       {
         headers: {

@@ -1,20 +1,20 @@
 {
-    "crons":  [
-                  {
-                      "path":  "/api/admin/economize/agente/executar",
-                      "schedule":  "0 3,9,15,21 * * *"
-                  },
-                  {
-                      "path":  "/api/admin/economize/awin/kabum/executar",
-                      "schedule":  "0 0,6,12,18 * * *"
-                  },
-                  {
-                      "path":  "/api/admin/economize/awin/multiloja/executar",
-                      "schedule":  "0 1,7,13,19 * * *"
-                  },
-                  {
-                      "path":  "/api/admin/viagens/radar/executar",
-                      "schedule":  "0 2,8,14,20 * * *"
-                  }
-              ]
+  "crons": [
+    {
+      "path": "/api/admin/economize/agente/executar",
+      "schedule": "0 3,9,15,21 * * *"
+    },
+    {
+      "path": "/api/admin/economize/awin/kabum/executar",
+      "schedule": "0 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/admin/economize/awin/multiloja/executar",
+      "schedule": "0 1,7,13,19 * * *"
+    },
+    {
+      "path": "/api/admin/viagens/radar/rodada",
+      "schedule": "0 2,8,14,20 * * *"
+    }
+  ]
 }

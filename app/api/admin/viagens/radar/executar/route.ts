@@ -164,22 +164,62 @@ function diasNoMes(
   ).getUTCDate();
 }
 
-function gerarCombinacoes() {
-  const meses = [
-    {
-      ano: 2026,
-      mes: 9,
-    },
-    {
-      ano: 2027,
-      mes: 3,
-    },
-  ];
+function gerarMesesMonitorados(
+  quantidade = 10
+) {
+  const agora =
+    new Date();
 
-  const combinacoes: Combinacao[] =
+  const inicio =
+    new Date(
+      Date.UTC(
+        agora.getUTCFullYear(),
+        agora.getUTCMonth() + 1,
+        1
+      )
+    );
+
+  return Array.from(
+    {
+      length:
+        quantidade,
+    },
+    (
+      _,
+      indice
+    ) => {
+      const data =
+        new Date(
+          Date.UTC(
+            inicio.getUTCFullYear(),
+            inicio.getUTCMonth() +
+              indice,
+            1
+          )
+        );
+
+      return {
+        ano:
+          data.getUTCFullYear(),
+
+        mes:
+          data.getUTCMonth() + 1,
+      };
+    }
+  );
+}
+
+function gerarCombinacoes() {
+  const meses =
+    gerarMesesMonitorados();
+
+  const combinacoes:
+    Combinacao[] =
     [];
 
-  for (const periodo of meses) {
+  for (
+    const periodo of meses
+  ) {
     const totalDias =
       diasNoMes(
         periodo.ano,
@@ -218,6 +258,15 @@ function gerarCombinacoes() {
   }
 
   return combinacoes;
+}
+
+function chaveMes(
+  data: string
+) {
+  return data.slice(
+    0,
+    7
+  );
 }
 
 function chaveCombinacao(
@@ -363,8 +412,15 @@ function selecionarCombinacoes(
       ObservacaoAnterior
     >();
 
+  const observacoesPorMes =
+    new Map<
+      string,
+      number
+    >();
+
   for (
-    const observacao of anteriores
+    const observacao of
+    anteriores
   ) {
     const chave =
       chaveCombinacao(
@@ -391,73 +447,220 @@ function selecionarCombinacoes(
         observacao
       );
     }
+
+    const mes =
+      chaveMes(
+        observacao.ida
+      );
+
+    observacoesPorMes.set(
+      mes,
+      (
+        observacoesPorMes.get(
+          mes
+        ) || 0
+      ) + 1
+    );
   }
 
-  return [...todas]
-    .sort(
-      (a, b) => {
-        const obsA =
-          ultimaPorCombinacao.get(
-            chaveCombinacao(
-              a.ida,
-              a.volta
-            )
-          );
+  const porMes =
+    new Map<
+      string,
+      Combinacao[]
+    >();
 
-        const obsB =
-          ultimaPorCombinacao.get(
-            chaveCombinacao(
-              b.ida,
-              b.volta
-            )
-          );
+  for (
+    const combinacao of
+    todas
+  ) {
+    const mes =
+      chaveMes(
+        combinacao.ida
+      );
 
-        if (!obsA && obsB) {
-          return -1;
-        }
+    const lista =
+      porMes.get(
+        mes
+      ) || [];
 
-        if (obsA && !obsB) {
-          return 1;
-        }
+    lista.push(
+      combinacao
+    );
 
-        if (!obsA && !obsB) {
-          return (
-            a.ida.localeCompare(
-              b.ida
-            ) ||
-            a.permanencia -
-              b.permanencia
-          );
-        }
+    porMes.set(
+      mes,
+      lista
+    );
+  }
 
-        const tempoA =
-          new Date(
-            obsA!.observado_em
-          ).getTime();
+  function compararDentroMes(
+    a: Combinacao,
+    b: Combinacao
+  ) {
+    const obsA =
+      ultimaPorCombinacao.get(
+        chaveCombinacao(
+          a.ida,
+          a.volta
+        )
+      );
 
-        const tempoB =
-          new Date(
-            obsB!.observado_em
-          ).getTime();
+    const obsB =
+      ultimaPorCombinacao.get(
+        chaveCombinacao(
+          b.ida,
+          b.volta
+        )
+      );
 
-        if (tempoA !== tempoB) {
-          return tempoA - tempoB;
-        }
+    if (!obsA && obsB) {
+      return -1;
+    }
+
+    if (obsA && !obsB) {
+      return 1;
+    }
+
+    if (!obsA && !obsB) {
+      return (
+        a.ida.localeCompare(
+          b.ida
+        ) ||
+        a.permanencia -
+          b.permanencia
+      );
+    }
+
+    const tempoA =
+      new Date(
+        obsA!.observado_em
+      ).getTime();
+
+    const tempoB =
+      new Date(
+        obsB!.observado_em
+      ).getTime();
+
+    if (
+      tempoA !==
+      tempoB
+    ) {
+      return (
+        tempoA -
+        tempoB
+      );
+    }
+
+    return (
+      Number(
+        obsA!.preco_por_pessoa
+      ) -
+      Number(
+        obsB!.preco_por_pessoa
+      )
+    );
+  }
+
+  for (
+    const lista of
+    porMes.values()
+  ) {
+    lista.sort(
+      compararDentroMes
+    );
+  }
+
+  const meses =
+    Array.from(
+      porMes.keys()
+    ).sort(
+      (
+        a,
+        b
+      ) => {
+        const quantidadeA =
+          observacoesPorMes.get(
+            a
+          ) || 0;
+
+        const quantidadeB =
+          observacoesPorMes.get(
+            b
+          ) || 0;
 
         return (
-          Number(
-            obsA!.preco_por_pessoa
-          ) -
-          Number(
-            obsB!.preco_por_pessoa
+          quantidadeA -
+            quantidadeB ||
+          a.localeCompare(
+            b
           )
         );
       }
-    )
-    .slice(
-      0,
-      limite
     );
+
+  const selecionadas:
+    Combinacao[] =
+    [];
+
+  const indicePorMes =
+    new Map<
+      string,
+      number
+    >();
+
+  while (
+    selecionadas.length <
+    limite
+  ) {
+    let adicionou =
+      false;
+
+    for (
+      const mes of meses
+    ) {
+      const lista =
+        porMes.get(
+          mes
+        ) || [];
+
+      const indice =
+        indicePorMes.get(
+          mes
+        ) || 0;
+
+      if (
+        indice >=
+        lista.length
+      ) {
+        continue;
+      }
+
+      selecionadas.push(
+        lista[indice]
+      );
+
+      indicePorMes.set(
+        mes,
+        indice + 1
+      );
+
+      adicionou =
+        true;
+
+      if (
+        selecionadas.length >=
+        limite
+      ) {
+        break;
+      }
+    }
+
+    if (!adicionou) {
+      break;
+    }
+  }
+
+  return selecionadas;
 }
 
 async function lerIgnav(
