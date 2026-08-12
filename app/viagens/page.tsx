@@ -1,3 +1,5 @@
+import RadarPublico from "./RadarPublico";
+
 const categorias = [
   {
     icone: "✈️",
@@ -325,7 +327,9 @@ export default function ViagensPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-16">
+            <RadarPublico />
+
+<section className="mx-auto max-w-7xl px-5 py-16">
 
         <div className="rounded-3xl bg-gradient-to-r from-cyan-600 to-blue-800 p-8 text-white sm:p-10">
 
