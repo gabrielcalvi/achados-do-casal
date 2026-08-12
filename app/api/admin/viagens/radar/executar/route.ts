@@ -115,6 +115,9 @@ const ROTAS:
 const PERMANENCIAS =
   [8, 12, 15];
 
+const PERMANENCIAS_CACA =
+  [9, 10, 8, 12, 15];
+
 const LIMITE_PADRAO =
   6;
 
@@ -317,6 +320,443 @@ function gerarCombinacoes() {
   }
 
   return combinacoes;
+}
+
+
+function normalizarMesCaca(
+  valor: string
+) {
+  const match =
+    /^(\d{4})-(\d{2})$/.exec(
+      valor
+    );
+
+  if (!match) {
+    throw new Error(
+      "Parametro mes deve usar YYYY-MM."
+    );
+  }
+
+  const ano =
+    Number(
+      match[1]
+    );
+
+  const mes =
+    Number(
+      match[2]
+    );
+
+  if (
+    !Number.isInteger(
+      ano
+    ) ||
+    !Number.isInteger(
+      mes
+    ) ||
+    mes < 1 ||
+    mes > 12
+  ) {
+    throw new Error(
+      "Mes da caca invalido."
+    );
+  }
+
+  return {
+    ano,
+    mes,
+    chave:
+      valor,
+  };
+}
+
+function gerarCombinacoesCaca(
+  mesValor: string,
+  diaPreferido:
+    number | null
+) {
+  const periodo =
+    normalizarMesCaca(
+      mesValor
+    );
+
+  const totalDias =
+    diasNoMes(
+      periodo.ano,
+      periodo.mes
+    );
+
+  if (
+    diaPreferido !== null &&
+    (
+      !Number.isInteger(
+        diaPreferido
+      ) ||
+      diaPreferido < 1 ||
+      diaPreferido >
+        totalDias
+    )
+  ) {
+    throw new Error(
+      "Dia da caca invalido para o mes."
+    );
+  }
+
+  const dias =
+    diaPreferido !== null
+      ? [
+          diaPreferido,
+        ]
+      : Array.from(
+          {
+            length:
+              totalDias,
+          },
+          (
+            _,
+            indice
+          ) =>
+            indice + 1
+        );
+
+  const combinacoes:
+    Combinacao[] =
+    [];
+
+  for (
+    const dia of dias
+  ) {
+    const ida =
+      dataIso(
+        periodo.ano,
+        periodo.mes,
+        dia
+      );
+
+    for (
+      const permanencia of
+      PERMANENCIAS_CACA
+    ) {
+      combinacoes.push({
+        ida,
+
+        volta:
+          adicionarDias(
+            ida,
+            permanencia
+          ),
+
+        permanencia,
+      });
+    }
+  }
+
+  return combinacoes;
+}
+
+function selecionarCombinacoesCaca(
+  todas:
+    Combinacao[],
+
+  historico:
+    ObservacaoAnterior[],
+
+  limite:
+    number,
+
+  mesValor:
+    string,
+
+  diaPreferido:
+    number | null
+) {
+  const periodo =
+    normalizarMesCaca(
+      mesValor
+    );
+
+  /*
+   * NUNCA repete uma combinacao ida/volta
+   * que ja existe no historico.
+   */
+  const jaConsultadas =
+    new Set(
+      historico.map(
+        (observacao) =>
+          chaveCombinacao(
+            observacao.ida,
+            observacao.volta
+          )
+      )
+    );
+
+  const disponiveis =
+    todas.filter(
+      (combinacao) =>
+        !jaConsultadas.has(
+          chaveCombinacao(
+            combinacao.ida,
+            combinacao.volta
+          )
+        )
+    );
+
+  if (
+    disponiveis.length === 0
+  ) {
+    return [];
+  }
+
+  /*
+   * DIA EXPLICITO:
+   *
+   * usado inclusive no teste ouro.
+   * Testa as permanencias do mesmo
+   * dia seguindo a prioridade
+   * 9 -> 10 -> 8 -> 12 -> 15.
+   */
+  if (
+    diaPreferido !== null
+  ) {
+    return disponiveis
+      .sort(
+        (
+          a,
+          b
+        ) => {
+          const prioridadeA =
+            PERMANENCIAS_CACA.indexOf(
+              a.permanencia
+            );
+
+          const prioridadeB =
+            PERMANENCIAS_CACA.indexOf(
+              b.permanencia
+            );
+
+          return (
+            prioridadeA -
+            prioridadeB
+          );
+        }
+      )
+      .slice(
+        0,
+        limite
+      );
+  }
+
+  /*
+   * Procura a melhor observacao
+   * que ja temos naquele mes.
+   *
+   * Ela vira a ANCORAGEM da caca.
+   */
+  const historicoMes =
+    historico
+      .filter(
+        (observacao) =>
+          chaveMes(
+            observacao.ida
+          ) ===
+          periodo.chave
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          a.preco_por_pessoa -
+          b.preco_por_pessoa
+      );
+
+  const diaAncora =
+    historicoMes.length > 0
+      ? Number(
+          historicoMes[0]
+            .ida
+            .slice(
+              8,
+              10
+            )
+        )
+      : 1;
+
+  const totalDias =
+    diasNoMes(
+      periodo.ano,
+      periodo.mes
+    );
+
+  /*
+   * Em vez de andar simplesmente
+   * 1,2,3,4...
+   *
+   * procuramos em volta da melhor
+   * data historica.
+   *
+   * Primeiro deslocamentos pares:
+   * 0, 2, 4, 6, 8...
+   *
+   * Depois impares:
+   * 1, 3, 5, 7...
+   *
+   * Exemplo se a ancora for dia 1:
+   *
+   * 1,3,5,7,9,11...
+   *
+   * Isso faria o dia 09 aparecer
+   * rapidamente no caso Madrid.
+   */
+  const ordemDias:
+    number[] =
+    [];
+
+  const vistos =
+    new Set<
+      number
+    >();
+
+  function adicionarDia(
+    dia: number
+  ) {
+    if (
+      dia < 1 ||
+      dia >
+        totalDias ||
+      vistos.has(
+        dia
+      )
+    ) {
+      return;
+    }
+
+    vistos.add(
+      dia
+    );
+
+    ordemDias.push(
+      dia
+    );
+  }
+
+  for (
+    let distancia = 0;
+    distancia <=
+      totalDias;
+    distancia += 2
+  ) {
+    adicionarDia(
+      diaAncora -
+      distancia
+    );
+
+    if (
+      distancia > 0
+    ) {
+      adicionarDia(
+        diaAncora +
+        distancia
+      );
+    }
+  }
+
+  for (
+    let distancia = 1;
+    distancia <=
+      totalDias;
+    distancia += 2
+  ) {
+    adicionarDia(
+      diaAncora -
+      distancia
+    );
+
+    adicionarDia(
+      diaAncora +
+      distancia
+    );
+  }
+
+  /*
+   * Indexamos candidato por
+   * DIA + PERMANENCIA.
+   */
+  const porDiaPermanencia =
+    new Map<
+      string,
+      Combinacao
+    >();
+
+  for (
+    const combinacao of
+    disponiveis
+  ) {
+    const dia =
+      Number(
+        combinacao.ida.slice(
+          8,
+          10
+        )
+      );
+
+    porDiaPermanencia.set(
+      dia +
+      "|" +
+      combinacao.permanencia,
+      combinacao
+    );
+  }
+
+  const selecionadas:
+    Combinacao[] =
+    [];
+
+  /*
+   * PRIMEIRO percorremos DIAS
+   * com permanencia 9.
+   *
+   * Depois 10.
+   *
+   * Somente depois revisitamos
+   * 8 / 12 / 15.
+   *
+   * Isso complementa a Camada 1
+   * em vez de copiar o trabalho dela.
+   */
+  for (
+    const permanencia of
+    PERMANENCIAS_CACA
+  ) {
+    for (
+      const dia of
+      ordemDias
+    ) {
+      const candidato =
+        porDiaPermanencia.get(
+          dia +
+          "|" +
+          permanencia
+        );
+
+      if (!candidato) {
+        continue;
+      }
+
+      selecionadas.push(
+        candidato
+      );
+
+      if (
+        selecionadas.length >=
+        limite
+      ) {
+        return selecionadas;
+      }
+    }
+  }
+
+  return selecionadas;
 }
 
 function chaveMes(
@@ -1417,15 +1857,117 @@ async function executar(
         valoresHistoricos
       );
 
+    const modoCaca =
+      request.nextUrl.searchParams
+        .get(
+          "modo"
+        ) ===
+      "caca";
+
+    const mesCaca =
+      request.nextUrl.searchParams
+        .get(
+          "mes"
+        )
+        ?.trim() ||
+      null;
+
+    const diaCacaTexto =
+      request.nextUrl.searchParams
+        .get(
+          "dia"
+        )
+        ?.trim() ||
+      null;
+
+    const diaCaca =
+      diaCacaTexto
+        ? Number(
+            diaCacaTexto
+          )
+        : null;
+
+    const previewCaca =
+      modoCaca &&
+      request.nextUrl.searchParams
+        .get(
+          "preview"
+        ) ===
+        "1";
+
+    if (
+      modoCaca &&
+      !mesCaca
+    ) {
+      throw new Error(
+        "Modo caca exige parametro mes=YYYY-MM."
+      );
+    }
+
     const todas =
-      gerarCombinacoes();
+      modoCaca
+        ? gerarCombinacoesCaca(
+            mesCaca!,
+            diaCaca
+          )
+        : gerarCombinacoes();
 
     const selecionadas =
-      selecionarCombinacoes(
-        todas,
-        historicoReal,
-        limite
-      );
+      modoCaca
+        ? selecionarCombinacoesCaca(
+            todas,
+            historicoReal,
+            limite,
+            mesCaca!,
+            diaCaca
+          )
+        : selecionarCombinacoes(
+            todas,
+            historicoReal,
+            limite
+          );
+
+    /*
+     * PREVIEW:
+     *
+     * valida exatamente quais consultas
+     * seriam feitas.
+     *
+     * ZERO IGNAV.
+     * ZERO INSERT.
+     */
+    if (
+      previewCaca
+    ) {
+      return NextResponse.json({
+        sucesso:
+          true,
+
+        status:
+          "preview",
+
+        radar:
+          radarSlug,
+
+        modo:
+          "caca_profunda",
+
+        mes:
+          mesCaca,
+
+        dia:
+          diaCaca,
+
+        permanencias:
+          PERMANENCIAS_CACA,
+
+        consultas_planejadas:
+          selecionadas.length,
+
+        combinacoes:
+          selecionadas,
+      });
+    }
 
     const {
       data: execucao,
@@ -1450,7 +1992,22 @@ async function executar(
 
           metadata: {
             tipo:
-              "radar_automatico",
+              modoCaca
+                ? "radar_caca_profunda"
+                : "radar_automatico",
+
+            modo_caca:
+              modoCaca,
+
+            mes_caca:
+              modoCaca
+                ? mesCaca
+                : null,
+
+            dia_caca:
+              modoCaca
+                ? diaCaca
+                : null,
 
             slug:
               radarSlug,
