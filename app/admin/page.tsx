@@ -980,6 +980,7 @@ const produtosPaginados = produtosOrdenados.slice(
 >
   <option value="">Selecione uma categoria</option>
 <option value="Tecnologia">Tecnologia</option>
+<option value="Celulares">Celulares</option>
 <option value="Casa e Cozinha">Casa e Cozinha</option>
 <option value="Automotivo">Automotivo</option>
 <option value="Esportes">Esportes</option>
@@ -987,6 +988,7 @@ const produtosPaginados = produtosOrdenados.slice(
 <option value="Alimentos e Bebidas">Alimentos e Bebidas</option>
 <option value="Ferramentas">Ferramentas</option>
 <option value="Moda">Moda</option>
+<option value="Brinquedos">Brinquedos</option>
 <option value="Infantil">Infantil</option>
 <option value="Pet">Pet</option>
 </select>

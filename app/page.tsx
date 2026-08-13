@@ -29,6 +29,7 @@ reviewCompleta?: boolean;
 const categorias = [
   "Todos",
   "Tecnologia",
+  "Celulares",
   "Casa e Cozinha",
   "Automotivo",
   "Esportes",
@@ -36,6 +37,7 @@ const categorias = [
   "Alimentos e Bebidas",
   "Ferramentas",
   "Moda",
+  "Brinquedos",
   "Infantil",
   "Pet",
 ];
@@ -159,7 +161,7 @@ carregarProdutos();
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+      <header className="relative z-50 border-b border-slate-200 bg-white shadow-sm lg:sticky lg:top-0">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center">
           <a href="/" className="shrink-0">
             <img
