@@ -240,7 +240,11 @@ export async function GET(
       sucesso,
 
       consultas_planejadas:
-        CONSULTAS_PLANEJADAS,
+        ROTAS.reduce(
+          (total, rota) =>
+            total + rota.limite,
+          0
+        ),
 
       consultas_realizadas:
         consultas,
