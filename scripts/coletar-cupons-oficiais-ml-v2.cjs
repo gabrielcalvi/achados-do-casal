@@ -32,11 +32,13 @@ function expirado(data) {
 
 (async () => {
 
-  const perfil = path.join(
-    process.cwd(),
-    "tmp",
-    "meli-buyer-profile"
-  );
+  const authFile =
+    process.env.MELI_BUYER_AUTH_STATE_PATH?.trim() ||
+    path.join(
+      process.cwd(),
+      "tmp",
+      "meli-buyer-auth.json"
+    );
 
   const saida = path.join(
     process.cwd(),
@@ -44,26 +46,27 @@ function expirado(data) {
     "ml-cupons-v2-oficiais.json"
   );
 
-  if (!fs.existsSync(perfil)) {
+  if (!fs.existsSync(authFile)) {
     throw new Error(
-      "Perfil comprador nao encontrado em tmp/meli-buyer-profile."
+      `Sessao comprador nao encontrada: ${authFile}`
     );
   }
 
+  const browser =
+    await chromium.launch({
+      headless: false,
+    });
+
   const context =
-    await chromium.launchPersistentContext(
-      perfil,
-      {
-        headless: false,
-        viewport: {
-          width: 1400,
-          height: 900,
-        },
-      }
-    );
+    await browser.newContext({
+      storageState: authFile,
+      viewport: {
+        width: 1400,
+        height: 900,
+      },
+    });
 
   const page =
-    context.pages()[0] ||
     await context.newPage();
 
   console.log("");
@@ -521,6 +524,7 @@ function expirado(data) {
   );
 
   await context.close();
+  await browser.close();
 
 })().catch((erro) => {
 
