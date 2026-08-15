@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PacotesViagem from "./PacotesViagem";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +35,7 @@ const RADARES = [
   "gig-lisboa",
 ] as const;
 
-function formatarPreco(
-  valor: number | null,
-  moeda = "BRL"
-) {
+function formatarPreco(valor: number | null, moeda = "BRL") {
   if (!Number.isFinite(valor)) {
     return "—";
   }
@@ -60,9 +58,7 @@ function formatarData(valor: string | null) {
   });
 }
 
-async function carregarRadar(
-  slug: string
-): Promise<RadarStatus> {
+async function carregarRadar(slug: string): Promise<RadarStatus> {
   try {
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -75,9 +71,7 @@ async function carregarRadar(
 
     const resposta = await fetch(
       `${origem}/api/viagens/radar/destaque?slug=${encodeURIComponent(slug)}`,
-      {
-        cache: "no-store",
-      }
+      { cache: "no-store" }
     );
 
     const dados = await resposta.json();
@@ -133,12 +127,8 @@ export default async function AdminViagensPage() {
     RADARES.map((slug) => carregarRadar(slug))
   );
 
-  const comDados = radares.filter(
-    (radar) => !radar.erro
-  );
-
+  const comDados = radares.filter((radar) => !radar.erro);
   const comErro = radares.length - comDados.length;
-
   const totalObservacoes = comDados.reduce(
     (total, radar) => total + radar.observacoes,
     0
@@ -155,12 +145,13 @@ export default async function AdminViagensPage() {
               </p>
 
               <h1 className="mt-2 text-3xl font-black sm:text-4xl">
-                ✈️ Radar Inteligente de Viagens
+                ✈️ Viagens — Radar + Pacotes
               </h1>
 
               <p className="mt-2 max-w-3xl text-slate-600">
-                Visão administrativa dos radares automáticos. Aqui ficam
-                concentrados status, histórico e evolução da vertical Viagens.
+                O Radar encontra boas janelas de voo. A área de Pacotes permite
+                transformar essas oportunidades em aéreo + hotel com parceiro afiliado,
+                sem alterar a independência do score do Radar.
               </p>
             </div>
 
@@ -176,38 +167,30 @@ export default async function AdminViagensPage() {
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">
-              Radares configurados
-            </p>
-            <p className="mt-2 text-3xl font-black">
-              {radares.length}
-            </p>
+            <p className="text-sm font-bold text-slate-500">Radares configurados</p>
+            <p className="mt-2 text-3xl font-black">{radares.length}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">
-              Radares respondendo
-            </p>
+            <p className="text-sm font-bold text-slate-500">Radares respondendo</p>
             <p className="mt-2 text-3xl font-black text-emerald-600">
               {comDados.length}
             </p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">
-              Falhas de leitura
-            </p>
-            <p className={`mt-2 text-3xl font-black ${
-              comErro > 0 ? "text-red-600" : "text-emerald-600"
-            }`}>
+            <p className="text-sm font-bold text-slate-500">Falhas de leitura</p>
+            <p
+              className={`mt-2 text-3xl font-black ${
+                comErro > 0 ? "text-red-600" : "text-emerald-600"
+              }`}
+            >
               {comErro}
             </p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">
-              Observações acumuladas
-            </p>
+            <p className="text-sm font-bold text-slate-500">Observações acumuladas</p>
             <p className="mt-2 text-3xl font-black">
               {totalObservacoes.toLocaleString("pt-BR")}
             </p>
@@ -215,15 +198,11 @@ export default async function AdminViagensPage() {
         </section>
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-black">
-                Status dos 16 radares
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Dados lidos diretamente do mesmo endpoint usado na página pública.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-2xl font-black">Status dos 16 radares</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Dados lidos diretamente do mesmo endpoint usado na página pública.
+            </p>
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
@@ -242,10 +221,7 @@ export default async function AdminViagensPage() {
 
               <tbody>
                 {radares.map((radar) => (
-                  <tr
-                    key={radar.slug}
-                    className="border-t border-slate-100"
-                  >
+                  <tr key={radar.slug} className="border-t border-slate-100">
                     <td className="px-4 py-3 font-bold text-slate-900">
                       {radar.nome}
                       <div className="text-xs font-medium text-slate-400">
@@ -261,9 +237,7 @@ export default async function AdminViagensPage() {
                     <td className="px-4 py-3 font-black">
                       {formatarPreco(radar.melhorPreco, radar.moeda)}
                     </td>
-                    <td className="px-4 py-3">
-                      {radar.faixa || "—"}
-                    </td>
+                    <td className="px-4 py-3">{radar.faixa || "—"}</td>
                     <td className="px-4 py-3">
                       {formatarData(radar.ultimaAtualizacao)}
                     </td>
@@ -287,6 +261,8 @@ export default async function AdminViagensPage() {
             </table>
           </div>
         </section>
+
+        <PacotesViagem />
       </div>
     </main>
   );
