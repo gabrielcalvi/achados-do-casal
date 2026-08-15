@@ -1,4 +1,6 @@
-import chromiumServerless from "@sparticuz/chromium-min";
+import { existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { chromium as playwright } from "playwright";
 import type { PacoteDecolarExtraido } from "@/lib/viagens/decolar";
 
@@ -88,18 +90,61 @@ function companhia(texto: string) {
   return nomes.find((nome) => texto.toLowerCase().includes(nome.toLowerCase())) || "";
 }
 
+async function prepararChromiumServerless() {
+  const libDir = join(tmpdir(), "al2023", "lib");
+  const libNspr = join(libDir, "libnspr4.so");
+  const chromiumPath = join(tmpdir(), "chromium");
+
+  // O pacote usa VERCEL para decidir se deve extrair as libs AL2023.
+  // Garantimos esse sinal antes do import dinâmico para evitar uma detecção
+  // incompleta no runtime da Function.
+  process.env.VERCEL ||= "1";
+
+  // Em Function quente pode sobrar /tmp/chromium de uma execução anterior
+  // mesmo quando as bibliotecas AL2023 não foram extraídas. Nesse caso,
+  // removemos o estado parcial para forçar uma extração completa.
+  if (existsSync(chromiumPath) && !existsSync(libNspr)) {
+    rmSync(chromiumPath, { force: true });
+    rmSync(join(tmpdir(), "chromium-pack"), { recursive: true, force: true });
+    rmSync(join(tmpdir(), "al2023"), { recursive: true, force: true });
+  }
+
+  const modulo = await import("@sparticuz/chromium-min");
+  const chromiumServerless = modulo.default;
+  chromiumServerless.setGraphicsMode = false;
+
+  const executablePath = await chromiumServerless.executablePath(CHROMIUM_PACK_URL);
+
+  if (!existsSync(libNspr)) {
+    throw new Error(
+      "Chromium foi extraído, mas as bibliotecas AL2023 não foram preparadas (libnspr4.so ausente)."
+    );
+  }
+
+  const caminhosAtuais = (process.env.LD_LIBRARY_PATH || "")
+    .split(":")
+    .filter(Boolean);
+
+  process.env.LD_LIBRARY_PATH = [
+    libDir,
+    ...caminhosAtuais.filter((caminho) => caminho !== libDir),
+  ].join(":");
+
+  return { chromiumServerless, executablePath };
+}
+
 export async function extrairPacoteDecolarBrowser(link: string): Promise<PacoteDecolarExtraido> {
   const urlInicial = new URL(link);
   let browser: Awaited<ReturnType<typeof playwright.launch>> | null = null;
 
   try {
-    chromiumServerless.setGraphicsMode = false;
-    const executablePath = await chromiumServerless.executablePath(CHROMIUM_PACK_URL);
+    const { chromiumServerless, executablePath } = await prepararChromiumServerless();
 
     browser = await playwright.launch({
       executablePath,
       args: chromiumServerless.args,
       headless: true,
+      env: process.env,
     });
 
     const contexto = await browser.newContext({
