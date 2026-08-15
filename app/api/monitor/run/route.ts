@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const idParam = url.searchParams.get("id");
     const modo = url.searchParams.get("modo");
+    const modoLocal = modo === "local";
 
     if (idParam) {
       const id = Number(idParam);
@@ -57,19 +58,20 @@ export async function GET(request: Request) {
         });
       }
 
-      const resultado = await consultarPrecoProduto(id);
+      const resultado = await consultarPrecoProduto(id, null, modoLocal);
 
       return Response.json({
         sucesso: true,
-        modo: "produto_individual",
+        modo: modoLocal ? "produto_individual_local" : "produto_individual",
         resultado,
       });
     }
 
-    const resultado = await monitorarTodosProdutos();
+    const resultado = await monitorarTodosProdutos(modoLocal);
 
     return Response.json({
       sucesso: true,
+      modo: modoLocal ? "monitor_local" : "monitor_remoto",
       ...resultado,
     });
   } catch (erro) {
