@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getVercelOidcToken } from "@vercel/oidc";
 import { Sandbox } from "@vercel/sandbox";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -13,6 +14,8 @@ export const maxDuration = 300;
 const SANDBOX_BASE = "achados-cupons-ml-test";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const SCRIPT_PATH = "/vercel/tmp/extrair-pacote-decolar.cjs";
+const TEAM_ID = "team_0CKxtwEDL8irqdErEAY4cLLm";
+const PROJECT_ID = "prj_coa8aSyGbro5Phn3BYONZ3ui3kq3";
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
@@ -43,6 +46,20 @@ function precisaFallbackSandbox(erro: unknown) {
   );
 }
 
+async function obterSandbox() {
+  const token = await getVercelOidcToken({
+    team: TEAM_ID,
+    project: PROJECT_ID,
+  });
+
+  return Sandbox.get({
+    name: SANDBOX_BASE,
+    token,
+    teamId: TEAM_ID,
+    projectId: PROJECT_ID,
+  });
+}
+
 async function comando(
   sandbox: SandboxInstancia,
   cmd: string,
@@ -65,9 +82,7 @@ async function comando(
 async function extrairViaSandbox(
   link: string
 ): Promise<PacoteDecolarExtraido> {
-  const sandbox = await Sandbox.get({
-    name: SANDBOX_BASE,
-  });
+  const sandbox = await obterSandbox();
 
   const commit =
     process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
@@ -187,7 +202,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        "[Pacotes] Decolar bloqueou leitura direta. Reusando navegador do Sandbox nomeado."
+        "[Pacotes] Decolar bloqueou leitura direta. Tentando navegador autenticado do Sandbox."
       );
 
       dados = await extrairViaSandbox(link);
