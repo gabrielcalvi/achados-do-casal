@@ -29,6 +29,26 @@ function extrairItemIdMercadoLivre(link: string) {
   return null;
 }
 
+async function buscarProduto(produtoId: number) {
+  const { data: produto, error } = await supabaseAdmin
+    .from("produtos")
+    .select("id, nome, link, preco_atual")
+    .eq("id", produtoId)
+    .single();
+
+  if (error || !produto) {
+    throw new Error("Produto nao encontrado.");
+  }
+
+  const link = String(produto.link || "").trim();
+
+  if (!link) {
+    throw new Error("Produto sem link original.");
+  }
+
+  return { produto, link };
+}
+
 function urlDiretaAnuncio(link: string) {
   const itemId = extrairItemIdMercadoLivre(link);
 
@@ -89,22 +109,47 @@ function extrairJsonLdProduto(html: string) {
   return null;
 }
 
+export async function diagnosticarMercadoLivreApiPublica(produtoId: number) {
+  const { produto, link } = await buscarProduto(produtoId);
+  const itemId = extrairItemIdMercadoLivre(link);
+
+  if (!itemId) {
+    throw new Error("Nao foi possivel identificar o item do Mercado Livre.");
+  }
+
+  const resposta = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const texto = await resposta.text();
+  let json: Record<string, any> | null = null;
+
+  try {
+    json = JSON.parse(texto) as Record<string, any>;
+  } catch {
+    json = null;
+  }
+
+  return {
+    produto_id: produto.id,
+    produto: produto.nome,
+    item_id_detectado: itemId,
+    preco_banco: Number(produto.preco_atual),
+    http_status: resposta.status,
+    ok: resposta.ok,
+    nome_encontrado: json?.title || null,
+    preco_encontrado: Number.isFinite(Number(json?.price)) ? Number(json?.price) : null,
+    erro_api: json?.message || json?.error || null,
+    corpo_inicio: texto.slice(0, 500),
+  };
+}
+
 export async function diagnosticarMercadoLivreHttp(produtoId: number) {
-  const { data: produto, error } = await supabaseAdmin
-    .from("produtos")
-    .select("id, nome, link, preco_atual")
-    .eq("id", produtoId)
-    .single();
-
-  if (error || !produto) {
-    throw new Error("Produto nao encontrado.");
-  }
-
-  const link = String(produto.link || "").trim();
-  if (!link) {
-    throw new Error("Produto sem link original.");
-  }
-
+  const { produto, link } = await buscarProduto(produtoId);
   const itemId = extrairItemIdMercadoLivre(link);
   const url = urlDiretaAnuncio(link);
 
