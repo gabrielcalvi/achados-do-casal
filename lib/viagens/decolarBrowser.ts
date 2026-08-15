@@ -1,23 +1,20 @@
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import puppeteer, {
-  type Browser,
-  type HTTPResponse,
-  type Page,
-} from "puppeteer-core";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import type { PacoteDecolarExtraido } from "@/lib/viagens/decolar";
 
 const CHROMIUM_PACK_URL =
   "https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.x64.tar";
 
-const MAX_CAPTURAS_REDE = 40;
-const MAX_CORPO_REDE = 600_000;
+const MAX_CAPTURAS_REDE = 60;
+const MAX_CORPO_REDE = 800_000;
 
 type CapturaRede = {
   url: string;
   status: number;
   texto: string;
+  origem: "response" | "request";
 };
 
 type ValorJson = {
@@ -207,12 +204,6 @@ function mensagemErro(erro: unknown) {
   return erro instanceof Error ? erro.message : String(erro || "");
 }
 
-function navegacaoPodeContinuar(erro: unknown) {
-  return /navigating frame was detached|attempted to use detached frame|execution context was destroyed|cannot find context with specified id|net::err_aborted|target closed/i.test(
-    mensagemErro(erro)
-  );
-}
-
 function dormir(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -229,7 +220,7 @@ function achatarJson(
   saida: ValorJson[] = [],
   profundidade = 0
 ) {
-  if (saida.length >= 12_000 || profundidade > 12 || valor == null) {
+  if (saida.length >= 14_000 || profundidade > 12 || valor == null) {
     return saida;
   }
 
@@ -243,7 +234,7 @@ function achatarJson(
   }
 
   if (Array.isArray(valor)) {
-    for (let i = 0; i < Math.min(valor.length, 100); i += 1) {
+    for (let i = 0; i < Math.min(valor.length, 120); i += 1) {
       achatarJson(valor[i], `${caminho}[${i}]`, saida, profundidade + 1);
     }
     return saida;
@@ -257,7 +248,7 @@ function achatarJson(
         saida,
         profundidade + 1
       );
-      if (saida.length >= 12_000) break;
+      if (saida.length >= 14_000) break;
     }
   }
 
@@ -299,8 +290,8 @@ function sinaisDaRede(capturas: CapturaRede[]) {
   let tamanho = 0;
 
   for (const captura of capturas) {
-    if (tamanho < 2_500_000) {
-      const trecho = captura.texto.slice(0, 400_000);
+    if (tamanho < 3_000_000) {
+      const trecho = captura.texto.slice(0, 450_000);
       textos.push(trecho);
       tamanho += trecho.length;
     }
@@ -426,7 +417,7 @@ async function lerDomSeguro(browser: Browser, paginaInicial: Page) {
     return { pagina, dados, url };
   } catch (erro) {
     console.log(
-      `[Pacotes Decolar] DOM indisponivel; seguindo com URL + rede: ${mensagemErro(erro)}`
+      `[Pacotes Decolar] DOM indisponivel; seguindo com URL + CDP: ${mensagemErro(erro)}`
     );
     return { pagina, dados: null as DadosDom | null, url };
   }
@@ -511,79 +502,139 @@ export async function extrairPacoteDecolarBrowser(
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
     });
 
+    const cliente = await paginaInicial.createCDPSession();
+    await cliente.send("Page.enable");
+    await cliente.send("Network.enable", {
+      maxTotalBufferSize: 20_000_000,
+      maxResourceBufferSize: 2_000_000,
+      maxPostDataSize: 1_000_000,
+    });
+
     const capturas: CapturaRede[] = [];
+    const candidatos = new Map<
+      string,
+      { url: string; status: number; mimeType: string }
+    >();
     const pendentes = new Set<Promise<void>>();
     let statusDocumento = 0;
 
-    const capturarResposta = (resposta: HTTPResponse) => {
+    cliente.on("Network.requestWillBeSent", (evento) => {
       try {
-        const requisicao = resposta.request();
-        const tipo = requisicao.resourceType();
-        const contentType = resposta.headers()["content-type"] || "";
+        const url = evento.request.url;
+        const postData = evento.request.postData || "";
+        if (
+          postData &&
+          capturas.length < MAX_CAPTURAS_REDE &&
+          /graphql|package|hotel|accommodation|offer|price|alternative|search/i.test(
+            url
+          )
+        ) {
+          capturas.push({
+            url,
+            status: 0,
+            texto: postData.slice(0, MAX_CORPO_REDE),
+            origem: "request",
+          });
+        }
+      } catch {
+        // A navegação pode substituir o frame enquanto o evento chega.
+      }
+    });
 
-        if (requisicao.isNavigationRequest() && tipo === "document") {
-          statusDocumento = resposta.status();
+    cliente.on("Network.responseReceived", (evento) => {
+      try {
+        const { response, requestId, type } = evento;
+        const url = response.url;
+        const mimeType = response.mimeType || "";
+
+        if (type === "Document") {
+          statusDocumento = Math.round(response.status || 0);
         }
 
-        const candidataJson =
-          tipo === "xhr" ||
-          tipo === "fetch" ||
-          /json|graphql/i.test(contentType) ||
-          /graphql|package|hotel|accommodation|offer|price|alternative/i.test(
-            resposta.url()
+        const candidata =
+          type === "XHR" ||
+          type === "Fetch" ||
+          /json|graphql/i.test(mimeType) ||
+          /graphql|package|hotel|accommodation|offer|price|alternative|search/i.test(
+            url
           );
 
-        if (!candidataJson || capturas.length >= MAX_CAPTURAS_REDE) return;
-
-        const tarefa = resposta
-          .text()
-          .then((texto) => {
-            if (
-              texto &&
-              texto.length >= 2 &&
-              texto.length <= MAX_CORPO_REDE &&
-              capturas.length < MAX_CAPTURAS_REDE
-            ) {
-              capturas.push({
-                url: resposta.url(),
-                status: resposta.status(),
-                texto,
-              });
-            }
-          })
-          .catch(() => undefined)
-          .then(() => undefined);
-
-        pendentes.add(tarefa);
-        tarefa.finally(() => pendentes.delete(tarefa));
+        if (candidata && candidatos.size < 100) {
+          candidatos.set(requestId, {
+            url,
+            status: Math.round(response.status || 0),
+            mimeType,
+          });
+        }
       } catch {
-        // Respostas ligadas a frames descartados podem falhar; ignoramos.
+        // Evento incompleto durante troca de renderer.
       }
-    };
+    });
 
-    paginaInicial.on("response", capturarResposta);
+    cliente.on("Network.loadingFinished", (evento) => {
+      const candidato = candidatos.get(evento.requestId);
+      if (!candidato || capturas.length >= MAX_CAPTURAS_REDE) return;
+      candidatos.delete(evento.requestId);
+
+      const tarefa = cliente
+        .send("Network.getResponseBody", { requestId: evento.requestId })
+        .then(({ body, base64Encoded }) => {
+          const texto = base64Encoded
+            ? Buffer.from(body, "base64").toString("utf8")
+            : body;
+
+          if (
+            texto &&
+            texto.length >= 2 &&
+            texto.length <= MAX_CORPO_REDE &&
+            capturas.length < MAX_CAPTURAS_REDE
+          ) {
+            capturas.push({
+              url: candidato.url,
+              status: candidato.status,
+              texto,
+              origem: "response",
+            });
+          }
+        })
+        .catch(() => undefined)
+        .then(() => undefined);
+
+      pendentes.add(tarefa);
+      tarefa.finally(() => pendentes.delete(tarefa));
+    });
 
     let erroNavegacao = "";
     try {
-      const resposta = await paginaInicial.goto(link, {
-        waitUntil: "domcontentloaded",
-        timeout: 60000,
+      const navegacao = await cliente.send("Page.navigate", {
+        url: link,
+        transitionType: "typed",
       });
-      statusDocumento = resposta?.status() || statusDocumento;
+      erroNavegacao = navegacao.errorText || "";
     } catch (erro) {
       erroNavegacao = mensagemErro(erro);
-      if (!navegacaoPodeContinuar(erro)) {
-        throw erro;
-      }
       console.log(
-        `[Pacotes Decolar] Frame trocado durante o goto; capturando rede mesmo assim: ${erroNavegacao}`
+        `[Pacotes Decolar] Page.navigate via CDP retornou erro, mas a captura continua: ${erroNavegacao}`
       );
     }
 
-    // Não esperamos mais o frame estabilizar. A própria rede da aplicação é a
-    // fonte principal; o DOM é apenas um enriquecimento opcional.
-    await dormir(16_000);
+    // A navegação via CDP não fica presa ao lifecycle do Frame. Damos tempo
+    // para a SPA disparar suas APIs e capturamos os corpos diretamente da rede.
+    await dormir(18_000);
     await Promise.allSettled([...pendentes]);
+
+    console.log(
+      `[Pacotes Decolar] CDP capturou ${capturas.length} payload(s): ${capturas
+        .slice(0, 10)
+        .map((item) => {
+          try {
+            return new URL(item.url).pathname;
+          } catch {
+            return item.url.slice(0, 80);
+          }
+        })
+        .join(" | ")}`
+    );
 
     const rede = sinaisDaRede(capturas);
     const dom = await lerDomSeguro(browser, paginaInicial);
@@ -627,7 +678,6 @@ export async function extrairPacoteDecolarBrowser(
 
     const precoPorPessoa =
       precoPessoaDom || rede.precoPorPessoa || precoClicado;
-    const precoTotal = precoTotalDom || rede.precoTotal || null;
 
     const origemCodigo =
       codigo(textoDom, "origem") || rede.origemCodigo;
@@ -684,6 +734,16 @@ export async function extrairPacoteDecolarBrowser(
     const adultos = passageirosFinal.adultos || passageirosUrl.adultos;
     const criancas = passageirosFinal.criancas ?? passageirosUrl.criancas;
 
+    const precoTotalEncontrado = precoTotalDom || rede.precoTotal || null;
+    const precoTotalEstimado =
+      !precoTotalEncontrado &&
+      precoPorPessoa != null &&
+      adultos > 0 &&
+      criancas === 0
+        ? Number((precoPorPessoa * adultos).toFixed(2))
+        : null;
+    const precoTotal = precoTotalEncontrado || precoTotalEstimado;
+
     const titulo = destinoNome && noites
       ? `${destinoNome} • ${noites} noites + aéreo + hotel`
       : destinoNome
@@ -707,13 +767,25 @@ export async function extrairPacoteDecolarBrowser(
     const parcial = !dadosDom || Boolean(erroNavegacao);
     const fontes = [
       dataIda || dataVolta || precoClicado ? "URL" : "",
-      capturas.length ? `rede (${capturas.length})` : "",
+      capturas.length ? `CDP/rede (${capturas.length})` : "",
       dadosDom ? "DOM" : "",
     ].filter(Boolean);
 
     if (statusDocumento === 403 && campos.length === 0) {
       throw new Error(
         "A Decolar bloqueou o navegador e o link não continha dados suficientes para preparar o pacote."
+      );
+    }
+
+    const observacoes: string[] = [];
+    observacoes.push(
+      parcial
+        ? `Preparo parcial automático (${fontes.join(" + ") || "link"}). Revise os campos antes de publicar.`
+        : `Dados preparados automaticamente (${fontes.join(" + ")}). Revise antes de publicar.`
+    );
+    if (precoTotalEstimado) {
+      observacoes.push(
+        "Preço total estimado automaticamente pelo preço por pessoa × quantidade de adultos; confirme na Decolar antes de publicar."
       );
     }
 
@@ -739,9 +811,7 @@ export async function extrairPacoteDecolarBrowser(
       preco_por_pessoa: precoPorPessoa,
       moeda: "BRL",
       imagem_url: imagemUrl,
-      observacoes: parcial
-        ? `Preparo parcial automático (${fontes.join(" + ") || "link"}). A Decolar trocou o frame durante a navegação; revise os campos antes de publicar.`
-        : `Dados preparados automaticamente (${fontes.join(" + ")}). Revise antes de publicar.`,
+      observacoes: observacoes.join(" "),
       radar_slug: radarPorRota(
         origemCodigo || origemNome,
         destinoCodigo || destinoNome
