@@ -1,4 +1,5 @@
 import RadarPublico from "./RadarPublico";
+import PacotesPublicos from "./PacotesPublicos";
 
 const categorias = [
   {
@@ -179,6 +180,9 @@ export default function ViagensPage() {
 
       {/* PRODUTO PRINCIPAL DA VERTICAL VIAGENS */}
       <RadarPublico />
+
+      {/* PACOTES MANUAIS / AFILIADOS */}
+      <PacotesPublicos />
 
       <section
         id="achados"
