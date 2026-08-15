@@ -5,6 +5,7 @@ import {
 import {
   diagnosticarMercadoLivreApiPublica,
   diagnosticarMercadoLivreHttp,
+  diagnosticarMercadoLivrePrecoOficial,
 } from "@/lib/services/mercadoLivreHttpMonitor";
 
 export async function GET(request: Request) {
@@ -42,6 +43,16 @@ export async function GET(request: Request) {
         return Response.json({
           sucesso: true,
           modo: "diagnostico_api_publica_ml",
+          resultado,
+        });
+      }
+
+      if (modo === "preco-oficial-ml") {
+        const resultado = await diagnosticarMercadoLivrePrecoOficial(id);
+
+        return Response.json({
+          sucesso: true,
+          modo: "diagnostico_preco_oficial_ml",
           resultado,
         });
       }
