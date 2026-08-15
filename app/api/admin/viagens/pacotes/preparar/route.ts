@@ -5,6 +5,7 @@ import {
   type PacoteDecolarExtraido,
 } from "@/lib/viagens/decolar";
 import { extrairPacoteDecolarBrowser } from "@/lib/viagens/decolarBrowser";
+import { enriquecerPacoteDecolarTargets } from "@/lib/viagens/decolarBrowserTargets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,19 @@ function precisaFallbackBrowser(erro: unknown) {
     mensagem.includes("http 403") ||
     mensagem.includes("forbidden") ||
     mensagem.includes("access denied")
+  );
+}
+
+function precisaEnriquecimento(dados: PacoteDecolarExtraido) {
+  const quantidade = dados.campos_detectados?.length ?? 0;
+
+  return (
+    dados.confianca !== "alta" ||
+    quantidade < 7 ||
+    !dados.hotel_nome ||
+    !dados.imagem_url ||
+    !dados.companhia_aerea ||
+    (!dados.preco_total && !dados.preco_por_pessoa)
   );
 }
 
@@ -78,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     let dados: PacoteDecolarExtraido;
-    let metodo: "html" | "chromium" = "html";
+    let metodo: "html" | "chromium" | "chromium-targets" = "html";
 
     try {
       dados = await extrairPacoteDecolar(link);
@@ -93,6 +107,27 @@ export async function POST(request: NextRequest) {
 
       dados = await extrairPacoteDecolarBrowser(link);
       metodo = "chromium";
+
+      if (precisaEnriquecimento(dados)) {
+        console.log(
+          `[Pacotes] Preparo Decolar veio com confianca ${dados.confianca}. Tentando captura global de targets.`
+        );
+
+        try {
+          dados = await enriquecerPacoteDecolarTargets(link, dados);
+          metodo = "chromium-targets";
+        } catch (erroEnriquecimento) {
+          console.error(
+            "[Pacotes] Enriquecimento global da Decolar falhou; mantendo preparo parcial:",
+            erroEnriquecimento
+          );
+
+          dados = {
+            ...dados,
+            observacoes: `${dados.observacoes} Enriquecimento global indisponivel nesta tentativa; os dados parciais foram preservados.`.trim(),
+          };
+        }
+      }
     }
 
     return NextResponse.json({
