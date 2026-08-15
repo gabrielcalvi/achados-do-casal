@@ -122,7 +122,16 @@ export async function POST(request: Request) {
     }
 
     sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-    await sandbox.mkDir("/vercel/tmp");
+
+    const diretorio = await sandbox.runCommand({
+      cmd: "mkdir",
+      args: ["-p", "/vercel/tmp"],
+    });
+
+    if (diretorio.exitCode !== 0) {
+      throw new Error("Nao foi possivel preparar o diretorio de sessao no Sandbox.");
+    }
+
     await sandbox.writeFiles([
       {
         path: AUTH_STATE_PATH,
