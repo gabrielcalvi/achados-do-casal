@@ -1,5 +1,84 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
+import {
+  buscarItemIdDoCatalogo,
+  buscarProdutoMercadoLivre,
+} from "@/lib/mercadolivre/api";
+import { resolverItemId } from "@/lib/resolvers/mercadoLivre";
+
+type DadosAtuaisMonitor = {
+  nome?: string;
+  categoria?: string;
+  precoAtual: string | number;
+  imagem?: string;
+  urlFinal?: string;
+};
+
+function ehMercadoLivre(produto: {
+  loja?: string | null;
+  link?: string | null;
+}) {
+  const texto = `${produto.loja || ""} ${produto.link || ""}`.toLowerCase();
+
+  return (
+    texto.includes("mercado livre") ||
+    texto.includes("mercadolivre") ||
+    texto.includes("mercadolibre") ||
+    texto.includes("meli.la")
+  );
+}
+
+async function obterDadosMercadoLivre(produto: {
+  link: string;
+  categoria?: string | null;
+}): Promise<DadosAtuaisMonitor> {
+  const referencia = await resolverItemId(produto.link);
+
+  if (!referencia) {
+    throw new Error(
+      "Não foi possível identificar o código do produto do Mercado Livre."
+    );
+  }
+
+  const itemId =
+    referencia.tipo === "produto"
+      ? await buscarItemIdDoCatalogo(referencia.id)
+      : referencia.id;
+
+  const produtoApi = await buscarProdutoMercadoLivre(itemId);
+
+  return {
+    nome: produtoApi.title,
+    categoria:
+      typeof produto.categoria === "string" && produto.categoria.trim()
+        ? produto.categoria
+        : produtoApi.category_id,
+    precoAtual: produtoApi.price,
+    imagem:
+      produtoApi.thumbnail?.replace(/^http:/, "https:") ||
+      produtoApi.pictures?.[0]?.secure_url ||
+      produtoApi.pictures?.[0]?.url,
+    // O monitor nunca substitui o link original do cadastro por link da API.
+    urlFinal: produto.link,
+  };
+}
+
+async function obterDadosAtuais(produto: {
+  loja?: string | null;
+  link: string;
+  categoria?: string | null;
+}): Promise<DadosAtuaisMonitor> {
+  if (ehMercadoLivre(produto)) {
+    console.log(`[MONITOR REMOTO] Mercado Livre via API: ${produto.link}`);
+    return obterDadosMercadoLivre(produto);
+  }
+
+  console.log(
+    `[MONITOR REMOTO] ${produto.loja || "Loja"} via Playwright Worker: ${produto.link}`
+  );
+
+  return extrairProduto(produto.link);
+}
 
 export async function consultarPrecoProduto(id: number) {
   const { data: produto, error } = await supabaseAdmin
@@ -12,22 +91,30 @@ export async function consultarPrecoProduto(id: number) {
     throw new Error("Produto não encontrado.");
   }
 
-  if (!produto.link) {
-    throw new Error("Produto sem link para monitoramento.");
+  const link = String(produto.link || "").trim();
+
+  if (!link) {
+    throw new Error("Produto sem link original para monitoramento.");
   }
 
-  const dadosAtuais = await extrairProduto(produto.link);
+  const dadosAtuais = await obterDadosAtuais({
+    loja: produto.loja,
+    link,
+    categoria: produto.categoria,
+  });
 
   const precoBanco = Number(produto.preco_atual);
   const precoNovo = Number(dadosAtuais.precoAtual);
-console.log("================================");
-console.log("Produto:", produto.nome);
-console.log("Preço banco:", precoBanco);
-console.log("Preço encontrado:", precoNovo);
-console.log("Mudou?", precoBanco !== precoNovo);
-console.log("================================");
+
+  console.log("================================");
+  console.log("Produto:", produto.nome);
+  console.log("Preço banco:", precoBanco);
+  console.log("Preço encontrado:", precoNovo);
+  console.log("Mudou?", precoBanco !== precoNovo);
+  console.log("================================");
+
   if (!Number.isFinite(precoNovo)) {
-    throw new Error("O Worker retornou um preço inválido.");
+    throw new Error("A consulta retornou um preço inválido.");
   }
 
   const precoMudou = precoBanco !== precoNovo;
@@ -35,37 +122,27 @@ console.log("================================");
 
   const atualizacao: Record<string, unknown> = {
     ultima_verificacao: agora,
+    preco_monitorado: precoNovo,
+    preco_alterado: precoMudou,
   };
 
   if (precoMudou) {
-   atualizacao.preco_monitorado = precoNovo;
-atualizacao.preco_alterado = true;
-atualizacao.updated_at = agora;
-const {
-  data: monitorData,
-  error: monitorError,
-} = await supabaseAdmin
-  .from("monitor_alteracoes")
-  .insert({
-    produto_id: produto.id,
-    tipo: "preco",
-    valor_antigo: String(precoBanco),
-    valor_novo: String(precoNovo),
-    status: "pendente",
-  })
-  .select();
+    atualizacao.updated_at = agora;
 
-console.log("Resultado monitor_alteracoes:", {
-  monitorData,
-  monitorError,
-});
+    const { error: monitorError } = await supabaseAdmin
+      .from("monitor_alteracoes")
+      .insert({
+        produto_id: produto.id,
+        tipo: "preco",
+        valor_antigo: String(precoBanco),
+        valor_novo: String(precoNovo),
+        status: "pendente",
+      });
 
-if (monitorError) {
-  console.error(
-    "Erro monitor_alteracoes:",
-    monitorError
-  );
-}
+    if (monitorError) {
+      console.error("Erro monitor_alteracoes:", monitorError);
+    }
+
     if (dadosAtuais.nome) {
       atualizacao.nome = dadosAtuais.nome;
     }
@@ -82,13 +159,8 @@ if (monitorError) {
       atualizacao.link = dadosAtuais.urlFinal;
     }
   }
-if (!precoMudou) {
-  atualizacao.preco_monitorado = precoNovo;
-  atualizacao.preco_alterado = false;
-}
-    
+
   const { error: updateError } = await supabaseAdmin
-  
     .from("produtos")
     .update(atualizacao)
     .eq("id", id);
@@ -109,6 +181,7 @@ if (!precoMudou) {
     dadosAtuais,
   };
 }
+
 export async function monitorarTodosProdutos() {
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
@@ -123,38 +196,32 @@ export async function monitorarTodosProdutos() {
   const resultados = [];
   let alterados = 0;
   let erros = 0;
-const LIMITE_CONCORRENCIA = 4;
-const produtosAtivos = produtos ?? [];
 
-for (
-  let indice = 0;
-  indice < produtosAtivos.length;
-  indice += LIMITE_CONCORRENCIA
-) {
-  const lote = produtosAtivos.slice(
-    indice,
-    indice + LIMITE_CONCORRENCIA
-  );
+  const LIMITE_CONCORRENCIA = 4;
+  const produtosAtivos = produtos ?? [];
 
-  const resultadosLote =
-    await Promise.all(
+  for (
+    let indice = 0;
+    indice < produtosAtivos.length;
+    indice += LIMITE_CONCORRENCIA
+  ) {
+    const lote = produtosAtivos.slice(
+      indice,
+      indice + LIMITE_CONCORRENCIA
+    );
+
+    const resultadosLote = await Promise.all(
       lote.map(async (produto) => {
         try {
-          console.log(
-            `Monitorando (${produto.id}) ${produto.nome}...`
-          );
+          console.log(`Monitorando (${produto.id}) ${produto.nome}...`);
 
-          const resultado =
-            await consultarPrecoProduto(
-              produto.id
-            );
+          const resultado = await consultarPrecoProduto(produto.id);
 
           return {
             id: produto.id,
             nome: produto.nome,
             sucesso: true as const,
-            precoMudou:
-              resultado.precoMudou,
+            precoMudou: resultado.precoMudou,
           };
         } catch (erro) {
           console.error(
@@ -162,48 +229,32 @@ for (
             erro
           );
 
-          let mensagem =
-            "Erro desconhecido";
-
-          let causa: unknown = null;
-
-          if (erro instanceof Error) {
-            mensagem = erro.message;
-
-            causa =
-              "cause" in erro
-                ? erro.cause
-                : null;
-          }
-
           return {
             id: produto.id,
             nome: produto.nome,
             sucesso: false as const,
-            erro: mensagem,
-            causa,
+            erro:
+              erro instanceof Error ? erro.message : "Erro desconhecido",
           };
         }
       })
     );
 
-  for (
-    const resultado of resultadosLote
-  ) {
-    if (resultado.sucesso) {
-      if (resultado.precoMudou) {
-        alterados++;
+    for (const resultado of resultadosLote) {
+      if (resultado.sucesso) {
+        if (resultado.precoMudou) {
+          alterados++;
+        }
+      } else {
+        erros++;
       }
-    } else {
-      erros++;
-    }
 
-    resultados.push(resultado);
+      resultados.push(resultado);
+    }
   }
-}
 
   return {
-    total: produtos?.length ?? 0,
+    total: produtosAtivos.length,
     alterados,
     erros,
     resultados,
