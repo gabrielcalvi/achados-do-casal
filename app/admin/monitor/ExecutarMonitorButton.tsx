@@ -44,10 +44,25 @@ function etapaDoMonitor(progresso: number) {
   }
 
   if (progresso < 95) {
-    return "Comparando preços e registrando alterações";
+    return "Comparando preços e aplicando alterações";
   }
 
   return "Finalizando verificação";
+}
+
+function urlExecucaoMonitor() {
+  if (typeof window === "undefined") {
+    return "/api/monitor/run";
+  }
+
+  const host = window.location.hostname.toLowerCase();
+  const ambienteLocal =
+    host === "localhost" ||
+    host === "127.0.0.1";
+
+  return ambienteLocal
+    ? "/api/monitor/run?modo=local"
+    : "/api/monitor/run";
 }
 
 export default function ExecutarMonitorButton() {
@@ -121,7 +136,7 @@ export default function ExecutarMonitorButton() {
       setErro("");
 
       const resposta = await fetch(
-        "/api/monitor/run",
+        urlExecucaoMonitor(),
         {
           method: "GET",
           cache: "no-store",
@@ -151,7 +166,7 @@ export default function ExecutarMonitorButton() {
 
       setProgresso(100);
       setMensagem(
-        `${total} produto(s) verificado(s): ${alterados} alteração(ões) e ${erros} erro(s).`
+        `${total} produto(s) verificado(s): ${alterados} preço(s) atualizado(s) automaticamente e ${erros} erro(s).`
       );
 
       router.refresh();
