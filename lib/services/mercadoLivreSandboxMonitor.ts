@@ -15,6 +15,48 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extrairItemIdMercadoLivre(link: string) {
+  try {
+    const url = new URL(link);
+
+    const candidatos = [
+      url.searchParams.get("wid") || "",
+      url.searchParams.get("item_id") || "",
+      url.searchParams.get("pdp_filters") || "",
+      url.pathname,
+      link,
+    ];
+
+    for (const candidato of candidatos) {
+      const match = candidato.match(/MLB[-:]?(\d{8,})/i);
+
+      if (match?.[1]) {
+        return `MLB${match[1]}`;
+      }
+    }
+  } catch {
+    const match = link.match(/MLB[-:]?(\d{8,})/i);
+
+    if (match?.[1]) {
+      return `MLB${match[1]}`;
+    }
+  }
+
+  return null;
+}
+
+function urlDiretaAnuncio(link: string) {
+  const itemId = extrairItemIdMercadoLivre(link);
+
+  if (!itemId) {
+    return null;
+  }
+
+  const numero = itemId.replace(/^MLB/i, "");
+
+  return `https://produto.mercadolivre.com.br/MLB-${numero}-_JM`;
+}
+
 async function rodarComando(
   sandbox: SandboxInstancia,
   opcoes: {
@@ -167,9 +209,16 @@ export async function criarSessaoMonitorMercadoLivre(): Promise<SessaoMonitorMer
 
   return {
     async extrair(link: string) {
+      const linkDireto = urlDiretaAnuncio(link);
+      const linkTeste = linkDireto || link;
+
+      console.log(
+        `[MONITOR ML] Link usado no Sandbox: ${linkTeste}`
+      );
+
       const dados = await consultarJson(
         sandbox,
-        `/extrair?url=${encodeURIComponent(link)}`,
+        `/extrair?url=${encodeURIComponent(linkTeste)}`,
         60
       );
 
