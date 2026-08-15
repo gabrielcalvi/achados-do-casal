@@ -1,9 +1,5 @@
 import type { ProdutoExtraidoWorker } from "@/lib/workers/playwrightWorker";
-
-const WORKER_URL = (
-  process.env.PLAYWRIGHT_WORKER_URL ||
-  "http://127.0.0.1:4317"
-).replace(/\/$/, "");
+import { WORKER_URL } from "@/lib/workers/workerUrl";
 
 export async function extrairKabumWorker(
   link: string
@@ -19,22 +15,13 @@ export async function extrairKabumWorker(
       }
     );
   } catch (erro) {
-    const detalhe =
-      erro instanceof Error
-        ? erro.message
-        : "falha de conexão";
-
+    const detalhe = erro instanceof Error ? erro.message : "falha de conexão";
     throw new Error(
-      `O Playwright Worker não está acessível em ${WORKER_URL}. ` +
-        `Inicie-o com "npm run playwright". Detalhe: ${detalhe}`
+      `O Playwright Worker não está acessível em ${WORKER_URL}. Detalhe: ${detalhe}`
     );
   }
 
-  let json: {
-    sucesso?: boolean;
-    dados?: ProdutoExtraidoWorker;
-    erro?: string;
-  };
+  let json: { sucesso?: boolean; dados?: ProdutoExtraidoWorker; erro?: string };
 
   try {
     json = await resposta.json();
@@ -46,8 +33,7 @@ export async function extrairKabumWorker(
 
   if (!resposta.ok || !json.sucesso || !json.dados) {
     throw new Error(
-      json.erro ||
-        `Playwright Worker respondeu ${resposta.status}.`
+      json.erro || `Playwright Worker respondeu ${resposta.status}.`
     );
   }
 
