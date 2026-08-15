@@ -14,6 +14,8 @@ const SANDBOX_BASE = "achados-cupons-ml-test";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const SCRIPT_PATH = "/vercel/tmp/extrair-pacote-decolar.cjs";
 
+type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
+
 async function usuarioAutenticado() {
   try {
     const supabase = await createClient();
@@ -42,7 +44,7 @@ function precisaFallbackSandbox(erro: unknown) {
 }
 
 async function comando(
-  sandbox: Awaited<ReturnType<typeof Sandbox.fork>>,
+  sandbox: SandboxInstancia,
   cmd: string,
   args: string[],
   cwd?: string
@@ -63,95 +65,74 @@ async function comando(
 async function extrairViaSandbox(
   link: string
 ): Promise<PacoteDecolarExtraido> {
-  const sandbox = await Sandbox.fork({
-    sourceSandbox: SANDBOX_BASE,
-    persistent: false,
+  const sandbox = await Sandbox.get({
+    name: SANDBOX_BASE,
   });
 
+  const commit =
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
+
+  const scriptUrl =
+    `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
+      commit
+    )}/scripts/extrair-pacote-decolar.cjs`;
+
+  const preparar = await comando(
+    sandbox,
+    "mkdir",
+    ["-p", "/vercel/tmp"]
+  );
+
+  if (preparar.exitCode !== 0) {
+    throw new Error(
+      preparar.stderr || "Falha preparando Sandbox da Decolar."
+    );
+  }
+
+  const baixar = await comando(
+    sandbox,
+    "curl",
+    [
+      "-fsSL",
+      "--max-time",
+      "30",
+      scriptUrl,
+      "-o",
+      SCRIPT_PATH,
+    ]
+  );
+
+  if (baixar.exitCode !== 0) {
+    throw new Error(
+      baixar.stderr || "Falha sincronizando extrator Decolar no Sandbox."
+    );
+  }
+
+  const execucao = await comando(
+    sandbox,
+    "xvfb-run",
+    ["-a", "node", SCRIPT_PATH, link],
+    "/vercel"
+  );
+
+  if (execucao.exitCode !== 0) {
+    throw new Error(
+      execucao.stderr ||
+        execucao.stdout ||
+        "O navegador da Decolar nao conseguiu preparar o pacote."
+    );
+  }
+
+  if (!execucao.stdout) {
+    throw new Error("O navegador terminou sem devolver os dados do pacote.");
+  }
+
   try {
-    const commit =
-      process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
-
-    const scriptUrl =
-      `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
-        commit
-      )}/scripts/extrair-pacote-decolar.cjs`;
-
-    const preparar = await comando(
-      sandbox,
-      "mkdir",
-      ["-p", "/vercel/tmp"]
+    return JSON.parse(execucao.stdout) as PacoteDecolarExtraido;
+  } catch {
+    throw new Error(
+      "O navegador da Decolar devolveu um resultado invalido."
     );
-
-    if (preparar.exitCode !== 0) {
-      throw new Error(
-        preparar.stderr || "Falha preparando Sandbox da Decolar."
-      );
-    }
-
-    const baixar = await comando(
-      sandbox,
-      "curl",
-      [
-        "-fsSL",
-        "--max-time",
-        "30",
-        scriptUrl,
-        "-o",
-        SCRIPT_PATH,
-      ]
-    );
-
-    if (baixar.exitCode !== 0) {
-      throw new Error(
-        baixar.stderr || "Falha sincronizando extrator Decolar no Sandbox."
-      );
-    }
-
-    const locks = await comando(
-      sandbox,
-      "sh",
-      [
-        "-lc",
-        "rm -f /vercel/.playwright-profile/Singleton* 2>/dev/null || true",
-      ]
-    );
-
-    if (locks.exitCode !== 0) {
-      console.warn(
-        "[Pacotes] Nao foi possivel limpar locks antigos:",
-        locks.stderr
-      );
-    }
-
-    const execucao = await comando(
-      sandbox,
-      "xvfb-run",
-      ["-a", "node", SCRIPT_PATH, link],
-      "/vercel"
-    );
-
-    if (execucao.exitCode !== 0) {
-      throw new Error(
-        execucao.stderr ||
-          execucao.stdout ||
-          "O navegador da Decolar nao conseguiu preparar o pacote."
-      );
-    }
-
-    if (!execucao.stdout) {
-      throw new Error("O navegador terminou sem devolver os dados do pacote.");
-    }
-
-    try {
-      return JSON.parse(execucao.stdout) as PacoteDecolarExtraido;
-    } catch {
-      throw new Error(
-        "O navegador da Decolar devolveu um resultado invalido."
-      );
-    }
-  } finally {
-    await sandbox.stop().catch(() => undefined);
   }
 }
 
@@ -206,7 +187,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        "[Pacotes] Decolar bloqueou leitura direta. Tentando navegador Sandbox."
+        "[Pacotes] Decolar bloqueou leitura direta. Reusando navegador do Sandbox nomeado."
       );
 
       dados = await extrairViaSandbox(link);
