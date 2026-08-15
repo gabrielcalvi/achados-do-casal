@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "playwright": "node scripts/playwright-worker.cjs",
-    "worker": "node scripts/playwright-worker.cjs"
+    "worker": "node scripts/playwright-worker.cjs",
+    "monitor:auto": "node scripts/monitor-local-hourly.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
