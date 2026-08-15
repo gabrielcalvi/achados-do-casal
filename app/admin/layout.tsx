@@ -65,6 +65,13 @@ export default function AdminLayout({
           >
             🏷️ Cupons ML V2
           </Link>
+
+          <Link
+            href="/admin/viagens"
+            className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-black text-violet-800 transition hover:bg-violet-100"
+          >
+            ✈️ Viagens / Radar
+          </Link>
         </div>
       </div>
 
