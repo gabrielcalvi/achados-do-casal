@@ -15,6 +15,10 @@
     {
       "path": "/api/admin/viagens/radar/rodada",
       "schedule": "0 2,8,14,20 * * *"
+    },
+    {
+      "path": "/api/admin/economize/cupons/ml-v2/executar",
+      "schedule": "30 0,6,12,18 * * *"
     }
   ]
 }
