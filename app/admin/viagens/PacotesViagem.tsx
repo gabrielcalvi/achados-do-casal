@@ -9,20 +9,29 @@ type Pacote = {
   parceiro: string;
   link_original?: string | null;
   radar_slug?: string | null;
+  radar_preco_referencia?: number | null;
+  radar_ida_referencia?: string | null;
+  radar_volta_referencia?: string | null;
   origem_codigo: string;
   destino_codigo: string;
   destino_nome?: string | null;
   data_ida: string;
   data_volta: string;
   hotel_nome: string;
+  hotel_categoria?: string | null;
+  regime_hospedagem?: string | null;
   noites: number;
   adultos: number;
   criancas: number;
   companhia_aerea?: string | null;
+  bagagem?: string | null;
   preco_total: number;
   preco_por_pessoa?: number | null;
   moeda: string;
   link_afiliado: string;
+  imagem_url?: string | null;
+  observacoes?: string | null;
+  validade?: string | null;
   destaque: boolean;
 };
 
@@ -141,6 +150,11 @@ function diferencaNoites(ida?: string, volta?: string) {
   return String(Math.round((fim - inicio) / 86400000));
 }
 
+function dataInput(valor?: string | null) {
+  if (!valor) return "";
+  return valor.slice(0, 10);
+}
+
 export default function PacotesViagem() {
   const [pacotes, setPacotes] = useState<Pacote[]>([]);
   const [schemaPendente, setSchemaPendente] = useState(false);
@@ -150,6 +164,7 @@ export default function PacotesViagem() {
   const [salvando, setSalvando] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [aberto, setAberto] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(INICIAL);
 
   const totalAtivos = useMemo(
@@ -192,6 +207,67 @@ export default function PacotesViagem() {
 
   function alterar(nome: keyof typeof INICIAL, valor: string | boolean) {
     setForm((atual) => ({ ...atual, [nome]: valor }));
+  }
+
+  function novoPacote() {
+    setEditandoId(null);
+    setForm(INICIAL);
+    setErro("");
+    setAviso("");
+    setAberto(true);
+  }
+
+  function fecharFormulario() {
+    setEditandoId(null);
+    setForm(INICIAL);
+    setAberto(false);
+  }
+
+  function editarPacote(pacote: Pacote) {
+    setEditandoId(pacote.id);
+    setForm({
+      titulo: pacote.titulo || "",
+      parceiro: pacote.parceiro || "Decolar",
+      link_original: pacote.link_original || "",
+      link_afiliado: pacote.link_afiliado || "",
+      radar_slug: pacote.radar_slug || "",
+      radar_preco_referencia:
+        pacote.radar_preco_referencia != null
+          ? String(pacote.radar_preco_referencia)
+          : "",
+      radar_ida_referencia: dataInput(pacote.radar_ida_referencia),
+      radar_volta_referencia: dataInput(pacote.radar_volta_referencia),
+      origem_codigo: pacote.origem_codigo || "",
+      destino_codigo: pacote.destino_codigo || "",
+      destino_nome: pacote.destino_nome || "",
+      data_ida: dataInput(pacote.data_ida),
+      data_volta: dataInput(pacote.data_volta),
+      hotel_nome: pacote.hotel_nome || "",
+      hotel_categoria: pacote.hotel_categoria || "",
+      regime_hospedagem: pacote.regime_hospedagem || "",
+      noites: String(pacote.noites ?? ""),
+      adultos: String(pacote.adultos ?? 2),
+      criancas: String(pacote.criancas ?? 0),
+      companhia_aerea: pacote.companhia_aerea || "",
+      bagagem: pacote.bagagem || "",
+      preco_total: String(pacote.preco_total ?? ""),
+      preco_por_pessoa:
+        pacote.preco_por_pessoa != null ? String(pacote.preco_por_pessoa) : "",
+      moeda: pacote.moeda || "BRL",
+      imagem_url: pacote.imagem_url || "",
+      observacoes: pacote.observacoes || "",
+      validade: dataInput(pacote.validade),
+      destaque: Boolean(pacote.destaque),
+      status: pacote.status || "rascunho",
+    });
+    setErro("");
+    setAviso(`Editando: ${pacote.titulo}`);
+    setAberto(true);
+    window.setTimeout(() => {
+      document
+        .querySelector("#form-pacote-viagem")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   async function prepararPacote() {
@@ -292,27 +368,30 @@ export default function PacotesViagem() {
       setErro("");
       setAviso("");
 
+      const payload = {
+        ...form,
+        ...(editandoId ? { id: editandoId } : {}),
+        noites: Number(form.noites),
+        adultos: Number(form.adultos),
+        criancas: Number(form.criancas),
+        preco_total: Number(form.preco_total),
+        preco_por_pessoa: form.preco_por_pessoa
+          ? Number(form.preco_por_pessoa)
+          : null,
+        radar_preco_referencia: form.radar_preco_referencia
+          ? Number(form.radar_preco_referencia)
+          : null,
+        validade: form.validade
+          ? new Date(form.validade).toISOString()
+          : null,
+      };
+
       const resposta = await fetch("/api/admin/viagens/pacotes", {
-        method: "POST",
+        method: editandoId ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...form,
-          noites: Number(form.noites),
-          adultos: Number(form.adultos),
-          criancas: Number(form.criancas),
-          preco_total: Number(form.preco_total),
-          preco_por_pessoa: form.preco_por_pessoa
-            ? Number(form.preco_por_pessoa)
-            : null,
-          radar_preco_referencia: form.radar_preco_referencia
-            ? Number(form.radar_preco_referencia)
-            : null,
-          validade: form.validade
-            ? new Date(form.validade).toISOString()
-            : null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const dados = await resposta.json();
@@ -322,13 +401,24 @@ export default function PacotesViagem() {
           setSchemaPendente(true);
         }
 
-        throw new Error(dados.erro || "Falha ao cadastrar pacote.");
+        throw new Error(
+          dados.erro ||
+            (editandoId
+              ? "Falha ao salvar alterações do pacote."
+              : "Falha ao cadastrar pacote.")
+        );
       }
 
+      const foiEdicao = Boolean(editandoId);
       setForm(INICIAL);
+      setEditandoId(null);
       setAberto(false);
-      setAviso("Pacote cadastrado com sucesso.");
       await carregar();
+      setAviso(
+        foiEdicao
+          ? "Alterações do pacote salvas com sucesso."
+          : "Pacote cadastrado com sucesso."
+      );
     } catch (error) {
       setErro(
         error instanceof Error
@@ -357,7 +447,7 @@ export default function PacotesViagem() {
 
         <button
           type="button"
-          onClick={() => setAberto((valor) => !valor)}
+          onClick={aberto ? fecharFormulario : novoPacote}
           className="rounded-xl bg-amber-500 px-5 py-3 font-black text-slate-950 transition hover:bg-amber-400"
         >
           {aberto ? "Fechar cadastro" : "+ Adicionar pacote"}
@@ -404,7 +494,29 @@ export default function PacotesViagem() {
       )}
 
       {aberto && (
-        <form onSubmit={salvar} className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <form
+          id="form-pacote-viagem"
+          onSubmit={salvar}
+          className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5"
+        >
+          {editandoId && (
+            <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-700">
+                  ✏️ Editando pacote existente
+                </p>
+                <p className="mt-1 font-black text-slate-950">{form.titulo}</p>
+              </div>
+              <button
+                type="button"
+                onClick={novoPacote}
+                className="rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-black text-amber-800"
+              >
+                Cancelar edição / Novo pacote
+              </button>
+            </div>
+          )}
+
           <div className="mb-6 rounded-2xl border-2 border-violet-200 bg-violet-50 p-5">
             <p className="text-xs font-black uppercase tracking-wider text-violet-700">
               ✨ Preenchimento automático
@@ -737,13 +849,26 @@ export default function PacotesViagem() {
             </label>
           </div>
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-wrap justify-end gap-3">
+            {editandoId && (
+              <button
+                type="button"
+                onClick={fecharFormulario}
+                className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-black text-slate-700"
+              >
+                Cancelar
+              </button>
+            )}
             <button
               type="submit"
               disabled={salvando || schemaPendente}
               className="rounded-xl bg-slate-950 px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {salvando ? "Salvando..." : "Salvar pacote"}
+              {salvando
+                ? "Salvando..."
+                : editandoId
+                  ? "Salvar alterações"
+                  : "Salvar pacote"}
             </button>
           </div>
         </form>
@@ -759,18 +884,19 @@ export default function PacotesViagem() {
               <th className="px-4 py-3 font-black">Preço</th>
               <th className="px-4 py-3 font-black">Parceiro</th>
               <th className="px-4 py-3 font-black">Status</th>
+              <th className="px-4 py-3 font-black">Ações</th>
             </tr>
           </thead>
           <tbody>
             {carregando ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Carregando pacotes...
                 </td>
               </tr>
             ) : pacotes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Nenhum pacote cadastrado ainda.
                 </td>
               </tr>
@@ -834,6 +960,15 @@ export default function PacotesViagem() {
                     {pacote.destaque && (
                       <div className="text-xs font-bold text-amber-600">⭐ Destaque</div>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => editarPacote(pacote)}
+                      className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                    >
+                      ✏️ Editar
+                    </button>
                   </td>
                 </tr>
               ))
