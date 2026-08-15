@@ -15,6 +15,9 @@ const SANDBOX_NAME =
 const AUTH_STATE_PATH =
   "/vercel/tmp/meli-buyer-auth.json";
 
+const AUTH_STATE_FALLBACK_PATH =
+  "/vercel/tmp/meli-auth.json";
+
 const COLLECTOR_PATH =
   "/vercel/scripts/coletar-cupons-oficiais-ml-v2-lote.cjs";
 
@@ -28,6 +31,10 @@ const MAX_PAGINAS_LOTE = 20;
 
 type SandboxInstancia =
   Awaited<ReturnType<typeof Sandbox.get>>;
+
+type ExecucaoComando = Awaited<
+  ReturnType<typeof rodarComando>
+>;
 
 async function rodarComando(
   sandbox: SandboxInstancia,
@@ -117,6 +124,55 @@ function resumoCupom(
   };
 }
 
+function erroSessaoInvalida(
+  execucao: ExecucaoComando
+) {
+  const texto = `${execucao.stderr}\n${execucao.stdout}`;
+
+  return texto.includes(
+    "Sessao comprador invalida"
+  );
+}
+
+async function arquivoExiste(
+  sandbox: SandboxInstancia,
+  caminho: string
+) {
+  const teste = await rodarComando(
+    sandbox,
+    {
+      cmd: "test",
+      args: ["-s", caminho],
+    }
+  );
+
+  return teste.resultado.exitCode === 0;
+}
+
+async function executarColetor(
+  sandbox: SandboxInstancia,
+  authStatePath: string
+) {
+  return rodarComando(
+    sandbox,
+    {
+      cmd: "xvfb-run",
+      args: [
+        "-a",
+        "node",
+        COLLECTOR_PATH,
+      ],
+      cwd: "/vercel",
+      env: {
+        MELI_BUYER_AUTH_STATE_PATH:
+          authStatePath,
+        ML_V2_MAX_PAGES:
+          String(MAX_PAGINAS_LOTE),
+      },
+    }
+  );
+}
+
 export async function GET(
   request: NextRequest
 ) {
@@ -163,21 +219,21 @@ export async function GET(
       );
     }
 
-    const auth =
-      await rodarComando(
+    const buyerExiste =
+      await arquivoExiste(
         sandbox,
-        {
-          cmd: "test",
-          args: [
-            "-s",
-            AUTH_STATE_PATH,
-          ],
-        }
+        AUTH_STATE_PATH
       );
 
-    if (auth.resultado.exitCode !== 0) {
+    const afiliadoExiste =
+      await arquivoExiste(
+        sandbox,
+        AUTH_STATE_FALLBACK_PATH
+      );
+
+    if (!buyerExiste && !afiliadoExiste) {
       throw new Error(
-        "Sessao de comprador do Mercado Livre nao encontrada no Sandbox."
+        "Nenhuma sessao do Mercado Livre foi encontrada no Sandbox."
       );
     }
 
@@ -213,30 +269,62 @@ export async function GET(
       );
     }
 
-    const execucao =
-      await rodarComando(
+    let execucao:
+      | ExecucaoComando
+      | null = null;
+    let sessaoUtilizada:
+      | "buyer"
+      | "afiliado_fallback"
+      | null = null;
+
+    if (buyerExiste) {
+      execucao = await executarColetor(
         sandbox,
-        {
-          cmd: "xvfb-run",
-          args: [
-            "-a",
-            "node",
-            COLLECTOR_PATH,
-          ],
-          cwd: "/vercel",
-          env: {
-            MELI_BUYER_AUTH_STATE_PATH:
-              AUTH_STATE_PATH,
-            ML_V2_MAX_PAGES:
-              String(MAX_PAGINAS_LOTE),
-          },
-        }
+        AUTH_STATE_PATH
       );
 
-    if (execucao.resultado.exitCode !== 0) {
+      if (execucao.resultado.exitCode === 0) {
+        sessaoUtilizada = "buyer";
+      }
+    }
+
+    if (
+      (!execucao ||
+        execucao.resultado.exitCode !== 0) &&
+      afiliadoExiste &&
+      (!execucao || erroSessaoInvalida(execucao))
+    ) {
+      console.warn(
+        "[ML V2] Sessao buyer invalida; tentando sessao afiliada existente como fallback."
+      );
+
+      execucao = await executarColetor(
+        sandbox,
+        AUTH_STATE_FALLBACK_PATH
+      );
+
+      if (execucao.resultado.exitCode === 0) {
+        sessaoUtilizada =
+          "afiliado_fallback";
+      }
+    }
+
+    if (
+      !execucao ||
+      execucao.resultado.exitCode !== 0
+    ) {
+      if (
+        execucao &&
+        erroSessaoInvalida(execucao)
+      ) {
+        throw new Error(
+          "As sessoes do Mercado Livre no Sandbox expiraram. E necessario renovar o login para continuar o ML V2."
+        );
+      }
+
       throw new Error(
-        execucao.stderr ||
-          execucao.stdout ||
+        execucao?.stderr ||
+          execucao?.stdout ||
           "Falha executando o coletor ML V2 em lote."
       );
     }
@@ -281,6 +369,8 @@ export async function GET(
       sucesso: true,
       versao: "ml-v2-lote",
       modo_execucao: "lote_seguro",
+      sessao_utilizada:
+        sessaoUtilizada,
       fonte:
         "central_comprador_mercado_livre",
       regra:
