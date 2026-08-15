@@ -7,6 +7,7 @@ type Pacote = {
   status: string;
   titulo: string;
   parceiro: string;
+  link_original?: string | null;
   radar_slug?: string | null;
   origem_codigo: string;
   destino_codigo: string;
@@ -33,6 +34,39 @@ type RespostaPacotes = {
   pacotes?: Pacote[];
 };
 
+type DadosPreparados = {
+  link_original?: string;
+  titulo?: string;
+  parceiro?: string;
+  origem_codigo?: string;
+  destino_codigo?: string;
+  destino_nome?: string;
+  data_ida?: string;
+  data_volta?: string;
+  noites?: number | null;
+  hotel_nome?: string;
+  hotel_categoria?: string;
+  regime_hospedagem?: string;
+  adultos?: number;
+  criancas?: number;
+  companhia_aerea?: string;
+  bagagem?: string;
+  preco_total?: number | null;
+  preco_por_pessoa?: number | null;
+  moeda?: string;
+  imagem_url?: string;
+  observacoes?: string;
+  radar_slug?: string;
+  confianca?: "alta" | "media" | "baixa";
+  campos_detectados?: string[];
+};
+
+type RespostaPreparar = {
+  sucesso?: boolean;
+  erro?: string;
+  dados?: DadosPreparados;
+};
+
 const RADARES = [
   "",
   "poa-orlando",
@@ -56,6 +90,7 @@ const RADARES = [
 const INICIAL = {
   titulo: "",
   parceiro: "Decolar",
+  link_original: "",
   link_afiliado: "",
   radar_slug: "",
   radar_preco_referencia: "",
@@ -93,6 +128,19 @@ function moeda(valor: number | null | undefined, codigo = "BRL") {
   }).format(Number(valor));
 }
 
+function diferencaNoites(ida?: string, volta?: string) {
+  if (!ida || !volta) return "";
+
+  const inicio = new Date(`${ida}T12:00:00`).getTime();
+  const fim = new Date(`${volta}T12:00:00`).getTime();
+
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim) || fim <= inicio) {
+    return "";
+  }
+
+  return String(Math.round((fim - inicio) / 86400000));
+}
+
 export default function PacotesViagem() {
   const [pacotes, setPacotes] = useState<Pacote[]>([]);
   const [schemaPendente, setSchemaPendente] = useState(false);
@@ -100,6 +148,7 @@ export default function PacotesViagem() {
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [preparando, setPreparando] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(INICIAL);
 
@@ -143,6 +192,96 @@ export default function PacotesViagem() {
 
   function alterar(nome: keyof typeof INICIAL, valor: string | boolean) {
     setForm((atual) => ({ ...atual, [nome]: valor }));
+  }
+
+  async function prepararPacote() {
+    const link = form.link_original.trim();
+
+    if (!link) {
+      setErro("Cole primeiro o link original do pacote na Decolar.");
+      return;
+    }
+
+    try {
+      setPreparando(true);
+      setErro("");
+      setAviso("");
+
+      const resposta = await fetch(
+        "/api/admin/viagens/pacotes/preparar",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ link }),
+        }
+      );
+
+      const resultado = (await resposta.json()) as RespostaPreparar;
+
+      if (!resposta.ok || !resultado.sucesso || !resultado.dados) {
+        throw new Error(
+          resultado.erro || "Não foi possível preparar o pacote automaticamente."
+        );
+      }
+
+      const dados = resultado.dados;
+
+      setForm((atual) => ({
+        ...atual,
+        link_original: dados.link_original || atual.link_original,
+        titulo: dados.titulo || atual.titulo,
+        parceiro: dados.parceiro || atual.parceiro,
+        radar_slug: dados.radar_slug || atual.radar_slug,
+        origem_codigo: dados.origem_codigo || atual.origem_codigo,
+        destino_codigo: dados.destino_codigo || atual.destino_codigo,
+        destino_nome: dados.destino_nome || atual.destino_nome,
+        data_ida: dados.data_ida || atual.data_ida,
+        data_volta: dados.data_volta || atual.data_volta,
+        noites:
+          dados.noites != null
+            ? String(dados.noites)
+            : atual.noites || diferencaNoites(dados.data_ida, dados.data_volta),
+        hotel_nome: dados.hotel_nome || atual.hotel_nome,
+        hotel_categoria: dados.hotel_categoria || atual.hotel_categoria,
+        regime_hospedagem:
+          dados.regime_hospedagem || atual.regime_hospedagem,
+        adultos:
+          dados.adultos != null ? String(dados.adultos) : atual.adultos,
+        criancas:
+          dados.criancas != null ? String(dados.criancas) : atual.criancas,
+        companhia_aerea:
+          dados.companhia_aerea || atual.companhia_aerea,
+        bagagem: dados.bagagem || atual.bagagem,
+        preco_total:
+          dados.preco_total != null
+            ? String(dados.preco_total)
+            : atual.preco_total,
+        preco_por_pessoa:
+          dados.preco_por_pessoa != null
+            ? String(dados.preco_por_pessoa)
+            : atual.preco_por_pessoa,
+        moeda: dados.moeda || atual.moeda,
+        imagem_url: dados.imagem_url || atual.imagem_url,
+        observacoes: dados.observacoes || atual.observacoes,
+      }));
+
+      const quantidade = resultado.dados.campos_detectados?.length ?? 0;
+      const confianca = resultado.dados.confianca ?? "baixa";
+
+      setAviso(
+        `Pacote preparado automaticamente: ${quantidade} grupo(s) de dados detectados. Confiança ${confianca}. Revise os campos e depois cole o link afiliado.`
+      );
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Erro inesperado ao preparar o pacote."
+      );
+    } finally {
+      setPreparando(false);
+    }
   }
 
   async function salvar(evento: React.FormEvent) {
@@ -248,9 +387,7 @@ export default function PacotesViagem() {
 
       {schemaPendente && (
         <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-900">
-          ⚠️ Base de Pacotes ainda não aplicada no Supabase. A tela está pronta,
-          mas o primeiro cadastro só funcionará depois de aplicar a migration
-          <code className="ml-1">20260815003000_viagens_pacotes.sql</code>.
+          ⚠️ Base de Pacotes ainda não aplicada no Supabase.
         </div>
       )}
 
@@ -268,6 +405,42 @@ export default function PacotesViagem() {
 
       {aberto && (
         <form onSubmit={salvar} className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <div className="mb-6 rounded-2xl border-2 border-violet-200 bg-violet-50 p-5">
+            <p className="text-xs font-black uppercase tracking-wider text-violet-700">
+              ✨ Preenchimento automático
+            </p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">
+              Cole o link original do pacote na Decolar
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Vamos tentar preencher destino, datas, hotel, noites, preço, imagem,
+              bagagem e outros dados. Depois você revisa e cola o link afiliado.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+              <input
+                type="url"
+                value={form.link_original}
+                onChange={(e) => alterar("link_original", e.target.value)}
+                placeholder="https://www.decolar.com/..."
+                className="min-w-0 flex-1 rounded-xl border border-violet-300 bg-white px-4 py-3"
+              />
+
+              <button
+                type="button"
+                onClick={prepararPacote}
+                disabled={preparando || !form.link_original.trim()}
+                className="rounded-xl bg-violet-700 px-6 py-3 font-black text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {preparando ? "✨ Preparando..." : "✨ Preparar pacote"}
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs font-bold text-violet-700">
+              O link original fica salvo para futuras atualizações de preço. Ele não substitui o link afiliado.
+            </p>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <label className="xl:col-span-2">
               <span className="text-sm font-black">Título do pacote *</span>
@@ -297,10 +470,13 @@ export default function PacotesViagem() {
                 type="url"
                 value={form.link_afiliado}
                 onChange={(e) => alterar("link_afiliado", e.target.value)}
-                placeholder="https://..."
+                placeholder="Cole aqui o link afiliado da Decolar depois de revisar o pacote"
                 required
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                className="mt-2 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3"
               />
+              <span className="mt-1 block text-xs font-bold text-emerald-700">
+                Este é o link usado no botão público para monetização.
+              </span>
             </label>
 
             <label>
@@ -640,6 +816,18 @@ export default function PacotesViagem() {
                     >
                       {pacote.parceiro} ↗
                     </a>
+                    {pacote.link_original && (
+                      <div className="mt-1">
+                        <a
+                          href={pacote.link_original}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-bold text-slate-400 hover:underline"
+                        >
+                          Link original ↗
+                        </a>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="font-bold">{pacote.status}</span>
