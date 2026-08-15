@@ -12,6 +12,7 @@ type RespostaMonitor = {
   alterados?: number;
   erros?: number;
   error?: string;
+  erro?: string;
   detalhes?: string;
 };
 
@@ -33,6 +34,22 @@ function formatarTempo(
   return `${minutos}:${segundos}`;
 }
 
+function etapaDoMonitor(progresso: number) {
+  if (progresso < 18) {
+    return "Preparando produtos monitorados";
+  }
+
+  if (progresso < 78) {
+    return "Consultando preços nas lojas";
+  }
+
+  if (progresso < 95) {
+    return "Comparando preços e registrando alterações";
+  }
+
+  return "Finalizando verificação";
+}
+
 export default function ExecutarMonitorButton() {
   const router = useRouter();
 
@@ -44,6 +61,11 @@ export default function ExecutarMonitorButton() {
   const [
     segundosExecucao,
     setSegundosExecucao,
+  ] = useState(0);
+
+  const [
+    progresso,
+    setProgresso,
   ] = useState(0);
 
   const [
@@ -67,6 +89,22 @@ export default function ExecutarMonitorButton() {
           (segundosAtuais) =>
             segundosAtuais + 1
         );
+
+        setProgresso((valorAtual) => {
+          if (valorAtual >= 94) {
+            return valorAtual;
+          }
+
+          if (valorAtual < 25) {
+            return Math.min(25, valorAtual + 3);
+          }
+
+          if (valorAtual < 65) {
+            return Math.min(65, valorAtual + 2);
+          }
+
+          return Math.min(94, valorAtual + 1);
+        });
       }, 1000);
 
     return () => {
@@ -78,6 +116,7 @@ export default function ExecutarMonitorButton() {
     try {
       setExecutando(true);
       setSegundosExecucao(0);
+      setProgresso(5);
       setMensagem("");
       setErro("");
 
@@ -92,9 +131,10 @@ export default function ExecutarMonitorButton() {
       const resultado =
         (await resposta.json()) as RespostaMonitor;
 
-      if (!resposta.ok) {
+      if (!resposta.ok || resultado.sucesso === false) {
         throw new Error(
           resultado.error ||
+            resultado.erro ||
             resultado.detalhes ||
             "Não foi possível executar o monitor."
         );
@@ -109,6 +149,7 @@ export default function ExecutarMonitorButton() {
       const erros =
         resultado.erros ?? 0;
 
+      setProgresso(100);
       setMensagem(
         `${total} produto(s) verificado(s): ${alterados} alteração(ões) e ${erros} erro(s).`
       );
@@ -120,6 +161,7 @@ export default function ExecutarMonitorButton() {
         error
       );
 
+      setProgresso(100);
       setErro(
         error instanceof Error
           ? error.message
@@ -130,8 +172,17 @@ export default function ExecutarMonitorButton() {
     }
   }
 
+  const mostrarStatus =
+    executando || Boolean(mensagem) || Boolean(erro);
+
+  const etapa = erro
+    ? "Verificação interrompida"
+    : mensagem
+      ? "Verificação concluída"
+      : etapaDoMonitor(progresso);
+
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex w-full max-w-xl flex-col items-end gap-3">
       <button
         type="button"
         onClick={executarMonitor}
@@ -145,23 +196,69 @@ export default function ExecutarMonitorButton() {
           : "🔄 Atualizar preços agora"}
       </button>
 
-      {executando && (
-        <p className="max-w-md text-right text-sm font-bold text-slate-600">
-          O monitor continua em execução.
-          Não feche esta página.
-        </p>
-      )}
+      {mostrarStatus && (
+        <div
+          className={`w-full rounded-2xl border p-4 ${
+            erro
+              ? "border-red-200 bg-red-50"
+              : mensagem
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-emerald-200 bg-emerald-50/60"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                Status da atualização
+              </p>
+              <p
+                className={`mt-1 font-black ${
+                  erro
+                    ? "text-red-700"
+                    : "text-emerald-800"
+                }`}
+              >
+                {erro ? "❌" : mensagem ? "✅" : "⚙️"} {etapa}
+              </p>
+            </div>
 
-      {mensagem && (
-        <p className="max-w-md text-right text-sm font-bold text-emerald-700">
-          {mensagem}
-        </p>
-      )}
+            <div className="text-right">
+              <p className="font-black text-slate-800">
+                {progresso}%
+              </p>
+              {executando && (
+                <p className="text-xs font-bold text-slate-500">
+                  {formatarTempo(segundosExecucao)}
+                </p>
+              )}
+            </div>
+          </div>
 
-      {erro && (
-        <p className="max-w-md text-right text-sm font-bold text-red-600">
-          {erro}
-        </p>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white shadow-inner">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                erro
+                  ? "bg-red-500"
+                  : "bg-emerald-600"
+              }`}
+              style={{
+                width: `${progresso}%`,
+              }}
+            />
+          </div>
+
+          {mensagem && (
+            <p className="mt-3 text-sm font-bold text-emerald-700">
+              {mensagem}
+            </p>
+          )}
+
+          {erro && (
+            <p className="mt-3 text-sm font-bold text-red-600">
+              {erro}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
