@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import puppeteer, { type Browser } from "puppeteer-core";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import type { PacoteDecolarExtraido } from "@/lib/viagens/decolar";
 
 const CHROMIUM_PACK_URL =
@@ -90,6 +90,112 @@ function companhia(texto: string) {
   return nomes.find((nome) => texto.toLowerCase().includes(nome.toLowerCase())) || "";
 }
 
+function mensagemErro(erro: unknown) {
+  return erro instanceof Error ? erro.message : String(erro || "");
+}
+
+function navegacaoPodeContinuar(erro: unknown) {
+  return /navigating frame was detached|execution context was destroyed|cannot find context with specified id|net::err_aborted/i.test(
+    mensagemErro(erro)
+  );
+}
+
+function dormir(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function paginaViva(browser: Browser, preferida: Page) {
+  if (!preferida.isClosed()) return preferida;
+  const paginas = (await browser.pages()).filter((pagina) => !pagina.isClosed());
+  return paginas.at(-1) || null;
+}
+
+async function navegarAteEstabilizar(browser: Browser, paginaInicial: Page, link: string) {
+  let pagina = paginaInicial;
+  let status = 0;
+
+  const registrarStatus = (resposta: import("puppeteer-core").HTTPResponse) => {
+    try {
+      const requisicao = resposta.request();
+      if (requisicao.isNavigationRequest() && requisicao.resourceType() === "document") {
+        status = resposta.status();
+      }
+    } catch {
+      // A Decolar pode descartar o frame durante redirects internos.
+    }
+  };
+
+  pagina.on("response", registrarStatus);
+
+  try {
+    const resposta = await pagina.goto(link, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    status = resposta?.status() || status;
+  } catch (erro) {
+    if (!navegacaoPodeContinuar(erro)) {
+      throw erro;
+    }
+    console.log(
+      `[Pacotes Decolar] Navegacao trocou o frame principal; aguardando estabilizacao: ${mensagemErro(erro)}`
+    );
+  }
+
+  const limite = Date.now() + 30000;
+  let ultimaUrl = "";
+  let leiturasEstaveis = 0;
+  let ultimoErro = "";
+
+  while (Date.now() < limite) {
+    const candidata = await paginaViva(browser, pagina);
+    if (!candidata) {
+      throw new Error("O navegador da Decolar fechou todas as paginas durante a navegacao.");
+    }
+    pagina = candidata;
+
+    try {
+      const estado = await pagina.evaluate(() => ({
+        href: window.location.href,
+        readyState: document.readyState,
+        tamanhoTexto: document.body?.innerText?.length || 0,
+      }));
+
+      const urlUtil = estado.href.startsWith("http");
+      const documentoUtil = estado.readyState !== "loading" && estado.tamanhoTexto >= 80;
+
+      if (urlUtil && documentoUtil) {
+        if (estado.href === ultimaUrl) {
+          leiturasEstaveis += 1;
+        } else {
+          ultimaUrl = estado.href;
+          leiturasEstaveis = 1;
+        }
+
+        if (leiturasEstaveis >= 2) {
+          pagina.off("response", registrarStatus);
+          return { pagina, status };
+        }
+      } else {
+        leiturasEstaveis = 0;
+      }
+    } catch (erro) {
+      ultimoErro = mensagemErro(erro);
+      if (!navegacaoPodeContinuar(erro) && !/target closed|session closed/i.test(ultimoErro)) {
+        console.log(`[Pacotes Decolar] Documento ainda nao estabilizou: ${ultimoErro}`);
+      }
+      leiturasEstaveis = 0;
+    }
+
+    await dormir(1000);
+  }
+
+  pagina.off("response", registrarStatus);
+  throw new Error(
+    `A Decolar nao estabilizou a pagina apos os redirects${ultimoErro ? `: ${ultimoErro}` : "."}`
+  );
+}
+
 async function prepararChromiumServerless() {
   const libDir = join(tmpdir(), "al2023", "lib");
   const libNspr = join(libDir, "libnspr4.so");
@@ -152,25 +258,23 @@ export async function extrairPacoteDecolarBrowser(link: string): Promise<PacoteD
       env: process.env,
     });
 
-    // O chrome-headless-shell do Sparticuz pode encerrar o Target quando um
-    // BrowserContext novo é criado. Usamos deliberadamente o contexto padrão,
-    // conforme a correção documentada pelo próprio projeto.
-    const pagina = await browser.newPage();
-    await pagina.setUserAgent(
+    const paginaInicial = await browser.newPage();
+    await paginaInicial.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
       "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
     );
-    await pagina.setExtraHTTPHeaders({
+    await paginaInicial.setExtraHTTPHeaders({
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
     });
 
-    const resposta = await pagina.goto(link, {
-      waitUntil: "domcontentloaded",
-      timeout: 60000,
-    });
-    await new Promise((resolve) => setTimeout(resolve, 9000));
+    const navegacao = await navegarAteEstabilizar(browser, paginaInicial, link);
+    const pagina = navegacao.pagina;
+    const status = navegacao.status;
 
-    const status = resposta?.status() || 0;
+    // Dá alguns segundos para os cards/preços carregados pelo app da Decolar
+    // aparecerem depois que a navegação principal estabiliza.
+    await dormir(5000);
+
     const dados = await pagina.evaluate(() => {
       const meta = (seletor: string) => document.querySelector(seletor)?.getAttribute("content") || "";
       const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5"))
