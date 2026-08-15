@@ -1,6 +1,8 @@
 import RadarPublico from "./RadarPublico";
 import PacotesPublicos from "./PacotesPublicos";
 
+export const dynamic = "force-dynamic";
+
 const categorias = [
   {
     icone: "✈️",
