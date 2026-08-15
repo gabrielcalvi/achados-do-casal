@@ -74,6 +74,7 @@ export async function GET() {
       status,
       titulo,
       parceiro,
+      link_original,
       link_afiliado,
       radar_slug,
       radar_preco_referencia,
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
 
     const titulo = texto(body?.titulo);
     const parceiro = texto(body?.parceiro) || "Decolar";
+    const linkOriginal = texto(body?.link_original);
     const linkAfiliado = texto(body?.link_afiliado);
     const origem = texto(body?.origem_codigo).toUpperCase();
     const destino = texto(body?.destino_codigo).toUpperCase();
@@ -161,6 +163,13 @@ export async function POST(request: NextRequest) {
     if (!titulo) {
       return NextResponse.json(
         { sucesso: false, erro: "Informe o titulo do pacote." },
+        { status: 400 }
+      );
+    }
+
+    if (linkOriginal && !urlValida(linkOriginal)) {
+      return NextResponse.json(
+        { sucesso: false, erro: "O link original da Decolar e invalido." },
         { status: 400 }
       );
     }
@@ -220,6 +229,7 @@ export async function POST(request: NextRequest) {
       status: texto(body?.status) || "rascunho",
       titulo,
       parceiro,
+      link_original: linkOriginal || null,
       link_afiliado: linkAfiliado,
       radar_slug: texto(body?.radar_slug) || null,
       radar_preco_referencia: numero(body?.radar_preco_referencia),
