@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Sandbox } from "@vercel/sandbox";
 import { createClient } from "@/lib/supabase/server";
-import { extrairPacoteDecolar } from "@/lib/viagens/decolar";
+import {
+  extrairPacoteDecolar,
+  type PacoteDecolarExtraido,
+} from "@/lib/viagens/decolar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
+
+const SANDBOX_BASE = "achados-cupons-ml-test";
+const REPOSITORY = "gabrielcalvi/achados-do-casal";
+const SCRIPT_PATH = "/vercel/tmp/extrair-pacote-decolar.cjs";
 
 async function usuarioAutenticado() {
   try {
@@ -17,6 +25,133 @@ async function usuarioAutenticado() {
     return !error && Boolean(user);
   } catch {
     return false;
+  }
+}
+
+function precisaFallbackSandbox(erro: unknown) {
+  const mensagem =
+    erro instanceof Error
+      ? erro.message.toLowerCase()
+      : String(erro || "").toLowerCase();
+
+  return (
+    mensagem.includes("http 403") ||
+    mensagem.includes("forbidden") ||
+    mensagem.includes("access denied")
+  );
+}
+
+async function comando(
+  sandbox: Awaited<ReturnType<typeof Sandbox.fork>>,
+  cmd: string,
+  args: string[],
+  cwd?: string
+) {
+  const resultado = await sandbox.runCommand({
+    cmd,
+    args,
+    ...(cwd ? { cwd } : {}),
+  });
+
+  return {
+    exitCode: resultado.exitCode,
+    stdout: (await resultado.stdout()).trim(),
+    stderr: (await resultado.stderr()).trim(),
+  };
+}
+
+async function extrairViaSandbox(
+  link: string
+): Promise<PacoteDecolarExtraido> {
+  const sandbox = await Sandbox.fork({
+    sourceSandbox: SANDBOX_BASE,
+    persistent: false,
+  });
+
+  try {
+    const commit =
+      process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
+
+    const scriptUrl =
+      `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
+        commit
+      )}/scripts/extrair-pacote-decolar.cjs`;
+
+    const preparar = await comando(
+      sandbox,
+      "mkdir",
+      ["-p", "/vercel/tmp"]
+    );
+
+    if (preparar.exitCode !== 0) {
+      throw new Error(
+        preparar.stderr || "Falha preparando Sandbox da Decolar."
+      );
+    }
+
+    const baixar = await comando(
+      sandbox,
+      "curl",
+      [
+        "-fsSL",
+        "--max-time",
+        "30",
+        scriptUrl,
+        "-o",
+        SCRIPT_PATH,
+      ]
+    );
+
+    if (baixar.exitCode !== 0) {
+      throw new Error(
+        baixar.stderr || "Falha sincronizando extrator Decolar no Sandbox."
+      );
+    }
+
+    const locks = await comando(
+      sandbox,
+      "sh",
+      [
+        "-lc",
+        "rm -f /vercel/.playwright-profile/Singleton* 2>/dev/null || true",
+      ]
+    );
+
+    if (locks.exitCode !== 0) {
+      console.warn(
+        "[Pacotes] Nao foi possivel limpar locks antigos:",
+        locks.stderr
+      );
+    }
+
+    const execucao = await comando(
+      sandbox,
+      "xvfb-run",
+      ["-a", "node", SCRIPT_PATH, link],
+      "/vercel"
+    );
+
+    if (execucao.exitCode !== 0) {
+      throw new Error(
+        execucao.stderr ||
+          execucao.stdout ||
+          "O navegador da Decolar nao conseguiu preparar o pacote."
+      );
+    }
+
+    if (!execucao.stdout) {
+      throw new Error("O navegador terminou sem devolver os dados do pacote.");
+    }
+
+    try {
+      return JSON.parse(execucao.stdout) as PacoteDecolarExtraido;
+    } catch {
+      throw new Error(
+        "O navegador da Decolar devolveu um resultado invalido."
+      );
+    }
+  } finally {
+    await sandbox.stop().catch(() => undefined);
   }
 }
 
@@ -52,15 +187,35 @@ export async function POST(request: NextRequest) {
 
     if (!url.hostname.toLowerCase().includes("decolar.com")) {
       return NextResponse.json(
-        { sucesso: false, erro: "Por enquanto o preparo automatico aceita links da Decolar." },
+        {
+          sucesso: false,
+          erro: "Por enquanto o preparo automatico aceita links da Decolar.",
+        },
         { status: 400 }
       );
     }
 
-    const dados = await extrairPacoteDecolar(link);
+    let dados: PacoteDecolarExtraido;
+    let metodo: "html" | "sandbox" = "html";
+
+    try {
+      dados = await extrairPacoteDecolar(link);
+    } catch (erro) {
+      if (!precisaFallbackSandbox(erro)) {
+        throw erro;
+      }
+
+      console.log(
+        "[Pacotes] Decolar bloqueou leitura direta. Tentando navegador Sandbox."
+      );
+
+      dados = await extrairViaSandbox(link);
+      metodo = "sandbox";
+    }
 
     return NextResponse.json({
       sucesso: true,
+      metodo,
       dados,
     });
   } catch (erro) {
