@@ -2,14 +2,6 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
-const VALORES_PERMITIDOS = new Set([
-  10,
-  20,
-  30,
-  40,
-  50,
-]);
-
 function numeroOuNull(valor) {
   const numero = Number(valor);
 
@@ -28,6 +20,10 @@ function expirado(data) {
   }
 
   return timestamp <= Date.now();
+}
+
+function valorFixoValido(valor) {
+  return Number.isFinite(valor) && valor > 0;
 }
 
 (async () => {
@@ -181,7 +177,7 @@ function expirado(data) {
       if (
         raw.created_by !== "meli" ||
         raw.discount_type !== "FIXED" ||
-        !VALORES_PERMITIDOS.has(valor)
+        !valorFixoValido(valor)
       ) {
         continue;
       }
@@ -423,17 +419,20 @@ function expirado(data) {
 
   const porValor = {};
 
-  for (
-    const valor
-    of VALORES_PERMITIDOS
-  ) {
-    porValor[`R$${valor}`] =
-      cupons.filter(
-        (cupom) =>
-          cupom.valor_desconto ===
-          valor
-      ).length;
+  for (const cupom of cupons) {
+    const chave =
+      `R$${cupom.valor_desconto}`;
+
+    porValor[chave] =
+      (porValor[chave] || 0) + 1;
   }
+
+  const valoresEncontrados =
+    [...new Set(
+      cupons.map(
+        (cupom) => cupom.valor_desconto
+      )
+    )].sort((a, b) => a - b);
 
   const resultado = {
     versao:
@@ -448,8 +447,11 @@ function expirado(data) {
     tipo_aceito:
       "FIXED",
 
-    valores_aceitos:
-      [...VALORES_PERMITIDOS],
+    regra_valor:
+      "qualquer_valor_fixo_positivo",
+
+    valores_encontrados:
+      valoresEncontrados,
 
     total_paginas_lidas:
       paginasLidas,
@@ -497,6 +499,11 @@ function expirado(data) {
   console.log(
     "Cupons oficiais:",
     cupons.length
+  );
+
+  console.log(
+    "Valores encontrados:",
+    valoresEncontrados
   );
 
   console.log(
