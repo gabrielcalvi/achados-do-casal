@@ -1,4 +1,4 @@
-import { buscarTokensMercadoLivre } from "@/lib/mercadolivre/token";
+import { obterAccessTokenMercadoLivre } from "@/lib/mercadolivre/token";
 
 export type ProdutoMercadoLivre = {
   id: string;
@@ -27,18 +27,6 @@ type ProdutoCatalogoMercadoLivre = {
   } | null;
 };
 
-async function buscarAccessToken(): Promise<string> {
-  const tokens = await buscarTokensMercadoLivre();
-
-  if (!tokens?.access_token) {
-    throw new Error(
-      "Não foi encontrado um token do Mercado Livre no Supabase."
-    );
-  }
-
-  return tokens.access_token;
-}
-
 function normalizarIdMercadoLivre(id: string): string {
   return id
     .trim()
@@ -49,7 +37,7 @@ function normalizarIdMercadoLivre(id: string): string {
 export async function buscarProdutoMercadoLivre(
   itemId: string
 ): Promise<ProdutoMercadoLivre> {
-  const accessToken = await buscarAccessToken();
+  const accessToken = await obterAccessTokenMercadoLivre();
   const idNormalizado = normalizarIdMercadoLivre(itemId);
 
   if (!/^MLB\d+$/.test(idNormalizado)) {
@@ -87,7 +75,7 @@ export async function buscarProdutoMercadoLivre(
 export async function buscarItemIdDoCatalogo(
   productId: string
 ): Promise<string> {
-  const accessToken = await buscarAccessToken();
+  const accessToken = await obterAccessTokenMercadoLivre();
   const idNormalizado = normalizarIdMercadoLivre(productId);
 
   if (!/^MLB\d+$/.test(idNormalizado)) {
@@ -124,8 +112,7 @@ export async function buscarItemIdDoCatalogo(
     );
   }
 
-  const itemId =
-    produtoCatalogo.buy_box_winner?.item_id;
+  const itemId = produtoCatalogo.buy_box_winner?.item_id;
 
   if (!itemId) {
     throw new Error(
