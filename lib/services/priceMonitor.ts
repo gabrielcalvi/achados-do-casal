@@ -80,6 +80,29 @@ async function obterDadosAtuais(produto: {
   return extrairProduto(produto.link);
 }
 
+async function limparPendenciasAntigas(
+  produtoId: number,
+  agora: string
+) {
+  const { error } = await supabaseAdmin
+    .from("monitor_alteracoes")
+    .update({
+      status: "aprovado",
+      atualizado_em: agora,
+      aprovado_em: agora,
+    })
+    .eq("produto_id", produtoId)
+    .eq("tipo", "preco")
+    .eq("status", "pendente");
+
+  if (error) {
+    console.error(
+      `Erro ao limpar pendências antigas do produto ${produtoId}:`,
+      error
+    );
+  }
+}
+
 export async function consultarPrecoProduto(id: number) {
   const { data: produto, error } = await supabaseAdmin
     .from("produtos")
@@ -113,20 +136,24 @@ export async function consultarPrecoProduto(id: number) {
   console.log("Mudou?", precoBanco !== precoNovo);
   console.log("================================");
 
-  if (!Number.isFinite(precoNovo)) {
+  if (!Number.isFinite(precoNovo) || precoNovo <= 0) {
     throw new Error("A consulta retornou um preço inválido.");
   }
 
   const precoMudou = precoBanco !== precoNovo;
   const agora = new Date().toISOString();
 
+  // Qualquer verificação bem-sucedida torna pendências antigas obsoletas.
+  await limparPendenciasAntigas(produto.id, agora);
+
   const atualizacao: Record<string, unknown> = {
     ultima_verificacao: agora,
     preco_monitorado: precoNovo,
-    preco_alterado: precoMudou,
+    preco_alterado: false,
   };
 
   if (precoMudou) {
+    atualizacao.preco_atual = precoNovo;
     atualizacao.updated_at = agora;
 
     const { error: monitorError } = await supabaseAdmin
@@ -136,7 +163,9 @@ export async function consultarPrecoProduto(id: number) {
         tipo: "preco",
         valor_antigo: String(precoBanco),
         valor_novo: String(precoNovo),
-        status: "pendente",
+        status: "aprovado",
+        atualizado_em: agora,
+        aprovado_em: agora,
       });
 
     if (monitorError) {
