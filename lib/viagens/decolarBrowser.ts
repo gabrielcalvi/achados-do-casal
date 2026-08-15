@@ -7,14 +7,14 @@ import type { PacoteDecolarExtraido } from "@/lib/viagens/decolar";
 const CHROMIUM_PACK_URL =
   "https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.x64.tar";
 
-const MAX_CAPTURAS_REDE = 60;
-const MAX_CORPO_REDE = 800_000;
+const MAX_CAPTURAS_REDE = 80;
+const MAX_CORPO_REDE = 900_000;
 
 type CapturaRede = {
   url: string;
   status: number;
   texto: string;
-  origem: "response" | "request";
+  origem: "response" | "request" | "fetch";
 };
 
 type ValorJson = {
@@ -509,6 +509,15 @@ export async function extrairPacoteDecolarBrowser(
       maxResourceBufferSize: 2_000_000,
       maxPostDataSize: 1_000_000,
     });
+    await cliente.send("Network.setCacheDisabled", { cacheDisabled: true });
+    await cliente.send("Network.setBypassServiceWorker", { bypass: true });
+    await cliente.send("Fetch.enable", {
+      patterns: [
+        { urlPattern: "*", resourceType: "XHR", requestStage: "Response" },
+        { urlPattern: "*", resourceType: "Fetch", requestStage: "Response" },
+        { urlPattern: "*trip*", resourceType: "Document", requestStage: "Response" },
+      ],
+    });
 
     const capturas: CapturaRede[] = [];
     const candidatos = new Map<
@@ -516,20 +525,38 @@ export async function extrairPacoteDecolarBrowser(
       { url: string; status: number; mimeType: string }
     >();
     const pendentes = new Set<Promise<void>>();
+    const urlsVistas = new Set<string>();
     let statusDocumento = 0;
+    let totalRequisicoes = 0;
+    let respostasInterceptadas = 0;
+    let corposInterceptados = 0;
+
+    const adicionarCaptura = (captura: CapturaRede) => {
+      if (!captura.texto || capturas.length >= MAX_CAPTURAS_REDE) return;
+      const duplicada = capturas.some(
+        (item) =>
+          item.url === captura.url &&
+          item.texto.slice(0, 180) === captura.texto.slice(0, 180)
+      );
+      if (!duplicada) capturas.push(captura);
+    };
 
     cliente.on("Network.requestWillBeSent", (evento) => {
       try {
+        totalRequisicoes += 1;
         const url = evento.request.url;
+        if (/decolar\.com|staticontent\.com/i.test(url)) {
+          urlsVistas.add(url);
+        }
+
         const postData = evento.request.postData || "";
         if (
           postData &&
-          capturas.length < MAX_CAPTURAS_REDE &&
           /graphql|package|hotel|accommodation|offer|price|alternative|search/i.test(
             url
           )
         ) {
-          capturas.push({
+          adicionarCaptura({
             url,
             status: 0,
             texto: postData.slice(0, MAX_CORPO_REDE),
@@ -559,7 +586,7 @@ export async function extrairPacoteDecolarBrowser(
             url
           );
 
-        if (candidata && candidatos.size < 100) {
+        if (candidata && candidatos.size < 120) {
           candidatos.set(requestId, {
             url,
             status: Math.round(response.status || 0),
@@ -583,13 +610,8 @@ export async function extrairPacoteDecolarBrowser(
             ? Buffer.from(body, "base64").toString("utf8")
             : body;
 
-          if (
-            texto &&
-            texto.length >= 2 &&
-            texto.length <= MAX_CORPO_REDE &&
-            capturas.length < MAX_CAPTURAS_REDE
-          ) {
-            capturas.push({
+          if (texto && texto.length >= 2 && texto.length <= MAX_CORPO_REDE) {
+            adicionarCaptura({
               url: candidato.url,
               status: candidato.status,
               texto,
@@ -599,6 +621,50 @@ export async function extrairPacoteDecolarBrowser(
         })
         .catch(() => undefined)
         .then(() => undefined);
+
+      pendentes.add(tarefa);
+      tarefa.finally(() => pendentes.delete(tarefa));
+    });
+
+    cliente.on("Fetch.requestPaused", (evento) => {
+      const tarefa = (async () => {
+        respostasInterceptadas += 1;
+        const url = evento.request.url;
+        const status = evento.responseStatusCode || 0;
+
+        try {
+          if (
+            evento.responseStatusCode &&
+            ![204, 301, 302, 303, 307, 308].includes(evento.responseStatusCode) &&
+            capturas.length < MAX_CAPTURAS_REDE
+          ) {
+            const corpo = await cliente.send("Fetch.getResponseBody", {
+              requestId: evento.requestId,
+            });
+            const texto = corpo.base64Encoded
+              ? Buffer.from(corpo.body, "base64").toString("utf8")
+              : corpo.body;
+
+            if (texto && texto.length >= 2 && texto.length <= MAX_CORPO_REDE) {
+              corposInterceptados += 1;
+              adicionarCaptura({
+                url,
+                status,
+                texto,
+                origem: "fetch",
+              });
+            }
+          }
+        } catch (erro) {
+          console.log(
+            `[Pacotes Decolar] Corpo interceptado indisponivel em ${url.slice(0, 120)}: ${mensagemErro(erro)}`
+          );
+        } finally {
+          await cliente
+            .send("Fetch.continueRequest", { requestId: evento.requestId })
+            .catch(() => undefined);
+        }
+      })();
 
       pendentes.add(tarefa);
       tarefa.finally(() => pendentes.delete(tarefa));
@@ -618,22 +684,12 @@ export async function extrairPacoteDecolarBrowser(
       );
     }
 
-    // A navegação via CDP não fica presa ao lifecycle do Frame. Damos tempo
-    // para a SPA disparar suas APIs e capturamos os corpos diretamente da rede.
-    await dormir(18_000);
+    await dormir(20_000);
     await Promise.allSettled([...pendentes]);
+    await cliente.send("Fetch.disable").catch(() => undefined);
 
     console.log(
-      `[Pacotes Decolar] CDP capturou ${capturas.length} payload(s): ${capturas
-        .slice(0, 10)
-        .map((item) => {
-          try {
-            return new URL(item.url).pathname;
-          } catch {
-            return item.url.slice(0, 80);
-          }
-        })
-        .join(" | ")}`
+      `[Pacotes Decolar] Rede: ${totalRequisicoes} requisicoes, ${respostasInterceptadas} respostas interceptadas, ${corposInterceptados} corpos Fetch, ${capturas.length} payload(s), ${urlsVistas.size} URLs Decolar.`
     );
 
     const rede = sinaisDaRede(capturas);
@@ -783,9 +839,17 @@ export async function extrairPacoteDecolarBrowser(
         ? `Preparo parcial automático (${fontes.join(" + ") || "link"}). Revise os campos antes de publicar.`
         : `Dados preparados automaticamente (${fontes.join(" + ")}). Revise antes de publicar.`
     );
+    observacoes.push(
+      `Detectado nesta tentativa: ${campos.length ? campos.join(", ") : "nenhum campo adicional"}.`
+    );
     if (precoTotalEstimado) {
       observacoes.push(
         "Preço total estimado automaticamente pelo preço por pessoa × quantidade de adultos; confirme na Decolar antes de publicar."
+      );
+    }
+    if (parcial || campos.length < 6) {
+      observacoes.push(
+        `Diagnóstico de rede: ${totalRequisicoes} requisições, ${respostasInterceptadas} respostas interceptadas, ${corposInterceptados} corpos lidos e ${capturas.length} payload(s) aproveitados.`
       );
     }
 
