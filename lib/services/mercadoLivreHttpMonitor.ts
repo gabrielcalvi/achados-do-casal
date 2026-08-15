@@ -1,13 +1,32 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function extrairItemIdMercadoLivre(link: string) {
-  const match = link.match(/MLB[-:]?(\d{8,})/i);
+  try {
+    const url = new URL(link);
+    const candidatos = [
+      url.searchParams.get("wid") || "",
+      url.searchParams.get("item_id") || "",
+      url.searchParams.get("pdp_filters") || "",
+      url.pathname,
+      link,
+    ];
 
-  if (!match?.[1]) {
-    return null;
+    for (const candidato of candidatos) {
+      const match = candidato.match(/MLB[-:]?(\d{8,})/i);
+
+      if (match?.[1]) {
+        return `MLB${match[1]}`;
+      }
+    }
+  } catch {
+    const match = link.match(/MLB[-:]?(\d{8,})/i);
+
+    if (match?.[1]) {
+      return `MLB${match[1]}`;
+    }
   }
 
-  return `MLB${match[1]}`;
+  return null;
 }
 
 function urlDiretaAnuncio(link: string) {
@@ -86,6 +105,7 @@ export async function diagnosticarMercadoLivreHttp(produtoId: number) {
     throw new Error("Produto sem link original.");
   }
 
+  const itemId = extrairItemIdMercadoLivre(link);
   const url = urlDiretaAnuncio(link);
 
   const resposta = await fetch(url, {
@@ -119,6 +139,7 @@ export async function diagnosticarMercadoLivreHttp(produtoId: number) {
   return {
     produto_id: produto.id,
     produto: produto.nome,
+    item_id_detectado: itemId,
     preco_banco: Number(produto.preco_atual),
     url_usada: url,
     url_final: resposta.url,
