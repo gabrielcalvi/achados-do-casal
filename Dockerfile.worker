@@ -1,10 +1,14 @@
-﻿FROM node:22-bookworm
+FROM node:22-bookworm
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci
+# O Railway usa este Dockerfile para o Playwright Worker. Como o projeto
+# principal ganhou dependencias novas antes de o lockfile ser regenerado,
+# `npm ci` passou a falhar por divergencia entre package.json e package-lock.
+# `npm install` mantem o Worker implantavel ate sincronizarmos o lockfile.
+RUN npm install --no-audit --no-fund
 RUN npx playwright install --with-deps chromium
 
 COPY . .
