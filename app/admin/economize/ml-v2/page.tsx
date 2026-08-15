@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PainelMlV2 from "../PainelMlV2";
+import RenovarSessaoMlV2 from "./RenovarSessaoMlV2";
 
 export default function AdminMlV2Page() {
   return (
@@ -31,6 +32,7 @@ export default function AdminMlV2Page() {
         </header>
 
         <PainelMlV2 />
+        <RenovarSessaoMlV2 />
       </div>
     </main>
   );
