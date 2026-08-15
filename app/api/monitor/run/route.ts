@@ -2,7 +2,10 @@ import {
   consultarPrecoProduto,
   monitorarTodosProdutos,
 } from "@/lib/services/priceMonitor";
-import { diagnosticarMercadoLivreHttp } from "@/lib/services/mercadoLivreHttpMonitor";
+import {
+  diagnosticarMercadoLivreApiPublica,
+  diagnosticarMercadoLivreHttp,
+} from "@/lib/services/mercadoLivreHttpMonitor";
 
 export async function GET(request: Request) {
   try {
@@ -29,6 +32,16 @@ export async function GET(request: Request) {
         return Response.json({
           sucesso: true,
           modo: "diagnostico_http_ml",
+          resultado,
+        });
+      }
+
+      if (modo === "api-publica-ml") {
+        const resultado = await diagnosticarMercadoLivreApiPublica(id);
+
+        return Response.json({
+          sucesso: true,
+          modo: "diagnostico_api_publica_ml",
           resultado,
         });
       }
