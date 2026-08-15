@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ResultadoMlV2 = {
   sucesso?: boolean;
@@ -32,17 +32,73 @@ function moeda(valor: number | null | undefined) {
   }).format(valor);
 }
 
+function etapaExecucao(progresso: number) {
+  if (progresso < 18) {
+    return "Preparando execução";
+  }
+
+  if (progresso < 38) {
+    return "Conectando ao Vercel Sandbox";
+  }
+
+  if (progresso < 76) {
+    return "Coletando cupons oficiais do Mercado Livre";
+  }
+
+  if (progresso < 96) {
+    return "Filtrando cupons amplos e validando regras";
+  }
+
+  return "Finalizando resultado";
+}
+
 export default function PainelMlV2() {
   const [executando, setExecutando] = useState(false);
   const [resultado, setResultado] =
     useState<ResultadoMlV2 | null>(null);
   const [erro, setErro] = useState("");
+  const [progresso, setProgresso] = useState(0);
+  const [segundos, setSegundos] = useState(0);
+
+  useEffect(() => {
+    if (!executando) {
+      return;
+    }
+
+    const iniciadoEm = Date.now();
+
+    const timer = window.setInterval(() => {
+      setSegundos(
+        Math.floor((Date.now() - iniciadoEm) / 1000)
+      );
+
+      setProgresso((valorAtual) => {
+        if (valorAtual >= 94) {
+          return valorAtual;
+        }
+
+        if (valorAtual < 22) {
+          return Math.min(22, valorAtual + 3);
+        }
+
+        if (valorAtual < 55) {
+          return Math.min(55, valorAtual + 2);
+        }
+
+        return Math.min(94, valorAtual + 1);
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [executando]);
 
   async function executar() {
     try {
       setExecutando(true);
       setErro("");
       setResultado(null);
+      setProgresso(6);
+      setSegundos(0);
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/executar",
@@ -63,16 +119,24 @@ export default function PainelMlV2() {
       }
 
       setResultado(dados);
+      setProgresso(100);
     } catch (error) {
       setErro(
         error instanceof Error
           ? error.message
           : "Erro inesperado no ML V2."
       );
+      setProgresso(100);
     } finally {
       setExecutando(false);
     }
   }
+
+  const etapa = erro
+    ? "Execução interrompida"
+    : resultado
+      ? "Coleta concluída"
+      : etapaExecucao(progresso);
 
   return (
     <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
@@ -135,8 +199,69 @@ export default function PainelMlV2() {
         </div>
       </div>
 
+      {(executando || resultado || erro) && (
+        <div
+          className={`mt-5 rounded-2xl border p-4 ${
+            erro
+              ? "border-red-200 bg-red-50"
+              : resultado
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-blue-200 bg-blue-50"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                Status da execução
+              </p>
+              <p
+                className={`mt-1 font-black ${
+                  erro
+                    ? "text-red-700"
+                    : resultado
+                      ? "text-emerald-700"
+                      : "text-blue-800"
+                }`}
+              >
+                {erro ? "❌" : resultado ? "✅" : "⚙️"} {etapa}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-sm font-black text-slate-700">
+                {progresso}%
+              </p>
+              {executando && (
+                <p className="text-xs font-bold text-slate-500">
+                  {segundos}s em execução
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white shadow-inner">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                erro
+                  ? "bg-red-500"
+                  : resultado
+                    ? "bg-emerald-500"
+                    : "bg-blue-600"
+              }`}
+              style={{ width: `${progresso}%` }}
+            />
+          </div>
+
+          {executando && (
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              A barra acompanha visualmente a execução e só chega a 100% quando a API confirma o término.
+            </p>
+          )}
+        </div>
+      )}
+
       {erro && (
-        <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-700">
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-700">
           {erro}
         </div>
       )}
