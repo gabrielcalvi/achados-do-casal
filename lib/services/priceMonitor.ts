@@ -33,8 +33,17 @@ async function obterDadosAtuais(
     link: string;
     categoria?: string | null;
   },
-  sessaoMl?: SessaoMonitorMercadoLivre | null
+  sessaoMl?: SessaoMonitorMercadoLivre | null,
+  modoLocal = false
 ): Promise<DadosAtuaisMonitor> {
+  if (modoLocal) {
+    console.log(
+      `[MONITOR LOCAL] ${produto.loja || "Loja"} via Playwright local: ${produto.link}`
+    );
+
+    return extrairProduto(produto.link);
+  }
+
   if (ehMercadoLivre(produto)) {
     if (!sessaoMl) {
       throw new Error("Sessão remota do Mercado Livre não foi inicializada.");
@@ -88,7 +97,8 @@ async function limparPendenciasAntigas(
 
 export async function consultarPrecoProduto(
   id: number,
-  sessaoMl?: SessaoMonitorMercadoLivre | null
+  sessaoMl?: SessaoMonitorMercadoLivre | null,
+  modoLocal = false
 ) {
   const { data: produto, error } = await supabaseAdmin
     .from("produtos")
@@ -109,7 +119,7 @@ export async function consultarPrecoProduto(
   let sessaoCriadaAqui: SessaoMonitorMercadoLivre | null = null;
   let sessaoEfetiva = sessaoMl ?? null;
 
-  if (ehMercadoLivre(produto) && !sessaoEfetiva) {
+  if (!modoLocal && ehMercadoLivre(produto) && !sessaoEfetiva) {
     sessaoCriadaAqui = await criarSessaoMonitorMercadoLivre();
     sessaoEfetiva = sessaoCriadaAqui;
   }
@@ -121,7 +131,8 @@ export async function consultarPrecoProduto(
         link,
         categoria: produto.categoria,
       },
-      sessaoEfetiva
+      sessaoEfetiva,
+      modoLocal
     );
 
     const precoBanco = Number(produto.preco_atual);
@@ -213,7 +224,7 @@ export async function consultarPrecoProduto(
   }
 }
 
-export async function monitorarTodosProdutos() {
+export async function monitorarTodosProdutos(modoLocal = false) {
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
     .select("id, nome, loja, link")
@@ -236,9 +247,13 @@ export async function monitorarTodosProdutos() {
   let sessaoMl: SessaoMonitorMercadoLivre | null = null;
 
   try {
-    if (possuiMercadoLivre) {
+    if (!modoLocal && possuiMercadoLivre) {
       console.log("[MONITOR REMOTO] Inicializando Sandbox autenticado do Mercado Livre...");
       sessaoMl = await criarSessaoMonitorMercadoLivre();
+    }
+
+    if (modoLocal) {
+      console.log("[MONITOR LOCAL] Rodada local iniciada. Preços válidos serão aplicados automaticamente.");
     }
 
     const LIMITE_CONCORRENCIA = 4;
@@ -260,7 +275,8 @@ export async function monitorarTodosProdutos() {
 
             const resultado = await consultarPrecoProduto(
               produto.id,
-              sessaoMl
+              sessaoMl,
+              modoLocal
             );
 
             return {
