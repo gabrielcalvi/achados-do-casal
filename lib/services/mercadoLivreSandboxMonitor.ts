@@ -35,12 +35,16 @@ async function consultarJson(
   caminho: string,
   timeoutSegundos = 45
 ): Promise<Record<string, unknown>> {
+  const marcadorStatus = "__HTTP_STATUS__";
+
   const execucao = await rodarComando(sandbox, {
     cmd: "curl",
     args: [
-      "-fsS",
+      "-sS",
       "--max-time",
       String(timeoutSegundos),
+      "-w",
+      `\n${marcadorStatus}%{http_code}`,
       `${WORKER_BASE_URL}${caminho}`,
     ],
   });
@@ -51,12 +55,50 @@ async function consultarJson(
     );
   }
 
-  let dados: Record<string, unknown>;
+  const indiceStatus = execucao.stdout.lastIndexOf(`\n${marcadorStatus}`);
 
-  try {
-    dados = JSON.parse(execucao.stdout) as Record<string, unknown>;
-  } catch {
-    throw new Error(`Resposta invalida do Worker em ${caminho}.`);
+  if (indiceStatus < 0) {
+    throw new Error(`Resposta sem status HTTP do Worker em ${caminho}.`);
+  }
+
+  const corpo = execucao.stdout.slice(0, indiceStatus).trim();
+  const statusTexto = execucao.stdout
+    .slice(indiceStatus + 1 + marcadorStatus.length)
+    .trim();
+  const status = Number(statusTexto);
+
+  let dados: Record<string, unknown> | null = null;
+
+  if (corpo) {
+    try {
+      dados = JSON.parse(corpo) as Record<string, unknown>;
+    } catch {
+      dados = null;
+    }
+  }
+
+  if (!Number.isFinite(status) || status >= 400) {
+    const erroWorker =
+      dados && typeof dados.erro === "string"
+        ? dados.erro
+        : corpo || `HTTP ${statusTexto || "desconhecido"}`;
+
+    const log = await rodarComando(sandbox, {
+      cmd: "tail",
+      args: ["-n", "40", "/vercel/worker.log"],
+    }).catch(() => null);
+
+    const detalheLog = log?.stdout
+      ? ` | Worker log: ${log.stdout.slice(-2500)}`
+      : "";
+
+    throw new Error(
+      `Worker Sandbox respondeu ${statusTexto || "erro"}: ${erroWorker}${detalheLog}`
+    );
+  }
+
+  if (!dados) {
+    throw new Error(`Resposta invalida do Worker em ${caminho}: ${corpo}`);
   }
 
   if (dados.sucesso === false) {
