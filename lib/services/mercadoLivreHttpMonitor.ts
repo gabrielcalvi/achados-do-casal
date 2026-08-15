@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { obterAccessTokenMercadoLivre } from "@/lib/mercadolivre/token";
 
 function extrairItemIdMercadoLivre(link: string) {
   try {
@@ -109,6 +110,77 @@ function extrairJsonLdProduto(html: string) {
   return null;
 }
 
+function lerJson(texto: string): Record<string, any> | null {
+  try {
+    return JSON.parse(texto) as Record<string, any>;
+  } catch {
+    return null;
+  }
+}
+
+export async function diagnosticarMercadoLivrePrecoOficial(produtoId: number) {
+  const { produto, link } = await buscarProduto(produtoId);
+  const itemId = extrairItemIdMercadoLivre(link);
+
+  if (!itemId) {
+    throw new Error("Nao foi possivel identificar o item do Mercado Livre.");
+  }
+
+  const token = await obterAccessTokenMercadoLivre();
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  const [respostaPrices, respostaSalePrice] = await Promise.all([
+    fetch(`https://api.mercadolibre.com/items/${itemId}/prices`, {
+      cache: "no-store",
+      headers,
+      signal: AbortSignal.timeout(30000),
+    }),
+    fetch(`https://api.mercadolibre.com/items/${itemId}/sale_price`, {
+      cache: "no-store",
+      headers,
+      signal: AbortSignal.timeout(30000),
+    }),
+  ]);
+
+  const [textoPrices, textoSalePrice] = await Promise.all([
+    respostaPrices.text(),
+    respostaSalePrice.text(),
+  ]);
+
+  const jsonPrices = lerJson(textoPrices);
+  const jsonSalePrice = lerJson(textoSalePrice);
+
+  const precos = Array.isArray(jsonPrices?.prices) ? jsonPrices?.prices : [];
+  const precoPromocional = precos.find((preco: any) => preco?.type === "promotion");
+  const precoPadrao = precos.find((preco: any) => preco?.type === "standard");
+  const melhorPrecoPrices = Number(precoPromocional?.amount ?? precoPadrao?.amount ?? NaN);
+  const precoSalePrice = Number(jsonSalePrice?.amount ?? NaN);
+
+  return {
+    produto_id: produto.id,
+    produto: produto.nome,
+    item_id_detectado: itemId,
+    preco_banco: Number(produto.preco_atual),
+    prices: {
+      http_status: respostaPrices.status,
+      ok: respostaPrices.ok,
+      preco_encontrado: Number.isFinite(melhorPrecoPrices) ? melhorPrecoPrices : null,
+      erro: jsonPrices?.message || jsonPrices?.error || null,
+      corpo_inicio: textoPrices.slice(0, 500),
+    },
+    sale_price: {
+      http_status: respostaSalePrice.status,
+      ok: respostaSalePrice.ok,
+      preco_encontrado: Number.isFinite(precoSalePrice) ? precoSalePrice : null,
+      erro: jsonSalePrice?.message || jsonSalePrice?.error || null,
+      corpo_inicio: textoSalePrice.slice(0, 500),
+    },
+  };
+}
+
 export async function diagnosticarMercadoLivreApiPublica(produtoId: number) {
   const { produto, link } = await buscarProduto(produtoId);
   const itemId = extrairItemIdMercadoLivre(link);
@@ -126,13 +198,7 @@ export async function diagnosticarMercadoLivreApiPublica(produtoId: number) {
   });
 
   const texto = await resposta.text();
-  let json: Record<string, any> | null = null;
-
-  try {
-    json = JSON.parse(texto) as Record<string, any>;
-  } catch {
-    json = null;
-  }
+  const json = lerJson(texto);
 
   return {
     produto_id: produto.id,
