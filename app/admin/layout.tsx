@@ -10,6 +10,28 @@ export default function AdminLayout({
 }: AdminLayoutProps) {
   return (
     <>
+      <style>{`
+        /*
+         * A navegacao principal agora pertence ao layout do Admin.
+         * Escondemos apenas os atalhos antigos repetidos que ainda
+         * existem dentro das paginas, preservando as acoes locais
+         * como Novo Produto, Sair e Revisar alteracoes.
+         */
+        main header a[href="/admin"],
+        main header a[href="/admin/monitor"] {
+          display: none !important;
+        }
+
+        main nav:has(a[href="/admin"]) {
+          display: none !important;
+        }
+
+        main .mx-auto.max-w-7xl > .flex > .flex.items-center.gap-3 > a[href="/admin"],
+        main .mx-auto.max-w-7xl > .flex > .flex.items-center.gap-3 > a[href="/admin/monitor"] {
+          display: none !important;
+        }
+      `}</style>
+
       <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-5 py-3 shadow-sm backdrop-blur sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
           <span className="mr-2 text-xs font-black uppercase tracking-wider text-pink-500">
