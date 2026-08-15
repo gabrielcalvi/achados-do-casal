@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium as playwright } from "playwright";
+import puppeteer, { type Browser } from "puppeteer-core";
 import type { PacoteDecolarExtraido } from "@/lib/viagens/decolar";
 
 const CHROMIUM_PACK_URL =
@@ -95,14 +95,8 @@ async function prepararChromiumServerless() {
   const libNspr = join(libDir, "libnspr4.so");
   const chromiumPath = join(tmpdir(), "chromium");
 
-  // O pacote usa VERCEL para decidir se deve extrair as libs AL2023.
-  // Garantimos esse sinal antes do import dinâmico para evitar uma detecção
-  // incompleta no runtime da Function.
   process.env.VERCEL ||= "1";
 
-  // Em Function quente pode sobrar /tmp/chromium de uma execução anterior
-  // mesmo quando as bibliotecas AL2023 não foram extraídas. Nesse caso,
-  // removemos o estado parcial para forçar uma extração completa.
   if (existsSync(chromiumPath) && !existsSync(libNspr)) {
     rmSync(chromiumPath, { force: true });
     rmSync(join(tmpdir(), "chromium-pack"), { recursive: true, force: true });
@@ -135,30 +129,46 @@ async function prepararChromiumServerless() {
 
 export async function extrairPacoteDecolarBrowser(link: string): Promise<PacoteDecolarExtraido> {
   const urlInicial = new URL(link);
-  let browser: Awaited<ReturnType<typeof playwright.launch>> | null = null;
+  let browser: Browser | null = null;
 
   try {
     const { chromiumServerless, executablePath } = await prepararChromiumServerless();
 
-    browser = await playwright.launch({
+    browser = await puppeteer.launch({
       executablePath,
-      args: chromiumServerless.args,
-      headless: true,
+      args: puppeteer.defaultArgs({
+        args: chromiumServerless.args,
+        headless: "shell",
+      }),
+      headless: "shell",
+      defaultViewport: {
+        width: 1440,
+        height: 1000,
+        deviceScaleFactor: 1,
+        hasTouch: false,
+        isLandscape: true,
+        isMobile: false,
+      },
       env: process.env,
     });
 
-    const contexto = await browser.newContext({
-      locale: "pt-BR",
-      viewport: { width: 1440, height: 1000 },
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-      extraHTTPHeaders: { "accept-language": "pt-BR,pt;q=0.9,en;q=0.8" },
+    // O chrome-headless-shell do Sparticuz pode encerrar o Target quando um
+    // BrowserContext novo é criado. Usamos deliberadamente o contexto padrão,
+    // conforme a correção documentada pelo próprio projeto.
+    const pagina = await browser.newPage();
+    await pagina.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+    );
+    await pagina.setExtraHTTPHeaders({
+      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
     });
 
-    const pagina = await contexto.newPage();
-    const resposta = await pagina.goto(link, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await pagina.waitForTimeout(9000);
+    const resposta = await pagina.goto(link, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 9000));
 
     const status = resposta?.status() || 0;
     const dados = await pagina.evaluate(() => {
@@ -182,7 +192,7 @@ export async function extrairPacoteDecolarBrowser(link: string): Promise<PacoteD
 
     const texto = limpar(dados.texto);
     if (status === 403 || /access denied|forbidden|acesso negado/i.test(texto.slice(0, 1500))) {
-      throw new Error("A Decolar bloqueou também o navegador serverless (HTTP 403). ");
+      throw new Error("A Decolar bloqueou também o navegador serverless (HTTP 403).");
     }
 
     const urlFinal = new URL(pagina.url());
@@ -263,6 +273,11 @@ export async function extrairPacoteDecolarBrowser(link: string): Promise<PacoteD
       campos_detectados: campos,
     };
   } finally {
-    if (browser) await browser.close().catch(() => undefined);
+    if (browser) {
+      for (const pagina of await browser.pages().catch(() => [])) {
+        await pagina.close().catch(() => undefined);
+      }
+      await browser.close().catch(() => undefined);
+    }
   }
 }
