@@ -275,14 +275,23 @@ export default async function PacotesPublicos() {
                   </p>
                 )}
 
-                <a
-                  href={pacote.link_afiliado}
-                  target="_blank"
-                  rel="sponsored noopener noreferrer"
-                  className="mt-6 flex w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-4 text-center font-black text-slate-950 transition hover:bg-amber-300"
-                >
-                  Ver pacote na {pacote.parceiro} ↗
-                </a>
+                <div className="mt-6 grid gap-3">
+                  <a
+                    href={`/viagens/pacote/${pacote.id}`}
+                    className="flex w-full items-center justify-center rounded-xl border-2 border-sky-700 bg-white px-5 py-3 text-center font-black text-sky-800 transition hover:bg-sky-50"
+                  >
+                    🔗 Ver e compartilhar
+                  </a>
+
+                  <a
+                    href={pacote.link_afiliado}
+                    target="_blank"
+                    rel="sponsored noopener noreferrer"
+                    className="flex w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-4 text-center font-black text-slate-950 transition hover:bg-amber-300"
+                  >
+                    Ver pacote na {pacote.parceiro} ↗
+                  </a>
+                </div>
               </div>
             </article>
           ))}
