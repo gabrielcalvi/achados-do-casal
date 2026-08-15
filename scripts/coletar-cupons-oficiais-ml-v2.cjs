@@ -26,6 +26,98 @@ function valorFixoValido(valor) {
   return Number.isFinite(valor) && valor > 0;
 }
 
+function valorPreenchido(valor) {
+  if (valor === null || valor === undefined) {
+    return false;
+  }
+
+  if (Array.isArray(valor)) {
+    return valor.length > 0;
+  }
+
+  if (typeof valor === "object") {
+    return Object.keys(valor).length > 0;
+  }
+
+  if (typeof valor === "string") {
+    return valor.trim().length > 0;
+  }
+
+  return Boolean(valor);
+}
+
+function temRestricaoEstruturada(raw) {
+  const camposRestritivos = [
+    "item_id",
+    "item_ids",
+    "excluded_item_ids",
+    "seller_id",
+    "seller_ids",
+    "excluded_seller_ids",
+    "category_id",
+    "category_ids",
+    "excluded_category_ids",
+    "brand_id",
+    "brand_ids",
+    "excluded_brand_ids",
+    "product_id",
+    "product_ids",
+    "user_product_id",
+    "user_product_ids",
+    "domain_id",
+    "domain_ids",
+    "official_store_id",
+    "official_store_ids",
+  ];
+
+  return camposRestritivos.some(
+    (campo) => valorPreenchido(raw?.[campo])
+  );
+}
+
+function textoIndicaRestricao(raw, visual) {
+  const texto = [
+    raw?.title,
+    raw?.subtitle,
+    raw?.description,
+    visual?.title?.text,
+    visual?.initialSubtitle?.text,
+    visual?.secondarySubtitle?.text,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (!texto) {
+    return false;
+  }
+
+  return [
+    /selecionad/,
+    /itens? participantes?/,
+    /produtos? participantes?/,
+    /categorias? selecionad/,
+    /categorias? espec/i,
+    /marcas? selecionad/,
+    /vendedores? selecionad/,
+    /lojas? oficiais?/,
+    /somente em /,
+    /apenas em /,
+  ].some((padrao) => padrao.test(texto));
+}
+
+function cupomValeNoSiteInteiro(raw, visual) {
+  if (temRestricaoEstruturada(raw)) {
+    return false;
+  }
+
+  if (textoIndicaRestricao(raw, visual)) {
+    return false;
+  }
+
+  return true;
+}
+
 (async () => {
 
   const authFile =
@@ -204,6 +296,10 @@ function valorFixoValido(valor) {
           campanhaId
         ) || {};
 
+      if (!cupomValeNoSiteInteiro(raw, visual)) {
+        continue;
+      }
+
       const produtos =
         Array.isArray(visual.items)
           ? visual.items
@@ -276,6 +372,12 @@ function valorFixoValido(valor) {
 
           tipo_original:
             raw.discount_type,
+
+          escopo:
+            "site_inteiro",
+
+          sem_restricao_item_vendedor_categoria:
+            true,
 
           subtitulo:
             visual.initialSubtitle
@@ -450,6 +552,12 @@ function valorFixoValido(valor) {
     regra_valor:
       "qualquer_valor_fixo_positivo",
 
+    regra_escopo:
+      "somente_site_inteiro_sem_restricao_de_item_vendedor_categoria_marca_produto",
+
+    filtro_escopo_conservador:
+      true,
+
     valores_encontrados:
       valoresEncontrados,
 
@@ -497,7 +605,7 @@ function valorFixoValido(valor) {
   );
 
   console.log(
-    "Cupons oficiais:",
+    "Cupons oficiais e sitewide:",
     cupons.length
   );
 
