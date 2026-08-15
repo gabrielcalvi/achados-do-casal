@@ -16,13 +16,15 @@ const AUTH_STATE_PATH =
   "/vercel/tmp/meli-buyer-auth.json";
 
 const COLLECTOR_PATH =
-  "/vercel/scripts/coletar-cupons-oficiais-ml-v2.cjs";
+  "/vercel/scripts/coletar-cupons-oficiais-ml-v2-lote.cjs";
 
 const RESULT_PATH =
   "/vercel/tmp/ml-cupons-v2-oficiais.json";
 
 const REPOSITORY =
   "gabrielcalvi/achados-do-casal";
+
+const MAX_PAGINAS_LOTE = 20;
 
 type SandboxInstancia =
   Awaited<ReturnType<typeof Sandbox.get>>;
@@ -186,7 +188,7 @@ export async function GET(
     const collectorUrl =
       `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
         commit
-      )}/scripts/coletar-cupons-oficiais-ml-v2.cjs`;
+      )}/scripts/coletar-cupons-oficiais-ml-v2-lote.cjs`;
 
     const download =
       await rodarComando(
@@ -207,7 +209,7 @@ export async function GET(
     if (download.resultado.exitCode !== 0) {
       throw new Error(
         download.stderr ||
-          "Falha sincronizando o coletor ML V2 com o Sandbox."
+          "Falha sincronizando o coletor ML V2 em lote com o Sandbox."
       );
     }
 
@@ -225,6 +227,8 @@ export async function GET(
           env: {
             MELI_BUYER_AUTH_STATE_PATH:
               AUTH_STATE_PATH,
+            ML_V2_MAX_PAGES:
+              String(MAX_PAGINAS_LOTE),
           },
         }
       );
@@ -233,7 +237,7 @@ export async function GET(
       throw new Error(
         execucao.stderr ||
           execucao.stdout ||
-          "Falha executando o coletor ML V2."
+          "Falha executando o coletor ML V2 em lote."
       );
     }
 
@@ -275,7 +279,8 @@ export async function GET(
 
     return NextResponse.json({
       sucesso: true,
-      versao: "ml-v2",
+      versao: "ml-v2-lote",
+      modo_execucao: "lote_seguro",
       fonte:
         "central_comprador_mercado_livre",
       regra:
@@ -288,6 +293,16 @@ export async function GET(
         false,
       commit_coletor:
         commit,
+      max_paginas_lote:
+        MAX_PAGINAS_LOTE,
+      pagina_inicial:
+        Number(resultado.pagina_inicial || 0),
+      pagina_final:
+        Number(resultado.pagina_final || 0),
+      total_paginas_disponiveis:
+        Number(resultado.total_paginas_disponiveis || 0),
+      varredura_completa:
+        Boolean(resultado.varredura_completa),
       total_paginas_lidas:
         Number(
           resultado.total_paginas_lidas || 0
@@ -313,7 +328,7 @@ export async function GET(
     });
   } catch (erro) {
     console.error(
-      "[ML V2] Erro na coleta segura:",
+      "[ML V2] Erro na coleta segura em lote:",
       erro
     );
 
