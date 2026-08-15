@@ -92,6 +92,66 @@ function voltarParaCentral(
   return NextResponse.redirect(url, 307);
 }
 
+async function ofertaTemCupomAtivo(
+  ofertaId: string,
+  agora: string
+) {
+  const {
+    data: vinculos,
+    error: erroVinculos,
+  } = await supabaseAdmin
+    .from("economize_cupons_ofertas")
+    .select("cupom_id")
+    .eq("oferta_id", ofertaId)
+    .limit(50);
+
+  if (erroVinculos) {
+    throw new Error(
+      `Falha ao validar vinculo de cupom: ${erroVinculos.message}`
+    );
+  }
+
+  const idsCupons = Array.from(
+    new Set(
+      (vinculos ?? [])
+        .map((vinculo) => vinculo.cupom_id)
+        .filter(
+          (cupomId): cupomId is string =>
+            typeof cupomId === "string" &&
+            UUID_REGEX.test(cupomId)
+        )
+    )
+  );
+
+  if (idsCupons.length === 0) {
+    return false;
+  }
+
+  const {
+    data: cuponsAtivos,
+    error: erroCupons,
+  } = await supabaseAdmin
+    .from("economize_cupons")
+    .select("id")
+    .in("id", idsCupons)
+    .eq("status", "ativo")
+    .or(
+      `data_inicio.is.null,data_inicio.lte.${agora}`
+    )
+    .or(
+      `validade.is.null,validade.gt.${agora}`
+    )
+    .limit(1);
+
+  if (erroCupons) {
+    throw new Error(
+      `Falha ao validar cupom ativo: ${erroCupons.message}`
+    );
+  }
+
+  return (cuponsAtivos?.length ?? 0) > 0;
+}
+
 export async function GET(
   request: NextRequest,
   contexto: ContextoRota
@@ -160,6 +220,7 @@ export async function GET(
     }
 
     const agora = Date.now();
+    const agoraIso = new Date(agora).toISOString();
 
     if (oferta.data_inicio) {
       const inicio = new Date(
@@ -203,8 +264,30 @@ export async function GET(
         ? oferta.link_destino.trim()
         : "";
 
-    const destino =
-      linkAfiliado || linkDestino;
+    const temCupomAtivo =
+      await ofertaTemCupomAtivo(
+        oferta.id,
+        agoraIso
+      );
+
+    if (
+      temCupomAtivo &&
+      !urlEhSegura(linkAfiliado)
+    ) {
+      console.error(
+        "Oferta com cupom ativo sem link de afiliado valido:",
+        oferta.id
+      );
+
+      return voltarParaCentral(
+        request,
+        "afiliado-indisponivel"
+      );
+    }
+
+    const destino = temCupomAtivo
+      ? linkAfiliado
+      : linkAfiliado || linkDestino;
 
     if (!urlEhSegura(destino)) {
       console.error(
