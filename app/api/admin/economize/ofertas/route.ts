@@ -239,6 +239,8 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       consulta = consulta.eq("status", status);
+    } else {
+      consulta = consulta.neq("status", "expirado");
     }
 
     const { data: ofertas, error } = await consulta;
@@ -260,8 +262,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const agora = Date.now();
+    const ofertasVisiveis = status
+      ? ofertas ?? []
+      : (ofertas ?? []).filter((oferta) => {
+          if (!oferta.validade) {
+            return true;
+          }
+
+          const validade = new Date(oferta.validade).getTime();
+          return Number.isNaN(validade) || validade > agora;
+        });
+
     return NextResponse.json({
-      ofertas: ofertas ?? [],
+      ofertas: ofertasVisiveis,
     });
   } catch (error) {
     console.error(
