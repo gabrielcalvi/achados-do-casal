@@ -30,6 +30,16 @@ type StorageState = {
   }>;
 };
 
+function autorizadoComoCron(request: Request) {
+  const segredo = process.env.CRON_SECRET?.trim() ?? "";
+
+  if (!segredo) {
+    return false;
+  }
+
+  return request.headers.get("authorization") === `Bearer ${segredo}`;
+}
+
 async function usuarioAutenticado() {
   try {
     const supabase = await createClient();
@@ -42,6 +52,14 @@ async function usuarioAutenticado() {
   } catch {
     return false;
   }
+}
+
+async function autorizado(request: Request) {
+  if (autorizadoComoCron(request)) {
+    return true;
+  }
+
+  return usuarioAutenticado();
 }
 
 function validarStorageState(dados: StorageState) {
@@ -60,7 +78,7 @@ function validarStorageState(dados: StorageState) {
 }
 
 export async function POST(request: Request) {
-  if (!(await usuarioAutenticado())) {
+  if (!(await autorizado(request))) {
     return NextResponse.json(
       {
         sucesso: false,
