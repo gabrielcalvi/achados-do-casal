@@ -9,6 +9,7 @@ type ResultadoMlV2 = {
   total_encontrados?: number;
   valores_encontrados?: number[];
   por_valor?: Record<string, number>;
+  por_escopo?: Record<string, number>;
   publicacao_automatica?: boolean;
   afiliado_obrigatorio_antes_publicacao?: boolean;
   executado_em?: string;
@@ -18,6 +19,11 @@ type ResultadoMlV2 = {
     valor_desconto?: number | null;
     compra_minima?: number | null;
     validade?: string | null;
+    escopo?: string | null;
+    acao?: string | null;
+    tipo_acao?: string | null;
+    possui_token_ativacao?: boolean;
+    quantidade_produtos?: number;
   }>;
 };
 
@@ -46,10 +52,34 @@ function etapaExecucao(progresso: number) {
   }
 
   if (progresso < 96) {
-    return "Filtrando cupons amplos e validando regras";
+    return "Classificando candidatos e regras de uso";
   }
 
   return "Finalizando resultado";
+}
+
+function rotuloEscopo(escopo: string | null | undefined) {
+  if (escopo === "produtos_selecionados") {
+    return "Produtos selecionados";
+  }
+
+  if (escopo === "site_inteiro") {
+    return "Site inteiro";
+  }
+
+  return "Não identificado";
+}
+
+function rotuloUso(cupom: NonNullable<ResultadoMlV2["amostra"]>[number]) {
+  if (cupom.acao) {
+    return cupom.acao;
+  }
+
+  if (cupom.possui_token_ativacao) {
+    return "Possui token interno";
+  }
+
+  return "Sem código público identificado";
 }
 
 export default function PainelMlV2() {
@@ -147,14 +177,14 @@ export default function PainelMlV2() {
           </p>
 
           <h2 className="mt-2 text-2xl font-black text-slate-950">
-            Cupons oficiais e amplos
+            Candidatos oficiais de cupom
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Busca apenas cupons criados pelo próprio Mercado Livre,
-            com desconto fixo e sem restrição de item, vendedor,
-            categoria, marca ou produto. Esta etapa é somente de
-            coleta e diagnóstico.
+            Busca cupons criados pelo próprio Mercado Livre, com desconto
+            fixo e regra simples. A coleta pode encontrar benefícios de site
+            inteiro ou de produtos selecionados. Esta etapa ainda é somente
+            de diagnóstico e classificação de uso.
           </p>
         </div>
 
@@ -191,10 +221,10 @@ export default function PainelMlV2() {
 
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-slate-600">
-            Escopo
+            Escopo aceito na coleta
           </p>
           <p className="mt-2 font-black text-slate-950">
-            Site inteiro / sem restrições específicas
+            Site inteiro ou produtos selecionados com regra simples
           </p>
         </div>
       </div>
@@ -277,7 +307,7 @@ export default function PainelMlV2() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-500">Cupons válidos encontrados</p>
+              <p className="text-sm font-bold text-slate-500">Candidatos encontrados</p>
               <p className="mt-2 text-3xl font-black text-slate-950">
                 {resultado.total_encontrados ?? 0}
               </p>
@@ -298,9 +328,11 @@ export default function PainelMlV2() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-black">Cupom</th>
+                    <th className="px-4 py-3 font-black">Candidato</th>
                     <th className="px-4 py-3 font-black">Desconto</th>
                     <th className="px-4 py-3 font-black">Compra mínima</th>
+                    <th className="px-4 py-3 font-black">Escopo</th>
+                    <th className="px-4 py-3 font-black">Uso no ML</th>
                     <th className="px-4 py-3 font-black">Validade</th>
                   </tr>
                 </thead>
@@ -318,6 +350,13 @@ export default function PainelMlV2() {
                       </td>
                       <td className="px-4 py-3">
                         {moeda(cupom.compra_minima)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {rotuloEscopo(cupom.escopo)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-700">
+                        {rotuloUso(cupom)}
+                        {cupom.tipo_acao ? ` · ${cupom.tipo_acao}` : ""}
                       </td>
                       <td className="px-4 py-3">
                         {cupom.validade
