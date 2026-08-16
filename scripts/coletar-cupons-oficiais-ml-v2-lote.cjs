@@ -26,10 +26,8 @@ function valorPreenchido(valor) {
   return Boolean(valor);
 }
 
-function temRestricaoEstruturada(raw) {
+function temRestricaoComercialDura(raw) {
   const campos = [
-    "item_id",
-    "item_ids",
     "excluded_item_ids",
     "seller_id",
     "seller_ids",
@@ -40,10 +38,6 @@ function temRestricaoEstruturada(raw) {
     "brand_id",
     "brand_ids",
     "excluded_brand_ids",
-    "product_id",
-    "product_ids",
-    "user_product_id",
-    "user_product_ids",
     "domain_id",
     "domain_ids",
     "official_store_id",
@@ -53,8 +47,8 @@ function temRestricaoEstruturada(raw) {
   return campos.some((campo) => valorPreenchido(raw?.[campo]));
 }
 
-function textoIndicaRestricao(raw, visual) {
-  const texto = [
+function textoCupom(raw, visual) {
+  return [
     raw?.title,
     raw?.subtitle,
     raw?.description,
@@ -65,13 +59,14 @@ function textoIndicaRestricao(raw, visual) {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function textoIndicaRestricaoComplexa(raw, visual) {
+  const texto = textoCupom(raw, visual);
 
   if (!texto) return false;
 
   return [
-    /selecionad/,
-    /itens? participantes?/,
-    /produtos? participantes?/,
     /categorias? selecionad/,
     /categorias? espec/i,
     /marcas? selecionad/,
@@ -82,8 +77,41 @@ function textoIndicaRestricao(raw, visual) {
   ].some((padrao) => padrao.test(texto));
 }
 
-function cupomValeNoSiteInteiro(raw, visual) {
-  return !temRestricaoEstruturada(raw) && !textoIndicaRestricao(raw, visual);
+function idsProdutos(raw) {
+  const campos = [
+    raw?.item_id,
+    ...(Array.isArray(raw?.item_ids) ? raw.item_ids : []),
+    raw?.product_id,
+    ...(Array.isArray(raw?.product_ids) ? raw.product_ids : []),
+    raw?.user_product_id,
+    ...(Array.isArray(raw?.user_product_ids) ? raw.user_product_ids : []),
+  ];
+
+  return [...new Set(campos.filter(Boolean).map((valor) => String(valor)))];
+}
+
+function possuiSelecaoDeProdutos(raw, visual) {
+  if (idsProdutos(raw).length > 0) return true;
+
+  if (Array.isArray(visual?.items) && visual.items.length > 0) {
+    return true;
+  }
+
+  const texto = textoCupom(raw, visual);
+
+  return /produtos? selecionad|itens? selecionad|produtos? participantes?|itens? participantes?/.test(
+    texto
+  );
+}
+
+function cupomTemRegraSimples(raw, visual) {
+  return !temRestricaoComercialDura(raw) && !textoIndicaRestricaoComplexa(raw, visual);
+}
+
+function classificarEscopo(raw, visual) {
+  return possuiSelecaoDeProdutos(raw, visual)
+    ? "produtos_selecionados"
+    : "site_inteiro";
 }
 
 (async () => {
@@ -180,7 +208,7 @@ function cupomValeNoSiteInteiro(raw, visual) {
         if (!campanhaId) continue;
 
         const visual = visualPorCampanha.get(campanhaId) || {};
-        if (!cupomValeNoSiteInteiro(raw, visual)) continue;
+        if (!cupomTemRegraSimples(raw, visual)) continue;
 
         const produtos = Array.isArray(visual.items)
           ? visual.items.slice(0, 8).map((item) => ({
@@ -188,6 +216,9 @@ function cupomValeNoSiteInteiro(raw, visual) {
               imagem: item.imageUrl || item.image || null,
             }))
           : [];
+
+        const escopo = classificarEscopo(raw, visual);
+        const itemIds = idsProdutos(raw);
 
         encontrados.set(campanhaId, {
           origem: "mercado_livre_oficial",
@@ -202,17 +233,21 @@ function cupomValeNoSiteInteiro(raw, visual) {
           status_conta: raw.status_id || null,
           criado_por: raw.created_by,
           tipo_original: raw.discount_type,
-          escopo: "site_inteiro",
-          sem_restricao_item_vendedor_categoria: true,
+          escopo,
+          regra_simples: true,
+          sem_restricao_vendedor_categoria_marca_loja: true,
           subtitulo: visual.initialSubtitle?.text || null,
           acao: visual.action?.text || null,
           tipo_acao: visual.action?.type || null,
           icone: visual.icon || null,
           possui_token_ativacao: Boolean(raw.code || visual.code),
-          item_ids: [],
+          item_ids: itemIds,
           produtos,
           elegivel_publicacao: false,
-          motivo_bloqueio: "aguardando_validacao_comprador",
+          motivo_bloqueio:
+            escopo === "produtos_selecionados"
+              ? "aguardando_produto_afiliado_e_validacao_comprador"
+              : "aguardando_validacao_comprador",
           coletado_em: new Date().toISOString(),
         });
       }
@@ -266,9 +301,12 @@ function cupomValeNoSiteInteiro(raw, visual) {
     });
 
     const porValor = {};
+    const porEscopo = {};
+
     for (const cupom of cupons) {
-      const chave = `R$${cupom.valor_desconto}`;
-      porValor[chave] = (porValor[chave] || 0) + 1;
+      const chaveValor = `R$${cupom.valor_desconto}`;
+      porValor[chaveValor] = (porValor[chaveValor] || 0) + 1;
+      porEscopo[cupom.escopo] = (porEscopo[cupom.escopo] || 0) + 1;
     }
 
     const valoresEncontrados = [
@@ -282,8 +320,8 @@ function cupomValeNoSiteInteiro(raw, visual) {
       tipo_aceito: "FIXED",
       regra_valor: "qualquer_valor_fixo_positivo",
       regra_escopo:
-        "somente_site_inteiro_sem_restricao_de_item_vendedor_categoria_marca_produto",
-      filtro_escopo_conservador: true,
+        "site_inteiro_ou_produtos_selecionados_com_regra_simples_sem_restricao_de_vendedor_categoria_marca_loja",
+      filtro_escopo: "regra_simples",
       modo_execucao: "lote_seguro",
       max_paginas_lote: MAX_PAGINAS,
       pagina_inicial: paginaInicial,
@@ -294,6 +332,7 @@ function cupomValeNoSiteInteiro(raw, visual) {
       total_encontrados: cupons.length,
       valores_encontrados: valoresEncontrados,
       por_valor: porValor,
+      por_escopo: porEscopo,
       publicacao_automatica: false,
       cupons,
     };
