@@ -121,6 +121,16 @@ function resumoCupom(
       cupom.escopo ?? null,
     criado_por:
       cupom.criado_por ?? null,
+    acao:
+      cupom.acao ?? null,
+    tipo_acao:
+      cupom.tipo_acao ?? null,
+    possui_token_ativacao:
+      Boolean(cupom.possui_token_ativacao),
+    quantidade_produtos:
+      Array.isArray(cupom.produtos)
+        ? cupom.produtos.length
+        : 0,
   };
 }
 
@@ -374,7 +384,7 @@ export async function GET(
       fonte:
         "central_comprador_mercado_livre",
       regra:
-        "somente cupons created_by=meli, FIXED, validos e sem restricao de item, vendedor, categoria, marca ou produto",
+        "somente cupons created_by=meli, FIXED, validos e com regra simples; podem ser site inteiro ou produtos selecionados",
       afiliado_obrigatorio_antes_publicacao:
         true,
       publicacao_automatica:
@@ -409,6 +419,8 @@ export async function GET(
           : [],
       por_valor:
         resultado.por_valor || {},
+      por_escopo:
+        resultado.por_escopo || {},
       amostra:
         cupons
           .slice(0, 12)
