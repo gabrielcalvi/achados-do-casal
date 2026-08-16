@@ -107,6 +107,7 @@ function cupomValeNoSiteInteiro(raw, visual) {
     viewport: { width: 1400, height: 900 },
   });
   const page = await context.newPage();
+  let sessaoValidada = false;
 
   try {
     await page.goto(
@@ -119,6 +120,8 @@ function cupomValeNoSiteInteiro(raw, visual) {
     if (!page.url().includes("mercadolivre.com.br/cupons")) {
       throw new Error(`Sessao comprador invalida. URL: ${page.url()}`);
     }
+
+    sessaoValidada = true;
 
     const encontrados = new Map();
     let paginasLidas = 0;
@@ -301,6 +304,14 @@ function cupomValeNoSiteInteiro(raw, visual) {
       `[ML V2 lote] OK paginas=${paginasLidas} encontrados=${cupons.length} completa=${concluiuVarredura}`
     );
   } finally {
+    if (sessaoValidada) {
+      await context.storageState({ path: authFile }).catch((erro) => {
+        console.warn(
+          `[ML V2 lote] Nao foi possivel persistir a sessao renovada: ${erro.message}`
+        );
+      });
+    }
+
     await context.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
   }
