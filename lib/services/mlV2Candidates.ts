@@ -18,6 +18,26 @@ type CandidatoExistente = {
   cupom_publicado_id: string | null;
 };
 
+type LinhaCandidato = {
+  origem: string;
+  campanha_externa_id: string;
+  titulo: string | null;
+  tipo_desconto: string;
+  valor_desconto: number | null;
+  validade: string | null;
+  status: string;
+  dados_brutos: CupomMlV2;
+  top_produtos: any[];
+  resumo_produtos: Record<string, any>;
+  motivos: string[];
+  ultima_coleta_em: string;
+  analisado_em: string | null;
+  aprovado_em: string | null;
+  publicado_em: string | null;
+  cupom_publicado_id: string | null;
+  updated_at: string;
+};
+
 export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
   const agora = new Date().toISOString();
   const campanhas = cupons
@@ -49,57 +69,57 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
     ])
   );
 
-  const linhas = cupons
-    .map((cupom) => {
-      const campanhaId = String(cupom.campanha_id || "").trim();
-      if (!campanhaId) return null;
+  const linhas: LinhaCandidato[] = [];
 
-      const existente = existentesPorCampanha.get(campanhaId);
-      const statusExistente = String(existente?.status || "");
-      const status = STATUS_PRESERVADOS.has(statusExistente)
-        ? statusExistente
-        : "coletado";
+  for (const cupom of cupons) {
+    const campanhaId = String(cupom.campanha_id || "").trim();
+    if (!campanhaId) continue;
 
-      return {
-        origem: ORIGEM,
-        campanha_externa_id: campanhaId,
-        titulo: cupom.titulo || null,
-        tipo_desconto: "valor_fixo",
-        valor_desconto: Number(cupom.valor_desconto || 0) || null,
-        validade: cupom.validade || null,
-        status,
-        dados_brutos: cupom,
-        top_produtos: Array.isArray(cupom.produtos) ? cupom.produtos : [],
-        resumo_produtos: {
-          quantidade: Array.isArray(cupom.produtos) ? cupom.produtos.length : 0,
-          escopo: cupom.escopo || null,
-          uso_ml: cupom.acao || null,
-          tipo_acao: cupom.tipo_acao || null,
-        },
-        motivos: [
-          "ml_v2_created_by_meli",
-          "ml_v2_valor_fixo",
-          cupom.escopo === "produtos_selecionados"
-            ? "ml_v2_produtos_selecionados"
-            : "ml_v2_site_inteiro",
-        ],
-        ultima_coleta_em: agora,
-        analisado_em:
-          status === "aprovado" || status === "descartado" || status === "publicado"
-            ? agora
-            : null,
-        aprovado_em:
-          status === "aprovado" || status === "publicado"
-            ? existente?.aprovado_em || agora
-            : null,
-        publicado_em:
-          status === "publicado" ? existente?.publicado_em || agora : null,
-        cupom_publicado_id:
-          status === "publicado" ? existente?.cupom_publicado_id || null : null,
-        updated_at: agora,
-      };
-    })
-    .filter(Boolean);
+    const existente = existentesPorCampanha.get(campanhaId);
+    const statusExistente = String(existente?.status || "");
+    const status = STATUS_PRESERVADOS.has(statusExistente)
+      ? statusExistente
+      : "coletado";
+
+    linhas.push({
+      origem: ORIGEM,
+      campanha_externa_id: campanhaId,
+      titulo: cupom.titulo || null,
+      tipo_desconto: "valor_fixo",
+      valor_desconto: Number(cupom.valor_desconto || 0) || null,
+      validade: cupom.validade || null,
+      status,
+      dados_brutos: cupom,
+      top_produtos: Array.isArray(cupom.produtos) ? cupom.produtos : [],
+      resumo_produtos: {
+        quantidade: Array.isArray(cupom.produtos) ? cupom.produtos.length : 0,
+        escopo: cupom.escopo || null,
+        uso_ml: cupom.acao || null,
+        tipo_acao: cupom.tipo_acao || null,
+      },
+      motivos: [
+        "ml_v2_created_by_meli",
+        "ml_v2_valor_fixo",
+        cupom.escopo === "produtos_selecionados"
+          ? "ml_v2_produtos_selecionados"
+          : "ml_v2_site_inteiro",
+      ],
+      ultima_coleta_em: agora,
+      analisado_em:
+        status === "aprovado" || status === "descartado" || status === "publicado"
+          ? agora
+          : null,
+      aprovado_em:
+        status === "aprovado" || status === "publicado"
+          ? existente?.aprovado_em || agora
+          : null,
+      publicado_em:
+        status === "publicado" ? existente?.publicado_em || agora : null,
+      cupom_publicado_id:
+        status === "publicado" ? existente?.cupom_publicado_id || null : null,
+      updated_at: agora,
+    });
+  }
 
   const { data: gravados, error: erroGravacao } = await supabaseAdmin
     .from("economize_cupons_candidatos")
