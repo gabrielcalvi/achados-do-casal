@@ -50,6 +50,46 @@ function ehLinkAfiliadoMl(url: URL) {
   return host === "meli.la" || host.endsWith(".meli.la");
 }
 
+function caminhoNormalizado(url: URL) {
+  return url.pathname.replace(/\/+$/, "").toLowerCase();
+}
+
+function urlContemItem(url: URL, itemId: string) {
+  const alvo = itemId.toUpperCase();
+  const partes = [url.pathname, url.search, url.hash]
+    .map((parte) => {
+      try {
+        return decodeURIComponent(parte);
+      } catch {
+        return parte;
+      }
+    })
+    .join(" ")
+    .toUpperCase();
+
+  return partes.includes(alvo);
+}
+
+async function resolverDestinoMercadoLivre(url: string) {
+  const resposta = await fetch(url, {
+    method: "GET",
+    redirect: "follow",
+    cache: "no-store",
+    signal: AbortSignal.timeout(12000),
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+    },
+  });
+
+  const final = new URL(resposta.url);
+  if (!ehMercadoLivre(final)) {
+    throw new Error("O redirecionamento não terminou no Mercado Livre.");
+  }
+
+  return final;
+}
+
 async function usuarioAutenticado() {
   try {
     const supabase = await createClient();
@@ -66,38 +106,51 @@ async function usuarioAutenticado() {
 
 async function validarDestinoDoLinkAfiliado(
   linkAfiliado: string,
+  linkDestino: string,
   itemId: string
 ) {
   try {
-    const resposta = await fetch(linkAfiliado, {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-      signal: AbortSignal.timeout(12000),
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+    const finalAfiliado = await resolverDestinoMercadoLivre(linkAfiliado);
+    const urlFinalAfiliado = finalAfiliado.toString();
+
+    if (urlContemItem(finalAfiliado, itemId)) {
+      return {
+        ok: true,
+        url_final: urlFinalAfiliado,
+        modo_validacao: "item_id_na_url_final",
+      };
+    }
+
+    let finalDestino: URL | null = null;
+    try {
+      finalDestino = await resolverDestinoMercadoLivre(linkDestino);
+    } catch {
+      finalDestino = null;
+    }
+
+    if (
+      finalDestino &&
+      finalDestino.hostname.toLowerCase() === finalAfiliado.hostname.toLowerCase() &&
+      caminhoNormalizado(finalDestino) === caminhoNormalizado(finalAfiliado)
+    ) {
+      return {
+        ok: true,
+        url_final: urlFinalAfiliado,
+        url_destino_final: finalDestino.toString(),
+        modo_validacao: "mesmo_destino_canonico",
+      };
+    }
+
+    return {
+      ok: false,
+      erro:
+        "Não foi possível confirmar que o meli.la termina no mesmo produto do link original. Gere o link afiliado novamente a partir da URL original exibida neste card.",
+      diagnostico: {
+        item_id: itemId,
+        afiliado_final: urlFinalAfiliado,
+        destino_final: finalDestino?.toString() || null,
       },
-    });
-
-    const final = new URL(resposta.url);
-
-    if (!ehMercadoLivre(final)) {
-      return {
-        ok: false,
-        erro: "O link afiliado não terminou em uma página do Mercado Livre.",
-      };
-    }
-
-    const urlFinal = final.toString();
-    if (!urlFinal.toUpperCase().includes(itemId.toUpperCase())) {
-      return {
-        ok: false,
-        erro: "O link afiliado não aponta para o item selecionado do candidato.",
-      };
-    }
-
-    return { ok: true, url_final: urlFinal };
+    };
   } catch (erro) {
     return {
       ok: false,
@@ -250,12 +303,17 @@ export async function POST(
 
   const validacaoAfiliado = await validarDestinoDoLinkAfiliado(
     linkAfiliado,
+    linkDestino,
     itemId
   );
 
   if (!validacaoAfiliado.ok) {
     return NextResponse.json(
-      { sucesso: false, erro: validacaoAfiliado.erro },
+      {
+        sucesso: false,
+        erro: validacaoAfiliado.erro,
+        diagnostico: validacaoAfiliado.diagnostico || null,
+      },
       { status: 400 }
     );
   }
@@ -306,6 +364,8 @@ export async function POST(
     validado_comprador: true,
     link_afiliado_confirmado: true,
     link_afiliado_url_final: validacaoAfiliado.url_final,
+    link_destino_url_final: validacaoAfiliado.url_destino_final || null,
+    link_afiliado_modo_validacao: validacaoAfiliado.modo_validacao,
     candidato: bruto,
   };
 
@@ -486,5 +546,6 @@ export async function POST(
     oferta_id: ofertaId,
     rota_publica: `/oferta/${ofertaId}`,
     afiliado_validado: true,
+    afiliado_validado_por: validacaoAfiliado.modo_validacao,
   });
 }
