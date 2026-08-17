@@ -393,6 +393,11 @@ if (erroExpiracao) {
         "status",
         status
       );
+    } else {
+      consulta = consulta.neq(
+        "status",
+        "expirado"
+      );
     }
 
     if (lojaId) {
