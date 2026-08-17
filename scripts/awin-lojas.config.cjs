@@ -1,4 +1,4 @@
-module.exports = [
+const lojas = [
   {
     slug: "cea",
     dbSlug: "cea",
@@ -41,3 +41,20 @@ module.exports = [
     monitorOnly: true
   }
 ];
+
+const casasBahiaAdvertiserId = String(
+  process.env.CASAS_BAHIA_AWIN_ADVERTISER_ID || ""
+).trim();
+
+if (casasBahiaAdvertiserId) {
+  lojas.push({
+    slug: "casas-bahia",
+    dbSlug: "casas-bahia",
+    nome: "Casas Bahia",
+    advertiserId: casasBahiaAdvertiserId,
+    dominio: "casasbahia.com.br",
+    logoUrl: null
+  });
+}
+
+module.exports = lojas;
