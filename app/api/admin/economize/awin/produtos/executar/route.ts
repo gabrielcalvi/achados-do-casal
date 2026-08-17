@@ -63,6 +63,21 @@ async function lerJson(sandbox: SandboxInstancia, caminho: string) {
   }
 }
 
+async function processoVarreduraAtivo(sandbox: SandboxInstancia) {
+  const processos = await comando(sandbox, "ps", ["-eo", "pid=,args="]);
+  if (processos.resultado.exitCode !== 0) return false;
+
+  return processos.stdout.split("\n").some((linha) => {
+    const valor = linha.trim();
+    if (!valor.includes("node")) return false;
+    return (
+      valor.includes("varrer-produtos-awin-legacy-wrapper.cjs") ||
+      valor.includes("varrer-produtos-awin-legacy-normalizado.cjs") ||
+      valor.includes("varrer-produtos-awin-legacy.cjs")
+    );
+  });
+}
+
 function logStatus(dados: Record<string, unknown> | null) {
   if (!dados) {
     console.info("[AWIN produtos] Nenhum status anterior encontrado no Sandbox.");
@@ -162,10 +177,18 @@ async function executar(request: NextRequest) {
     logStatus(anterior);
 
     if (anterior?.executando === true) {
-      console.info("[AWIN produtos] Nova execução ignorada porque a anterior ainda está rodando.");
-      return NextResponse.json(
-        { sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior },
-        { status: 202 }
+      const processoAtivo = await processoVarreduraAtivo(sandbox);
+
+      if (processoAtivo) {
+        console.info("[AWIN produtos] Nova execução ignorada porque a anterior ainda está rodando.");
+        return NextResponse.json(
+          { sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior },
+          { status: 202 }
+        );
+      }
+
+      console.warn(
+        "[AWIN produtos] Status dizia executando=true, mas nenhum processo da varredura foi encontrado. Recuperando trava obsoleta."
       );
     }
 
