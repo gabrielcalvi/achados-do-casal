@@ -6,6 +6,7 @@ type ItemCandidato = {
   item_id: string;
   nome: string | null;
   imagem: string | null;
+  url: string | null;
 };
 
 type Candidato = {
@@ -79,10 +80,17 @@ export default function PublicacaoSeguraMlV2() {
       setFormularios((atuais) => {
         const proximos = { ...atuais };
         for (const candidato of lista) {
+          const primeiroItem = candidato.itens[0];
           if (!proximos[candidato.id]) {
             proximos[candidato.id] = {
               ...vazio,
-              item_id: candidato.itens[0]?.item_id || "",
+              item_id: primeiroItem?.item_id || "",
+              link_destino: primeiroItem?.url || "",
+            };
+          } else if (!proximos[candidato.id].link_destino && primeiroItem?.url) {
+            proximos[candidato.id] = {
+              ...proximos[candidato.id],
+              link_destino: primeiroItem.url,
             };
           }
         }
@@ -158,10 +166,7 @@ export default function PublicacaoSeguraMlV2() {
             Publicação segura
           </h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            Aqui só entram candidatos já aprovados. A publicação exige um item participante,
-            URL direta do produto, código público confirmado no checkout e um link curto meli.la
-            gerado na nossa conta afiliada. O backend segue o meli.la e bloqueia a publicação se
-            ele não terminar no item selecionado.
+            Aqui só entram candidatos já aprovados. A URL direta do item selecionado já vem preenchida automaticamente. A publicação exige código público confirmado no checkout e um link curto meli.la gerado na nossa conta afiliada. O backend segue o meli.la e bloqueia a publicação se ele não terminar no item selecionado.
           </p>
         </div>
 
@@ -240,9 +245,14 @@ export default function PublicacaoSeguraMlV2() {
                     Item participante
                     <select
                       value={form.item_id}
-                      onChange={(event) =>
-                        atualizar(candidato.id, { item_id: event.target.value })
-                      }
+                      onChange={(event) => {
+                        const itemId = event.target.value;
+                        const itemSelecionado = candidato.itens.find((item) => item.item_id === itemId);
+                        atualizar(candidato.id, {
+                          item_id: itemId,
+                          link_destino: itemSelecionado?.url || "",
+                        });
+                      }}
                       className="rounded-xl border border-slate-300 px-3 py-2"
                     >
                       {candidato.itens.map((item) => (
@@ -269,11 +279,8 @@ export default function PublicacaoSeguraMlV2() {
                     URL direta do produto no Mercado Livre
                     <input
                       value={form.link_destino}
-                      onChange={(event) =>
-                        atualizar(candidato.id, { link_destino: event.target.value })
-                      }
-                      placeholder="https://www.mercadolivre.com.br/..."
-                      className="rounded-xl border border-slate-300 px-3 py-2"
+                      readOnly
+                      className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-700"
                     />
                   </label>
 
