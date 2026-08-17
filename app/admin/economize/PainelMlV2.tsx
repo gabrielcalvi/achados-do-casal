@@ -130,8 +130,8 @@ export default function PainelMlV2() {
           </h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
             Os candidatos abaixo vêm do banco, já com o ID persistido. Os atalhos de
-            produto abrem diretamente os itens participantes. Aprovar e Rejeitar usam
-            envio nativo do navegador e recarregam a tela com o status salvo no banco.
+            produto abrem diretamente os itens participantes. Depois de aprovar, use
+            o botão Vincular afiliado para ir direto à etapa final daquele cupom.
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export default function PainelMlV2() {
             type="button"
             onClick={carregarCandidatos}
             disabled={carregando || executando}
-            className="rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 disabled:opacity-50"
+            className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Atualizar lista
           </button>
@@ -148,7 +148,7 @@ export default function PainelMlV2() {
             type="button"
             onClick={executar}
             disabled={executando}
-            className="rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="cursor-pointer rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {executando ? "Executando ML V2..." : "Executar coleta ML V2"}
           </button>
@@ -207,6 +207,7 @@ export default function PainelMlV2() {
               {candidatos.map((cupom) => {
                 const candidatoId = cupom.candidato_id || "";
                 const podeAlterar = Boolean(candidatoId) && cupom.status !== "publicado";
+                const podeAprovar = podeAlterar && cupom.status !== "aprovado";
                 const produtos = cupom.produtos || [];
                 const action = `/api/admin/economize/cupons/ml-v2/candidatos/${candidatoId}`;
 
@@ -248,8 +249,8 @@ export default function PainelMlV2() {
                           <input type="hidden" name="acao" value="aprovar" />
                           <button
                             type="submit"
-                            disabled={!podeAlterar}
-                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={!podeAprovar}
+                            className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}
                           </button>
@@ -259,11 +260,19 @@ export default function PainelMlV2() {
                           <button
                             type="submit"
                             disabled={!podeAlterar}
-                            className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                            className="cursor-pointer rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             Rejeitar
                           </button>
                         </form>
+                        {cupom.status === "aprovado" && candidatoId && (
+                          <a
+                            href={`#afiliado-${candidatoId}`}
+                            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 shadow-sm transition hover:bg-emerald-100 active:scale-95"
+                          >
+                            🔗 Vincular afiliado
+                          </a>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
