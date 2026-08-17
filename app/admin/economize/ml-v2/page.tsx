@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PainelMlV2 from "../PainelMlV2";
 import RenovarSessaoMlV2 from "./RenovarSessaoMlV2";
+import PublicacaoSeguraMlV2 from "./PublicacaoSeguraMlV2";
 
 export default function AdminMlV2Page() {
   return (
@@ -17,9 +18,9 @@ export default function AdminMlV2Page() {
             </h1>
 
             <p className="mt-2 max-w-3xl text-slate-600">
-              Área de diagnóstico da coleta de cupons oficiais do
-              Mercado Livre. Somente cupons amplos, criados pelo ML,
-              entram nesta versão. Publicação permanece bloqueada.
+              Coleta cupons oficiais do Mercado Livre e mantém a publicação
+              protegida até o candidato ser aprovado, validado em conta compradora
+              e vinculado a um link afiliado do Achados do Casal.
             </p>
           </div>
 
@@ -32,6 +33,7 @@ export default function AdminMlV2Page() {
         </header>
 
         <PainelMlV2 />
+        <PublicacaoSeguraMlV2 />
         <RenovarSessaoMlV2 />
       </div>
     </main>
