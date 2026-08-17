@@ -50,30 +50,30 @@ export default function GamerPage() {
         return;
       }
 
-      const produtosFormatados: Produto[] = (data || []).map((produto) => ({
-        id: produto.id,
-        nome: produto.nome,
-        loja: produto.loja,
-        categoria: produto.categoria,
-        imagem: produto.imagem,
-        precoAnterior: produto.preco_antigo,
-        precoAtual: produto.preco_atual,
-        pagamento: produto.cupom || "",
-        parcelamento: produto.cupom || "",
-        link: produto.link,
-        link_afiliado: produto.link_afiliado,
-        selo: produto.destaque ? "Destaque" : "",
-        avaliacao: produto.avaliacao,
-        vendas: produto.vendas,
-        parcelas: produto.parcelas,
-        freteGratis: produto.frete_gratis,
-        destaque: produto.destaque,
-        gamer: produto.gamer ?? false,
-        itemEmCasa: produto.tem_em_casa ?? false,
-        reviewCompleta: produto.review_completa ?? false,
-      }));
-
-      setProdutos(produtosFormatados);
+      setProdutos(
+        (data || []).map((produto) => ({
+          id: produto.id,
+          nome: produto.nome,
+          loja: produto.loja,
+          categoria: produto.categoria,
+          imagem: produto.imagem,
+          precoAnterior: produto.preco_antigo,
+          precoAtual: produto.preco_atual,
+          pagamento: produto.cupom || "",
+          parcelamento: produto.cupom || "",
+          link: produto.link,
+          link_afiliado: produto.link_afiliado,
+          selo: produto.destaque ? "Destaque" : "",
+          avaliacao: produto.avaliacao,
+          vendas: produto.vendas,
+          parcelas: produto.parcelas,
+          freteGratis: produto.frete_gratis,
+          destaque: produto.destaque,
+          gamer: produto.gamer ?? false,
+          itemEmCasa: produto.tem_em_casa ?? false,
+          reviewCompleta: produto.review_completa ?? false,
+        }))
+      );
       setCarregando(false);
     }
 
@@ -98,186 +98,122 @@ export default function GamerPage() {
 
   return (
     <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5">
-          <Link href="/" className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-5">
+          <Link href="/" className="shrink-0">
             <img
               src="/logo-achados-do-casal.png"
               alt="Achados do Casal"
-              className="h-12 w-auto"
+              className="h-11 w-auto sm:h-12"
             />
           </Link>
 
-          <nav className="flex items-center gap-3">
+          <nav className="ml-auto flex gap-2 overflow-x-auto pb-1">
             <Link
               href="/"
-              className="rounded-xl border border-slate-300 px-4 py-2 font-bold text-slate-700 transition hover:bg-slate-100"
+              className="shrink-0 rounded-xl border border-slate-300 px-4 py-2 font-bold text-slate-700 transition hover:bg-slate-100"
             >
               Ofertas
             </Link>
-
             <Link
-              href="/gamer"
-              className="rounded-xl bg-red-600 px-4 py-2 font-bold text-white transition hover:bg-red-700"
+              href="/economize"
+              className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white transition hover:bg-emerald-700"
             >
-              🎮 Gamer
+              💰 Economize
             </Link>
+            <span className="shrink-0 rounded-xl bg-red-600 px-4 py-2 font-bold text-white">
+              🎮 Gamer
+            </span>
           </nav>
         </div>
       </header>
 
       <section className="bg-slate-950 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[1.5fr_1fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:py-12 lg:grid-cols-[1.5fr_1fr] lg:items-center">
           <div>
             <div className="mb-4 inline-flex rounded-full bg-red-600/20 px-4 py-2 text-sm font-bold text-red-300">
               CALVI GAMER
             </div>
-
             <h1 className="text-3xl font-black sm:text-5xl">
               Ofertas selecionadas por quem realmente joga
             </h1>
-
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
-              Aqui estão os produtos que uso no meu setup, equipamentos que
-              aparecem nas minhas lives e ofertas Gamer selecionadas na Kabum,
-              Amazon e Mercado Livre.
+              Produtos do setup, equipamentos usados nas lives e ofertas Gamer selecionadas em lojas diferentes.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="https://www.twitch.tv/gabrielcalvigamer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl bg-violet-600 px-5 py-3 font-black text-white transition hover:bg-violet-700"
-              >
-                Seguir na Twitch
+              <a href="https://www.twitch.tv/gabrielcalvigamer" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-violet-600 px-5 py-3 font-black text-white transition hover:bg-violet-700">
+                Twitch
               </a>
-
-              <a
-                href="https://kick.com/gabrielcalvigamer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl bg-green-600 px-5 py-3 font-black text-white transition hover:bg-green-700"
-              >
-                Ver na Kick
+              <a href="https://kick.com/gabrielcalvigamer" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-green-600 px-5 py-3 font-black text-white transition hover:bg-green-700">
+                Kick
               </a>
-
-              <a
-                href="https://www.youtube.com/@gabrielcalvigamer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl border border-slate-600 px-5 py-3 font-black text-white transition hover:bg-slate-800"
-              >
+              <a href="https://www.youtube.com/@gabrielcalvigamer" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-600 px-5 py-3 font-black text-white transition hover:bg-slate-800">
                 YouTube
               </a>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-700 bg-black">
+          <div className="overflow-hidden rounded-2xl border border-slate-700 bg-black shadow-2xl">
             <div className="border-b border-slate-700 px-4 py-3">
               <p className="font-black">🔴 Live do Calvi Gamer</p>
-              <p className="text-sm text-slate-400">
-                Quando eu estiver ao vivo, a transmissão aparece aqui.
-              </p>
+              <p className="text-sm text-slate-400">Quando estiver ao vivo, a transmissão aparece aqui.</p>
             </div>
-
             <div className="aspect-video">
               {urlPlayer ? (
-                <iframe
-                  src={urlPlayer}
-                  title="Live do Calvi Gamer na Twitch"
-                  className="h-full w-full"
-                  allowFullScreen
-                />
+                <iframe src={urlPlayer} title="Live do Calvi Gamer na Twitch" className="h-full w-full" allowFullScreen />
               ) : (
-                <div className="flex h-full items-center justify-center text-slate-400">
-                  Carregando player...
-                </div>
+                <div className="flex h-full items-center justify-center text-slate-400">Carregando player...</div>
               )}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-12">
+      <section className="mx-auto max-w-7xl px-5 py-10 sm:py-12">
         <div className="mb-7">
-          <p className="text-sm font-black uppercase tracking-wider text-red-600">
-            Testados e utilizados
-          </p>
-
-          <h2 className="mt-2 text-3xl font-black text-slate-900">
-            🎮 Produtos do meu setup
-          </h2>
-
-          <p className="mt-2 text-slate-600">
-            Produtos que eu realmente tenho em casa e uso nas lives.
-          </p>
+          <p className="text-sm font-black uppercase tracking-wider text-red-600">Testados e utilizados</p>
+          <h2 className="mt-2 text-3xl font-black text-slate-900">🎮 Produtos do meu setup</h2>
+          <p className="mt-2 text-slate-600">Produtos que realmente estão no setup e aparecem nas lives.</p>
         </div>
 
         {carregando ? (
-          <div className="rounded-2xl bg-white p-8 text-center text-slate-500">
-            Carregando produtos...
-          </div>
+          <div className="rounded-2xl bg-white p-8 text-center text-slate-500">Carregando produtos...</div>
         ) : produtosDoSetup.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {produtosDoSetup.map((produto) => (
-              <CardProduto key={produto.id} produto={produto} />
-            ))}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {produtosDoSetup.map((produto) => <CardProduto key={produto.id} produto={produto} />)}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="font-bold text-slate-800">
-              Nenhum produto do setup marcado ainda.
-            </p>
-
-            <p className="mt-2 text-slate-500">
-              Marque também “O Casal tem este produto em casa” no painel.
-            </p>
+            <p className="font-bold text-slate-800">Nenhum produto do setup marcado ainda.</p>
           </div>
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-16">
+      <section className="mx-auto max-w-7xl px-5 pb-14 sm:pb-16">
         <div className="mb-7">
-          <p className="text-sm font-black uppercase tracking-wider text-red-600">
-            Seleção Gamer
-          </p>
-
-          <h2 className="mt-2 text-3xl font-black text-slate-900">
-            Ofertas para melhorar seu setup
-          </h2>
-
-          <p className="mt-2 text-slate-600">
-            Monitores, periféricos, componentes, consoles e acessórios.
-          </p>
+          <p className="text-sm font-black uppercase tracking-wider text-red-600">Seleção Gamer</p>
+          <h2 className="mt-2 text-3xl font-black text-slate-900">Ofertas para melhorar seu setup</h2>
+          <p className="mt-2 text-slate-600">Monitores, periféricos, componentes, consoles e acessórios.</p>
         </div>
 
         {carregando ? (
-          <div className="rounded-2xl bg-white p-8 text-center text-slate-500">
-            Carregando ofertas...
-          </div>
+          <div className="rounded-2xl bg-white p-8 text-center text-slate-500">Carregando ofertas...</div>
         ) : outrasOfertas.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {outrasOfertas.map((produto) => (
-              <CardProduto key={produto.id} produto={produto} />
-            ))}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {outrasOfertas.map((produto) => <CardProduto key={produto.id} produto={produto} />)}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="font-bold text-slate-800">
-              Novas ofertas Gamer serão adicionadas em breve.
-            </p>
+            <p className="font-bold text-slate-800">Novas ofertas Gamer serão adicionadas em breve.</p>
           </div>
         )}
       </section>
 
       <footer className="bg-slate-950 text-slate-300">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <p>Achados do Casal — Ofertas Gamer selecionadas de verdade.</p>
-
-          <Link href="/" className="font-bold text-white hover:text-red-400">
-            Voltar para todas as ofertas
-          </Link>
+          <p>Achados do Casal — seleção Gamer e produtos do setup.</p>
+          <Link href="/" className="font-bold text-white hover:text-red-400">Voltar para todas as ofertas</Link>
         </div>
       </footer>
     </main>
