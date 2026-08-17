@@ -148,7 +148,7 @@ export default function PublicacaoSeguraMlV2() {
   const publicados = candidatos.filter((item) => item.status === "publicado");
 
   return (
-    <section className="mt-6 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
+    <section id="publicacao-segura-ml-v2" className="mt-6 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm scroll-mt-24">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
@@ -169,7 +169,7 @@ export default function PublicacaoSeguraMlV2() {
           type="button"
           onClick={carregar}
           disabled={carregando}
-          className="rounded-xl border border-slate-300 px-4 py-2 font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2 font-black text-slate-700 hover:bg-slate-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Atualizar
         </button>
@@ -215,7 +215,11 @@ export default function PublicacaoSeguraMlV2() {
             const ocupado = publicando === candidato.id;
 
             return (
-              <article key={candidato.id} className="rounded-2xl border border-slate-200 p-5">
+              <article
+                id={`afiliado-${candidato.id}`}
+                key={candidato.id}
+                className="scroll-mt-24 rounded-2xl border border-slate-200 p-5 target:border-emerald-400 target:ring-4 target:ring-emerald-100"
+              >
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <h3 className="font-black text-slate-950">{candidato.titulo}</h3>
@@ -315,7 +319,7 @@ export default function PublicacaoSeguraMlV2() {
                   type="button"
                   disabled={ocupado}
                   onClick={() => publicar(candidato)}
-                  className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="mt-5 cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {ocupado ? "Validando e publicando..." : "Publicar com link afiliado validado"}
                 </button>
