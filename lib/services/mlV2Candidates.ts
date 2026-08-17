@@ -121,16 +121,13 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
     });
   }
 
-  const { data: gravados, error: erroGravacao } = await supabaseAdmin
+  const { error: erroGravacao } = await supabaseAdmin
     .from("economize_cupons_candidatos")
     .upsert(linhas, {
       onConflict: "origem,campanha_externa_id",
       ignoreDuplicates: false,
       defaultToNull: false,
-    })
-    .select(
-      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id"
-    );
+    });
 
   if (erroGravacao) {
     throw new Error(
@@ -138,8 +135,22 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
     );
   }
 
+  const { data: persistidos, error: erroLeituraFinal } = await supabaseAdmin
+    .from("economize_cupons_candidatos")
+    .select(
+      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id"
+    )
+    .eq("origem", ORIGEM)
+    .in("campanha_externa_id", campanhas);
+
+  if (erroLeituraFinal) {
+    throw new Error(
+      `Falha confirmando candidatos ML V2 persistidos: ${erroLeituraFinal.message}`
+    );
+  }
+
   return new Map(
-    (gravados || []).map((item) => [
+    (persistidos || []).map((item) => [
       String(item.campanha_externa_id || ""),
       item as CandidatoExistente,
     ])
