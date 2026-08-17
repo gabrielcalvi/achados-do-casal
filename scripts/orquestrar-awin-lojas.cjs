@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const lojasConfig = require("./awin-lojas.config.cjs");
 
 const ROOT = "/vercel";
 const TMP = "/vercel/tmp";
@@ -127,6 +128,11 @@ function criarEnvTemporario() {
       )
   };
 
+  if (process.env.CASAS_BAHIA_AWIN_ADVERTISER_ID) {
+    dados.CASAS_BAHIA_AWIN_ADVERTISER_ID =
+      process.env.CASAS_BAHIA_AWIN_ADVERTISER_ID;
+  }
+
   const conteudo =
     Object.entries(dados)
       .map(
@@ -241,13 +247,9 @@ async function main() {
   try {
     criarEnvTemporario();
 
-    const lojas = [
-      "cea",
-      "renner",
-      "calvin-klein",
-      "stanley",
-      "decolar"
-    ];
+    const lojas = lojasConfig.map(
+      (loja) => loja.slug
+    );
 
     for (const loja of lojas) {
       executar(
@@ -277,17 +279,16 @@ async function main() {
       ]
     );
 
+    executar(
+      "atualizacao das fontes Awin",
+      "marcar-fontes-awin.cjs"
+    );
+
     status({
       executando: false,
       sucesso: true,
       fim: agora(),
-      lojas: [
-        "cea",
-        "renner",
-        "calvin-klein",
-        "stanley",
-        "decolar"
-      ]
+      lojas
     });
 
     log(
