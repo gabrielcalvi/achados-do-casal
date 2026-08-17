@@ -17,6 +17,31 @@ const RESULT_PATH = "/vercel/tmp/awin-produtos-resultado.json";
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
+type DiagnosticoLoja = {
+  amostras?: number;
+  cabecalhos?: string[];
+  com_id?: number;
+  com_titulo?: number;
+  com_link_mercante?: number;
+  com_link_qualquer?: number;
+  com_imagem?: number;
+  com_preco_atual?: number;
+  com_preco_original?: number;
+  com_saving?: number;
+  com_percentual?: number;
+};
+
+type StatusLoja = {
+  slug?: string;
+  total_feed?: number;
+  elegiveis?: number;
+  selecionados?: number;
+  criadas?: number;
+  atualizadas?: number;
+  erro?: string | null;
+  diagnostico?: DiagnosticoLoja | null;
+};
+
 async function usuarioAutenticado() {
   try {
     const supabase = await createClient();
@@ -85,6 +110,20 @@ function logStatus(dados: Record<string, unknown> | null) {
   }
 
   console.info("[AWIN produtos] Status anterior:", JSON.stringify(dados));
+
+  const lojas = Array.isArray(dados.lojas) ? (dados.lojas as StatusLoja[]) : [];
+  for (const loja of lojas) {
+    const d = loja.diagnostico;
+    if (!d) continue;
+
+    console.info(
+      `[AWIN status diag] loja=${loja.slug || "?"} total=${loja.total_feed || 0} elegiveis=${loja.elegiveis || 0} selecionados=${loja.selecionados || 0} criadas=${loja.criadas || 0} atualizadas=${loja.atualizadas || 0} amostras=${d.amostras || 0} id=${d.com_id || 0} titulo=${d.com_titulo || 0} linkMercante=${d.com_link_mercante || 0} linkQualquer=${d.com_link_qualquer || 0} imagem=${d.com_imagem || 0} precoAtual=${d.com_preco_atual || 0} precoOriginal=${d.com_preco_original || 0} saving=${d.com_saving || 0} percentual=${d.com_percentual || 0} erro=${loja.erro || "-"}`
+    );
+
+    if (Array.isArray(d.cabecalhos) && d.cabecalhos.length) {
+      console.info(`[AWIN status headers] loja=${loja.slug || "?"} ${d.cabecalhos.join(",")}`);
+    }
+  }
 }
 
 async function status(request: NextRequest) {
