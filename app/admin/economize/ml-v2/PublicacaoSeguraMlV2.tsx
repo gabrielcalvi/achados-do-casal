@@ -48,6 +48,19 @@ function moeda(valor: number | null) {
   }).format(Number(valor));
 }
 
+function camposFaltantes(form: Formulario) {
+  const faltantes: string[] = [];
+
+  if (!form.item_id.trim()) faltantes.push("item participante");
+  if (!form.link_destino.trim()) faltantes.push("URL original do produto");
+  if (!form.codigo_publico.trim()) faltantes.push("código público");
+  if (!form.link_afiliado.trim()) faltantes.push("link afiliado meli.la");
+  if (!form.validado_comprador) faltantes.push("confirmação do código no checkout");
+  if (!form.confirmar_link_proprio) faltantes.push("confirmação do nosso link afiliado");
+
+  return faltantes;
+}
+
 export default function PublicacaoSeguraMlV2() {
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [formularios, setFormularios] = useState<Record<string, Formulario>>({});
@@ -108,6 +121,8 @@ export default function PublicacaoSeguraMlV2() {
   }, []);
 
   function atualizar(id: string, parcial: Partial<Formulario>) {
+    setErro("");
+    setMensagem("");
     setFormularios((atuais) => ({
       ...atuais,
       [id]: { ...(atuais[id] || vazio), ...parcial },
@@ -116,6 +131,12 @@ export default function PublicacaoSeguraMlV2() {
 
   async function publicar(candidato: Candidato) {
     const formulario = formularios[candidato.id] || vazio;
+    const faltantes = camposFaltantes(formulario);
+
+    if (faltantes.length > 0) {
+      setErro(`Falta preencher: ${faltantes.join(", ")}.`);
+      return;
+    }
 
     try {
       setPublicando(candidato.id);
@@ -218,6 +239,8 @@ export default function PublicacaoSeguraMlV2() {
           {aprovados.map((candidato) => {
             const form = formularios[candidato.id] || vazio;
             const ocupado = publicando === candidato.id;
+            const faltantes = camposFaltantes(form);
+            const pronto = faltantes.length === 0;
 
             return (
               <article
@@ -271,8 +294,17 @@ export default function PublicacaoSeguraMlV2() {
                         atualizar(candidato.id, { codigo_publico: event.target.value.toUpperCase() })
                       }
                       placeholder="Ex.: DESCONTO15"
-                      className="rounded-xl border border-slate-300 px-3 py-2"
+                      className={`rounded-xl border px-3 py-2 ${
+                        form.codigo_publico.trim()
+                          ? "border-slate-300"
+                          : "border-amber-300 bg-amber-50"
+                      }`}
                     />
+                    {!form.codigo_publico.trim() && (
+                      <span className="text-xs font-bold text-amber-700">
+                        Obrigatório. Use somente o código público realmente validado no checkout.
+                      </span>
+                    )}
                   </label>
 
                   <label className="grid gap-2 text-sm font-bold text-slate-700 lg:col-span-2">
@@ -292,7 +324,9 @@ export default function PublicacaoSeguraMlV2() {
                         atualizar(candidato.id, { link_afiliado: event.target.value })
                       }
                       placeholder="https://meli.la/..."
-                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2"
+                      className={`rounded-xl border bg-emerald-50 px-3 py-2 ${
+                        form.link_afiliado.trim() ? "border-emerald-300" : "border-amber-300"
+                      }`}
                     />
                   </label>
                 </div>
@@ -322,13 +356,24 @@ export default function PublicacaoSeguraMlV2() {
                   </label>
                 </div>
 
+                {!pronto && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+                    Falta preencher: {faltantes.join(", ")}.
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  disabled={ocupado}
+                  disabled={ocupado || !pronto}
                   onClick={() => publicar(candidato)}
-                  className="mt-5 cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                  title={!pronto ? `Falta preencher: ${faltantes.join(", ")}` : undefined}
+                  className="mt-5 cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:opacity-100"
                 >
-                  {ocupado ? "Validando e publicando..." : "Publicar com link afiliado validado"}
+                  {ocupado
+                    ? "Validando e publicando..."
+                    : pronto
+                      ? "Publicar com link afiliado validado"
+                      : "Complete os campos obrigatórios"}
                 </button>
               </article>
             );
