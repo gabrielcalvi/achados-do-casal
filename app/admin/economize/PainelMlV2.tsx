@@ -61,7 +61,6 @@ export default function PainelMlV2() {
   const [resultado, setResultado] = useState<ResultadoMlV2 | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatoMlV2[]>([]);
   const [erro, setErro] = useState("");
-  const [alterandoId, setAlterandoId] = useState<string | null>(null);
 
   async function carregarCandidatos() {
     try {
@@ -70,7 +69,7 @@ export default function PainelMlV2() {
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/candidatos/coletados",
-        { cache: "no-store" }
+        { cache: "no-store", credentials: "include" }
       );
       const dados = (await resposta.json()) as {
         sucesso?: boolean;
@@ -102,7 +101,7 @@ export default function PainelMlV2() {
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/executar",
-        { method: "GET", cache: "no-store" }
+        { method: "GET", cache: "no-store", credentials: "include" }
       );
       const dados = (await resposta.json()) as ResultadoMlV2;
 
@@ -119,43 +118,6 @@ export default function PainelMlV2() {
     }
   }
 
-  async function alterarCandidato(
-    candidatoId: string,
-    acao: "aprovar" | "rejeitar"
-  ) {
-    try {
-      setAlterandoId(candidatoId);
-      setErro("");
-
-      const resposta = await fetch(
-        `/api/admin/economize/cupons/ml-v2/candidatos/${candidatoId}`,
-        {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ acao }),
-        }
-      );
-      const dados = (await resposta.json()) as {
-        sucesso?: boolean;
-        erro?: string;
-      };
-
-      if (!resposta.ok || !dados.sucesso) {
-        throw new Error(dados.erro || "Não foi possível atualizar o candidato.");
-      }
-
-      await carregarCandidatos();
-    } catch (error) {
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Erro inesperado ao validar candidato."
-      );
-    } finally {
-      setAlterandoId(null);
-    }
-  }
-
   return (
     <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -167,10 +129,9 @@ export default function PainelMlV2() {
             Candidatos oficiais de cupom
           </h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            Os candidatos abaixo vêm do banco, já com o ID persistido. Assim Aprovar e
-            Rejeitar ficam disponíveis mesmo sem depender da resposta temporária da coleta.
-            Para cupons de produtos selecionados, use os atalhos de produto para abrir
-            diretamente os itens participantes no Mercado Livre.
+            Os candidatos abaixo vêm do banco, já com o ID persistido. Os atalhos de
+            produto abrem diretamente os itens participantes. Depois de aprovar, use
+            o botão Vincular afiliado para ir direto à etapa final daquele cupom.
           </p>
         </div>
 
@@ -179,7 +140,7 @@ export default function PainelMlV2() {
             type="button"
             onClick={carregarCandidatos}
             disabled={carregando || executando}
-            className="rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 disabled:opacity-50"
+            className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Atualizar lista
           </button>
@@ -187,7 +148,7 @@ export default function PainelMlV2() {
             type="button"
             onClick={executar}
             disabled={executando}
-            className="rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="cursor-pointer rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {executando ? "Executando ML V2..." : "Executar coleta ML V2"}
           </button>
@@ -196,21 +157,15 @@ export default function PainelMlV2() {
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-blue-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-            Publicação automática
-          </p>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Publicação automática</p>
           <p className="mt-2 font-black text-slate-950">🔒 Bloqueada</p>
         </div>
         <div className="rounded-2xl bg-emerald-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-            Link de afiliado
-          </p>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Link de afiliado</p>
           <p className="mt-2 font-black text-slate-950">✅ Obrigatório antes de publicar</p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-600">
-            Candidatos carregados
-          </p>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-600">Candidatos carregados</p>
           <p className="mt-2 text-3xl font-black text-slate-950">{candidatos.length}</p>
         </div>
       </div>
@@ -251,17 +206,16 @@ export default function PainelMlV2() {
             <tbody>
               {candidatos.map((cupom) => {
                 const candidatoId = cupom.candidato_id || "";
-                const ocupado = alterandoId === candidatoId;
                 const podeAlterar = Boolean(candidatoId) && cupom.status !== "publicado";
+                const podeAprovar = podeAlterar && cupom.status !== "aprovado";
                 const produtos = cupom.produtos || [];
+                const action = `/api/admin/economize/cupons/ml-v2/candidatos/${candidatoId}`;
 
                 return (
                   <tr key={candidatoId || cupom.campanha_id || cupom.titulo || "cupom"} className="border-t border-slate-100 align-top">
                     <td className="px-4 py-3 font-bold text-slate-900">
                       {cupom.titulo || cupom.campanha_id || "Cupom oficial"}
-                      <p className="mt-1 text-xs font-normal text-slate-400">
-                        Campanha {cupom.campanha_id || "—"}
-                      </p>
+                      <p className="mt-1 text-xs font-normal text-slate-400">Campanha {cupom.campanha_id || "—"}</p>
                     </td>
                     <td className="px-4 py-3">{moeda(cupom.valor_desconto)}</td>
                     <td className="px-4 py-3">{moeda(cupom.compra_minima)}</td>
@@ -291,28 +245,38 @@ export default function PainelMlV2() {
                     <td className="px-4 py-3 font-bold">{rotuloStatus(cupom.status)}</td>
                     <td className="px-4 py-3">
                       <div className="flex min-w-48 flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={!podeAlterar || ocupado}
-                          onClick={() => candidatoId && alterarCandidato(candidatoId, "aprovar")}
-                          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!podeAlterar || ocupado}
-                          onClick={() => candidatoId && alterarCandidato(candidatoId, "rejeitar")}
-                          className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Rejeitar
-                        </button>
+                        <form method="post" action={action}>
+                          <input type="hidden" name="acao" value="aprovar" />
+                          <button
+                            type="submit"
+                            disabled={!podeAprovar}
+                            className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}
+                          </button>
+                        </form>
+                        <form method="post" action={action}>
+                          <input type="hidden" name="acao" value="rejeitar" />
+                          <button
+                            type="submit"
+                            disabled={!podeAlterar}
+                            className="cursor-pointer rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Rejeitar
+                          </button>
+                        </form>
+                        {cupom.status === "aprovado" && candidatoId && (
+                          <a
+                            href={`#afiliado-${candidatoId}`}
+                            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 shadow-sm transition hover:bg-emerald-100 active:scale-95"
+                          >
+                            🔗 Vincular afiliado
+                          </a>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {cupom.validade
-                        ? new Date(cupom.validade).toLocaleString("pt-BR")
-                        : "—"}
+                      {cupom.validade ? new Date(cupom.validade).toLocaleString("pt-BR") : "—"}
                     </td>
                   </tr>
                 );

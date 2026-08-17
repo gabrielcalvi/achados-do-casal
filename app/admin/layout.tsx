@@ -5,18 +5,18 @@ type AdminLayoutProps = {
   children: ReactNode;
 };
 
-export default function AdminLayout({
-  children,
-}: AdminLayoutProps) {
+const links = [
+  { href: "/admin", label: "📦 Produtos" },
+  { href: "/admin/monitor", label: "📈 Monitor" },
+  { href: "/admin/economize", label: "💰 Economize" },
+  { href: "/admin/economize/ml-v2", label: "🏷️ Cupons ML V2" },
+  { href: "/admin/viagens", label: "✈️ Viagens / Radar" },
+];
+
+export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <>
       <style>{`
-        /*
-         * A navegacao principal agora pertence ao layout do Admin.
-         * Escondemos apenas os atalhos antigos repetidos que ainda
-         * existem dentro das paginas, preservando as acoes locais
-         * como Novo Produto, Sair e Revisar alteracoes.
-         */
         main header a[href="/admin"],
         main header a[href="/admin/monitor"] {
           display: none !important;
@@ -32,46 +32,34 @@ export default function AdminLayout({
         }
       `}</style>
 
-      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-5 py-3 shadow-sm backdrop-blur sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
-          <span className="mr-2 text-xs font-black uppercase tracking-wider text-pink-500">
-            Admin
-          </span>
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto max-w-7xl px-3 py-2.5 sm:px-8 sm:py-3">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="shrink-0 text-xs font-black uppercase tracking-wider text-pink-500 hover:text-pink-600"
+            >
+              Achados · Admin
+            </Link>
+            <Link
+              href="/"
+              className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50"
+            >
+              Ver site ↗
+            </Link>
+          </div>
 
-          <Link
-            href="/admin"
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-          >
-            📦 Produtos
-          </Link>
-
-          <Link
-            href="/admin/monitor"
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-          >
-            📈 Monitor
-          </Link>
-
-          <Link
-            href="/admin/economize"
-            className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
-          >
-            💰 Central Economize
-          </Link>
-
-          <Link
-            href="/admin/economize/ml-v2"
-            className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-black text-blue-800 transition hover:bg-blue-100"
-          >
-            🏷️ Cupons ML V2
-          </Link>
-
-          <Link
-            href="/admin/viagens"
-            className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-black text-violet-800 transition hover:bg-violet-100"
-          >
-            ✈️ Viagens / Radar
-          </Link>
+          <nav className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="shrink-0 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 sm:px-4"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
 

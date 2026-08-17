@@ -77,6 +77,28 @@ function textoIndicaRestricaoComplexa(raw, visual) {
   ].some((padrao) => padrao.test(texto));
 }
 
+function textoNormalizado(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function cupomIndisponivel(raw, visual) {
+  const texto = textoNormalizado(
+    JSON.stringify({ raw: raw || {}, visual: visual || {} })
+  );
+
+  return [
+    "esta esgotado",
+    "esta esgotando",
+    "esgotado",
+    "esgotando",
+    "agotado",
+    "sold out",
+  ].some((termo) => texto.includes(termo));
+}
+
 function idsProdutos(raw) {
   const campos = [
     raw?.item_id,
@@ -157,6 +179,7 @@ function classificarEscopo(raw, visual) {
     let paginaFinal = null;
     let totalPaginas = 1;
     let concluiuVarredura = false;
+    let totalIndisponiveisIgnorados = 0;
 
     while (paginasLidas < MAX_PAGINAS) {
       const dados = await page.evaluate(() => {
@@ -208,6 +231,12 @@ function classificarEscopo(raw, visual) {
         if (!campanhaId) continue;
 
         const visual = visualPorCampanha.get(campanhaId) || {};
+
+        if (cupomIndisponivel(raw, visual)) {
+          totalIndisponiveisIgnorados += 1;
+          continue;
+        }
+
         if (!cupomTemRegraSimples(raw, visual)) continue;
 
         const produtos = Array.isArray(visual.items)
@@ -319,6 +348,7 @@ function classificarEscopo(raw, visual) {
       criado_por_aceito: "meli",
       tipo_aceito: "FIXED",
       regra_valor: "qualquer_valor_fixo_positivo",
+      regra_disponibilidade: "ignora_cupons_esgotados_ou_esgotando",
       regra_escopo:
         "site_inteiro_ou_produtos_selecionados_com_regra_simples_sem_restricao_de_vendedor_categoria_marca_loja",
       filtro_escopo: "regra_simples",
@@ -330,6 +360,7 @@ function classificarEscopo(raw, visual) {
       total_paginas_lidas: paginasLidas,
       varredura_completa: concluiuVarredura,
       total_encontrados: cupons.length,
+      total_indisponiveis_ignorados: totalIndisponiveisIgnorados,
       valores_encontrados: valoresEncontrados,
       por_valor: porValor,
       por_escopo: porEscopo,
@@ -340,7 +371,7 @@ function classificarEscopo(raw, visual) {
     fs.writeFileSync(saida, JSON.stringify(resultado, null, 2), "utf8");
 
     console.log(
-      `[ML V2 lote] OK paginas=${paginasLidas} encontrados=${cupons.length} completa=${concluiuVarredura}`
+      `[ML V2 lote] OK paginas=${paginasLidas} encontrados=${cupons.length} indisponiveis_ignorados=${totalIndisponiveisIgnorados} completa=${concluiuVarredura}`
     );
   } finally {
     if (sessaoValidada) {

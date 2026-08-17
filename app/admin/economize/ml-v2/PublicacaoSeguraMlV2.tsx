@@ -6,6 +6,7 @@ type ItemCandidato = {
   item_id: string;
   nome: string | null;
   imagem: string | null;
+  url: string | null;
 };
 
 type Candidato = {
@@ -47,6 +48,19 @@ function moeda(valor: number | null) {
   }).format(Number(valor));
 }
 
+function camposFaltantes(form: Formulario) {
+  const faltantes: string[] = [];
+
+  if (!form.item_id.trim()) faltantes.push("item participante");
+  if (!form.link_destino.trim()) faltantes.push("URL original do produto");
+  if (!form.codigo_publico.trim()) faltantes.push("código público");
+  if (!form.link_afiliado.trim()) faltantes.push("link afiliado meli.la");
+  if (!form.validado_comprador) faltantes.push("confirmação do código no checkout");
+  if (!form.confirmar_link_proprio) faltantes.push("confirmação do nosso link afiliado");
+
+  return faltantes;
+}
+
 export default function PublicacaoSeguraMlV2() {
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [formularios, setFormularios] = useState<Record<string, Formulario>>({});
@@ -79,10 +93,17 @@ export default function PublicacaoSeguraMlV2() {
       setFormularios((atuais) => {
         const proximos = { ...atuais };
         for (const candidato of lista) {
+          const primeiroItem = candidato.itens[0];
           if (!proximos[candidato.id]) {
             proximos[candidato.id] = {
               ...vazio,
-              item_id: candidato.itens[0]?.item_id || "",
+              item_id: primeiroItem?.item_id || "",
+              link_destino: primeiroItem?.url || "",
+            };
+          } else if (!proximos[candidato.id].link_destino && primeiroItem?.url) {
+            proximos[candidato.id] = {
+              ...proximos[candidato.id],
+              link_destino: primeiroItem.url,
             };
           }
         }
@@ -100,6 +121,8 @@ export default function PublicacaoSeguraMlV2() {
   }, []);
 
   function atualizar(id: string, parcial: Partial<Formulario>) {
+    setErro("");
+    setMensagem("");
     setFormularios((atuais) => ({
       ...atuais,
       [id]: { ...(atuais[id] || vazio), ...parcial },
@@ -108,6 +131,12 @@ export default function PublicacaoSeguraMlV2() {
 
   async function publicar(candidato: Candidato) {
     const formulario = formularios[candidato.id] || vazio;
+    const faltantes = camposFaltantes(formulario);
+
+    if (faltantes.length > 0) {
+      setErro(`Falta preencher: ${faltantes.join(", ")}.`);
+      return;
+    }
 
     try {
       setPublicando(candidato.id);
@@ -148,7 +177,7 @@ export default function PublicacaoSeguraMlV2() {
   const publicados = candidatos.filter((item) => item.status === "publicado");
 
   return (
-    <section className="mt-6 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
+    <section id="publicacao-segura-ml-v2" className="mt-6 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm scroll-mt-24">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
@@ -158,10 +187,7 @@ export default function PublicacaoSeguraMlV2() {
             Publicação segura
           </h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            Aqui só entram candidatos já aprovados. A publicação exige um item participante,
-            URL direta do produto, código público confirmado no checkout e um link curto meli.la
-            gerado na nossa conta afiliada. O backend segue o meli.la e bloqueia a publicação se
-            ele não terminar no item selecionado.
+            Aqui só entram candidatos já aprovados. A URL direta do item selecionado já vem preenchida automaticamente. A publicação exige código público confirmado no checkout e um link curto meli.la gerado na nossa conta afiliada. O backend segue o meli.la e bloqueia a publicação se ele não terminar no item selecionado.
           </p>
         </div>
 
@@ -169,7 +195,7 @@ export default function PublicacaoSeguraMlV2() {
           type="button"
           onClick={carregar}
           disabled={carregando}
-          className="rounded-xl border border-slate-300 px-4 py-2 font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2 font-black text-slate-700 hover:bg-slate-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Atualizar
         </button>
@@ -213,9 +239,15 @@ export default function PublicacaoSeguraMlV2() {
           {aprovados.map((candidato) => {
             const form = formularios[candidato.id] || vazio;
             const ocupado = publicando === candidato.id;
+            const faltantes = camposFaltantes(form);
+            const pronto = faltantes.length === 0;
 
             return (
-              <article key={candidato.id} className="rounded-2xl border border-slate-200 p-5">
+              <article
+                id={`afiliado-${candidato.id}`}
+                key={candidato.id}
+                className="scroll-mt-24 rounded-2xl border border-slate-200 p-5 target:border-emerald-400 target:ring-4 target:ring-emerald-100"
+              >
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <h3 className="font-black text-slate-950">{candidato.titulo}</h3>
@@ -236,9 +268,14 @@ export default function PublicacaoSeguraMlV2() {
                     Item participante
                     <select
                       value={form.item_id}
-                      onChange={(event) =>
-                        atualizar(candidato.id, { item_id: event.target.value })
-                      }
+                      onChange={(event) => {
+                        const itemId = event.target.value;
+                        const itemSelecionado = candidato.itens.find((item) => item.item_id === itemId);
+                        atualizar(candidato.id, {
+                          item_id: itemId,
+                          link_destino: itemSelecionado?.url || "",
+                        });
+                      }}
                       className="rounded-xl border border-slate-300 px-3 py-2"
                     >
                       {candidato.itens.map((item) => (
@@ -257,19 +294,25 @@ export default function PublicacaoSeguraMlV2() {
                         atualizar(candidato.id, { codigo_publico: event.target.value.toUpperCase() })
                       }
                       placeholder="Ex.: DESCONTO15"
-                      className="rounded-xl border border-slate-300 px-3 py-2"
+                      className={`rounded-xl border px-3 py-2 ${
+                        form.codigo_publico.trim()
+                          ? "border-slate-300"
+                          : "border-amber-300 bg-amber-50"
+                      }`}
                     />
+                    {!form.codigo_publico.trim() && (
+                      <span className="text-xs font-bold text-amber-700">
+                        Obrigatório. Use somente o código público realmente validado no checkout.
+                      </span>
+                    )}
                   </label>
 
                   <label className="grid gap-2 text-sm font-bold text-slate-700 lg:col-span-2">
                     URL direta do produto no Mercado Livre
                     <input
                       value={form.link_destino}
-                      onChange={(event) =>
-                        atualizar(candidato.id, { link_destino: event.target.value })
-                      }
-                      placeholder="https://www.mercadolivre.com.br/..."
-                      className="rounded-xl border border-slate-300 px-3 py-2"
+                      readOnly
+                      className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-700"
                     />
                   </label>
 
@@ -281,7 +324,9 @@ export default function PublicacaoSeguraMlV2() {
                         atualizar(candidato.id, { link_afiliado: event.target.value })
                       }
                       placeholder="https://meli.la/..."
-                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2"
+                      className={`rounded-xl border bg-emerald-50 px-3 py-2 ${
+                        form.link_afiliado.trim() ? "border-emerald-300" : "border-amber-300"
+                      }`}
                     />
                   </label>
                 </div>
@@ -311,13 +356,24 @@ export default function PublicacaoSeguraMlV2() {
                   </label>
                 </div>
 
+                {!pronto && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+                    Falta preencher: {faltantes.join(", ")}.
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  disabled={ocupado}
+                  disabled={ocupado || !pronto}
                   onClick={() => publicar(candidato)}
-                  className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                  title={!pronto ? `Falta preencher: ${faltantes.join(", ")}` : undefined}
+                  className="mt-5 cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:opacity-100"
                 >
-                  {ocupado ? "Validando e publicando..." : "Publicar com link afiliado validado"}
+                  {ocupado
+                    ? "Validando e publicando..."
+                    : pronto
+                      ? "Publicar com link afiliado validado"
+                      : "Complete os campos obrigatórios"}
                 </button>
               </article>
             );
