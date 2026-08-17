@@ -62,6 +62,15 @@ async function lerJson(sandbox: SandboxInstancia, caminho: string) {
   }
 }
 
+function logStatus(dados: Record<string, unknown> | null) {
+  if (!dados) {
+    console.info("[AWIN produtos] Nenhum status anterior encontrado no Sandbox.");
+    return;
+  }
+
+  console.info("[AWIN produtos] Status anterior:", JSON.stringify(dados));
+}
+
 async function status(request: NextRequest) {
   if (!(await autorizado(request))) {
     return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
@@ -74,6 +83,7 @@ async function status(request: NextRequest) {
       (await lerJson(sandbox, RESULT_PATH)) ||
       { executando: false, mensagem: "Nenhuma varredura de produtos AWIN executada ainda." };
 
+    logStatus(dados);
     return NextResponse.json({ sucesso: true, sandbox: SANDBOX_NAME, status: dados });
   } catch (erro) {
     return NextResponse.json(
@@ -139,7 +149,10 @@ async function executar(request: NextRequest) {
     }
 
     const anterior = await lerJson(sandbox, STATUS_PATH);
+    logStatus(anterior);
+
     if (anterior?.executando === true) {
+      console.info("[AWIN produtos] Nova execução ignorada porque a anterior ainda está rodando.");
       return NextResponse.json(
         { sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior },
         { status: 202 }
@@ -161,6 +174,12 @@ async function executar(request: NextRequest) {
       detached: true,
     });
 
+    console.info("[AWIN produtos] Nova varredura iniciada.", {
+      commit,
+      publisher,
+      lojas: ["cea", "renner", "calvin-klein", "stanley"],
+    });
+
     return NextResponse.json(
       {
         sucesso: true,
@@ -177,6 +196,7 @@ async function executar(request: NextRequest) {
       { status: 202 }
     );
   } catch (erro) {
+    console.error("[AWIN produtos] Falha no executor:", erro);
     return NextResponse.json(
       {
         sucesso: false,
