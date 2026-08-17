@@ -9,7 +9,7 @@ export const maxDuration = 300;
 const SANDBOX_NAME =
   process.env.KABUM_AWIN_SANDBOX_NAME || "achados-cupons-ml-test";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
-const SCRIPT_PATH = "/vercel/scripts/varrer-produtos-awin.cjs";
+const SCRIPT_PATH = "/vercel/scripts/varrer-produtos-awin-legacy.cjs";
 const CONFIG_PATH = "/vercel/scripts/awin-lojas.config.cjs";
 const STATUS_PATH = "/vercel/tmp/awin-produtos-status.json";
 const RESULT_PATH = "/vercel/tmp/awin-produtos-resultado.json";
@@ -102,13 +102,18 @@ async function executar(request: NextRequest) {
   }
 
   const awinToken = process.env.AWIN_API_TOKEN;
+  const datafeedKey = process.env.AWIN_DATAFEED_API_KEY;
   const publisher = process.env.AWIN_PUBLISHER_ID || "2922231";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
-  if (!awinToken || !supabaseUrl || !serviceKey) {
+  if (!awinToken || !datafeedKey || !supabaseUrl || !serviceKey) {
     return NextResponse.json(
-      { sucesso: false, erro: "Variaveis AWIN/Supabase incompletas." },
+      {
+        sucesso: false,
+        erro: "Variaveis AWIN/Data Feed/Supabase incompletas.",
+        datafeed_configurado: Boolean(datafeedKey),
+      },
       { status: 500 }
     );
   }
@@ -124,7 +129,7 @@ async function executar(request: NextRequest) {
     const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
     const arquivos = [
       [
-        `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin.cjs`,
+        `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-legacy.cjs`,
         SCRIPT_PATH,
       ],
       [
@@ -165,6 +170,7 @@ async function executar(request: NextRequest) {
       cwd: "/vercel",
       env: {
         AWIN_API_TOKEN: awinToken,
+        AWIN_DATAFEED_API_KEY: datafeedKey,
         AWIN_PUBLISHER_ID: publisher,
         NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
         SUPABASE_SERVICE_ROLE_KEY: serviceKey,
@@ -174,9 +180,10 @@ async function executar(request: NextRequest) {
       detached: true,
     });
 
-    console.info("[AWIN produtos] Nova varredura iniciada.", {
+    console.info("[AWIN produtos] Nova varredura Legacy iniciada.", {
       commit,
       publisher,
+      datafeed_configurado: true,
       lojas: ["cea", "renner", "calvin-klein", "stanley"],
     });
 
@@ -184,11 +191,12 @@ async function executar(request: NextRequest) {
       {
         sucesso: true,
         iniciado: true,
-        modo: "varredura_completa_feed_produtos",
+        modo: "varredura_completa_feed_produtos_legacy",
         lojas: ["cea", "renner", "calvin-klein", "stanley"],
         limite_publicacao_por_loja: 15,
         desconto_minimo_percentual: 10,
         afiliado_obrigatorio: true,
+        datafeed_configurado: true,
         commit_script: commit,
         sandbox: SANDBOX_NAME,
         iniciadoEm: new Date().toISOString(),
