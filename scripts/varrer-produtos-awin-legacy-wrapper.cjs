@@ -74,7 +74,7 @@ const itemComDiagnostico = `      expiradas: 0,\n      diagnostico: null,\n     
 if (codigo.includes(marcadorItem)) codigo = codigo.replace(marcadorItem, itemComDiagnostico);
 
 const marcadorFeed = `      item.selecionados = feed.selecionados.length;`;
-const feedComDiagnostico = `      item.selecionados = feed.selecionados.length;\n      item.diagnostico = feed.diagnostico || null;`;
+const feedComDiagnostico = `      item.selecionados = feed.selecionados.length;\n      item.diagnostico = feed.diagnostico || null;\n      if (item.diagnostico) {\n        const d = item.diagnostico;\n        console.log(\`[AWIN diag] loja=\${loja.slug} amostras=\${d.amostras} id=\${d.com_id} titulo=\${d.com_titulo} linkMercante=\${d.com_link_mercante} linkQualquer=\${d.com_link_qualquer} imagem=\${d.com_imagem} precoAtual=\${d.com_preco_atual} precoOriginal=\${d.com_preco_original} saving=\${d.com_saving} percentual=\${d.com_percentual}\`);\n        console.log(\`[AWIN diag headers] loja=\${loja.slug} \${(d.cabecalhos || []).join(',')}\`);\n      }`;
 
 if (codigo.includes(marcadorFeed)) codigo = codigo.replace(marcadorFeed, feedComDiagnostico);
 
