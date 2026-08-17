@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+type ProdutoMlV2 = {
+  item_id: string;
+  nome?: string | null;
+  imagem?: string | null;
+  url?: string | null;
+};
+
 type CandidatoMlV2 = {
   candidato_id?: string | null;
   status?: string | null;
@@ -15,6 +22,7 @@ type CandidatoMlV2 = {
   tipo_acao?: string | null;
   possui_token_ativacao?: boolean;
   quantidade_produtos?: number;
+  produtos?: ProdutoMlV2[];
 };
 
 type ResultadoMlV2 = {
@@ -23,12 +31,6 @@ type ResultadoMlV2 = {
   total_paginas_lidas?: number;
   total_encontrados?: number;
   valores_encontrados?: number[];
-  por_valor?: Record<string, number>;
-  por_escopo?: Record<string, number>;
-  publicacao_automatica?: boolean;
-  afiliado_obrigatorio_antes_publicacao?: boolean;
-  executado_em?: string;
-  amostra?: CandidatoMlV2[];
 };
 
 function moeda(valor: number | null | undefined) {
@@ -40,24 +42,10 @@ function moeda(valor: number | null | undefined) {
   }).format(valor);
 }
 
-function etapaExecucao(progresso: number) {
-  if (progresso < 18) return "Preparando execução";
-  if (progresso < 38) return "Conectando ao Vercel Sandbox";
-  if (progresso < 76) return "Coletando cupons oficiais do Mercado Livre";
-  if (progresso < 96) return "Classificando candidatos e regras de uso";
-  return "Finalizando resultado";
-}
-
 function rotuloEscopo(escopo: string | null | undefined) {
   if (escopo === "produtos_selecionados") return "Produtos selecionados";
   if (escopo === "site_inteiro") return "Site inteiro";
   return "Não identificado";
-}
-
-function rotuloUso(cupom: CandidatoMlV2) {
-  if (cupom.acao) return cupom.acao;
-  if (cupom.possui_token_ativacao) return "Possui token interno";
-  return "Sem código público identificado";
 }
 
 function rotuloStatus(status: string | null | undefined) {
@@ -69,42 +57,53 @@ function rotuloStatus(status: string | null | undefined) {
 
 export default function PainelMlV2() {
   const [executando, setExecutando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   const [resultado, setResultado] = useState<ResultadoMlV2 | null>(null);
+  const [candidatos, setCandidatos] = useState<CandidatoMlV2[]>([]);
   const [erro, setErro] = useState("");
-  const [progresso, setProgresso] = useState(0);
-  const [segundos, setSegundos] = useState(0);
   const [alterandoId, setAlterandoId] = useState<string | null>(null);
 
+  async function carregarCandidatos() {
+    try {
+      setCarregando(true);
+      setErro("");
+
+      const resposta = await fetch(
+        "/api/admin/economize/cupons/ml-v2/candidatos/coletados",
+        { cache: "no-store" }
+      );
+      const dados = (await resposta.json()) as {
+        sucesso?: boolean;
+        erro?: string;
+        candidatos?: CandidatoMlV2[];
+      };
+
+      if (!resposta.ok || !dados.sucesso) {
+        throw new Error(dados.erro || "Não foi possível carregar os candidatos ML V2.");
+      }
+
+      setCandidatos(dados.candidatos || []);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro inesperado.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   useEffect(() => {
-    if (!executando) return;
-
-    const iniciadoEm = Date.now();
-    const timer = window.setInterval(() => {
-      setSegundos(Math.floor((Date.now() - iniciadoEm) / 1000));
-      setProgresso((valorAtual) => {
-        if (valorAtual >= 94) return valorAtual;
-        if (valorAtual < 22) return Math.min(22, valorAtual + 3);
-        if (valorAtual < 55) return Math.min(55, valorAtual + 2);
-        return Math.min(94, valorAtual + 1);
-      });
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [executando]);
+    carregarCandidatos();
+  }, []);
 
   async function executar() {
     try {
       setExecutando(true);
       setErro("");
       setResultado(null);
-      setProgresso(6);
-      setSegundos(0);
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/executar",
         { method: "GET", cache: "no-store" }
       );
-
       const dados = (await resposta.json()) as ResultadoMlV2;
 
       if (!resposta.ok || !dados.sucesso) {
@@ -112,12 +111,9 @@ export default function PainelMlV2() {
       }
 
       setResultado(dados);
-      setProgresso(100);
+      await carregarCandidatos();
     } catch (error) {
-      setErro(
-        error instanceof Error ? error.message : "Erro inesperado no ML V2."
-      );
-      setProgresso(100);
+      setErro(error instanceof Error ? error.message : "Erro inesperado no ML V2.");
     } finally {
       setExecutando(false);
     }
@@ -139,29 +135,16 @@ export default function PainelMlV2() {
           body: JSON.stringify({ acao }),
         }
       );
-
       const dados = (await resposta.json()) as {
         sucesso?: boolean;
         erro?: string;
-        candidato?: { id?: string; status?: string };
       };
 
       if (!resposta.ok || !dados.sucesso) {
         throw new Error(dados.erro || "Não foi possível atualizar o candidato.");
       }
 
-      setResultado((atual) => {
-        if (!atual?.amostra) return atual;
-
-        return {
-          ...atual,
-          amostra: atual.amostra.map((item) =>
-            item.candidato_id === candidatoId
-              ? { ...item, status: dados.candidato?.status || item.status }
-              : item
-          ),
-        };
-      });
+      await carregarCandidatos();
     } catch (error) {
       setErro(
         error instanceof Error
@@ -173,12 +156,6 @@ export default function PainelMlV2() {
     }
   }
 
-  const etapa = erro
-    ? "Execução interrompida"
-    : resultado
-      ? "Coleta concluída"
-      : etapaExecucao(progresso);
-
   return (
     <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -189,24 +166,35 @@ export default function PainelMlV2() {
           <h2 className="mt-2 text-2xl font-black text-slate-950">
             Candidatos oficiais de cupom
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Busca cupons criados pelo próprio Mercado Livre, com desconto fixo
-            e regra simples. Depois da coleta, valide cada candidato aqui. Aprovar
-            não publica: apenas libera o candidato para a próxima etapa.
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+            Os candidatos abaixo vêm do banco, já com o ID persistido. Assim Aprovar e
+            Rejeitar ficam disponíveis mesmo sem depender da resposta temporária da coleta.
+            Para cupons de produtos selecionados, use os atalhos de produto para abrir
+            diretamente os itens participantes no Mercado Livre.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={executar}
-          disabled={executando}
-          className="rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {executando ? "Executando ML V2..." : "Executar coleta ML V2"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={carregarCandidatos}
+            disabled={carregando || executando}
+            className="rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 disabled:opacity-50"
+          >
+            Atualizar lista
+          </button>
+          <button
+            type="button"
+            onClick={executar}
+            disabled={executando}
+            className="rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {executando ? "Executando ML V2..." : "Executar coleta ML V2"}
+          </button>
+        </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-blue-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-blue-700">
             Publicação automática
@@ -217,69 +205,19 @@ export default function PainelMlV2() {
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
             Link de afiliado
           </p>
-          <p className="mt-2 font-black text-slate-950">
-            ✅ Obrigatório antes de publicar
-          </p>
+          <p className="mt-2 font-black text-slate-950">✅ Obrigatório antes de publicar</p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-slate-600">
-            Escopo aceito na coleta
+            Candidatos carregados
           </p>
-          <p className="mt-2 font-black text-slate-950">
-            Site inteiro ou produtos selecionados com regra simples
-          </p>
+          <p className="mt-2 text-3xl font-black text-slate-950">{candidatos.length}</p>
         </div>
       </div>
 
-      {(executando || resultado || erro) && (
-        <div
-          className={`mt-5 rounded-2xl border p-4 ${
-            erro
-              ? "border-red-200 bg-red-50"
-              : resultado
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-blue-200 bg-blue-50"
-          }`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                Status da execução
-              </p>
-              <p
-                className={`mt-1 font-black ${
-                  erro
-                    ? "text-red-700"
-                    : resultado
-                      ? "text-emerald-700"
-                      : "text-blue-800"
-                }`}
-              >
-                {erro ? "❌" : resultado ? "✅" : "⚙️"} {etapa}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-black text-slate-700">{progresso}%</p>
-              {executando && (
-                <p className="text-xs font-bold text-slate-500">
-                  {segundos}s em execução
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white shadow-inner">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                erro
-                  ? "bg-red-500"
-                  : resultado
-                    ? "bg-emerald-500"
-                    : "bg-blue-600"
-              }`}
-              style={{ width: `${progresso}%` }}
-            />
-          </div>
+      {resultado && (
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
+          Coleta concluída: {resultado.total_encontrados ?? 0} candidatos em {resultado.total_paginas_lidas ?? 0} páginas.
         </div>
       )}
 
@@ -289,116 +227,98 @@ export default function PainelMlV2() {
         </div>
       )}
 
-      {resultado && (
-        <div className="mt-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-500">Páginas lidas</p>
-              <p className="mt-2 text-3xl font-black text-slate-950">
-                {resultado.total_paginas_lidas ?? 0}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-500">Candidatos encontrados</p>
-              <p className="mt-2 text-3xl font-black text-slate-950">
-                {resultado.total_encontrados ?? 0}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-500">Valores encontrados</p>
-              <p className="mt-2 font-black text-slate-950">
-                {(resultado.valores_encontrados ?? [])
-                  .map((valor) => moeda(valor))
-                  .join(", ") || "Nenhum"}
-              </p>
-            </div>
-          </div>
+      {carregando ? (
+        <p className="mt-5 font-bold text-slate-500">Carregando candidatos...</p>
+      ) : candidatos.length === 0 ? (
+        <p className="mt-5 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600">
+          Nenhum candidato ML V2 encontrado no banco.
+        </p>
+      ) : (
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-4 py-3 font-black">Candidato</th>
+                <th className="px-4 py-3 font-black">Desconto</th>
+                <th className="px-4 py-3 font-black">Compra mínima</th>
+                <th className="px-4 py-3 font-black">Escopo</th>
+                <th className="px-4 py-3 font-black">Produtos</th>
+                <th className="px-4 py-3 font-black">Status</th>
+                <th className="px-4 py-3 font-black">Validação</th>
+                <th className="px-4 py-3 font-black">Validade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidatos.map((cupom) => {
+                const candidatoId = cupom.candidato_id || "";
+                const ocupado = alterandoId === candidatoId;
+                const podeAlterar = Boolean(candidatoId) && cupom.status !== "publicado";
+                const produtos = cupom.produtos || [];
 
-          {(resultado.amostra?.length ?? 0) > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-black">Candidato</th>
-                    <th className="px-4 py-3 font-black">Desconto</th>
-                    <th className="px-4 py-3 font-black">Compra mínima</th>
-                    <th className="px-4 py-3 font-black">Escopo</th>
-                    <th className="px-4 py-3 font-black">Uso no ML</th>
-                    <th className="px-4 py-3 font-black">Status</th>
-                    <th className="px-4 py-3 font-black">Validação</th>
-                    <th className="px-4 py-3 font-black">Validade</th>
+                return (
+                  <tr key={candidatoId || cupom.campanha_id || cupom.titulo || "cupom"} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3 font-bold text-slate-900">
+                      {cupom.titulo || cupom.campanha_id || "Cupom oficial"}
+                      <p className="mt-1 text-xs font-normal text-slate-400">
+                        Campanha {cupom.campanha_id || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">{moeda(cupom.valor_desconto)}</td>
+                    <td className="px-4 py-3">{moeda(cupom.compra_minima)}</td>
+                    <td className="px-4 py-3">{rotuloEscopo(cupom.escopo)}</td>
+                    <td className="px-4 py-3">
+                      {produtos.length > 0 ? (
+                        <div className="flex min-w-52 flex-wrap gap-2">
+                          {produtos.slice(0, 4).map((produto, indice) =>
+                            produto.url ? (
+                              <a
+                                key={`${produto.item_id}-${indice}`}
+                                href={produto.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={produto.nome || produto.item_id}
+                                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100"
+                              >
+                                Produto {indice + 1}
+                              </a>
+                            ) : null
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500">Sem item específico</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-bold">{rotuloStatus(cupom.status)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-48 flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={!podeAlterar || ocupado}
+                          onClick={() => candidatoId && alterarCandidato(candidatoId, "aprovar")}
+                          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!podeAlterar || ocupado}
+                          onClick={() => candidatoId && alterarCandidato(candidatoId, "rejeitar")}
+                          className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {cupom.validade
+                        ? new Date(cupom.validade).toLocaleString("pt-BR")
+                        : "—"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {resultado.amostra?.map((cupom, indice) => {
-                    const ocupado = alterandoId === cupom.candidato_id;
-                    const podeAlterar =
-                      Boolean(cupom.candidato_id) && cupom.status !== "publicado";
-
-                    return (
-                      <tr
-                        key={`${cupom.campanha_id ?? "sem-id"}-${indice}`}
-                        className="border-t border-slate-100"
-                      >
-                        <td className="px-4 py-3 font-bold text-slate-900">
-                          {cupom.titulo || cupom.campanha_id || "Cupom oficial"}
-                        </td>
-                        <td className="px-4 py-3">{moeda(cupom.valor_desconto)}</td>
-                        <td className="px-4 py-3">{moeda(cupom.compra_minima)}</td>
-                        <td className="px-4 py-3">{rotuloEscopo(cupom.escopo)}</td>
-                        <td className="px-4 py-3 font-bold text-slate-700">
-                          {rotuloUso(cupom)}
-                          {cupom.tipo_acao ? ` · ${cupom.tipo_acao}` : ""}
-                        </td>
-                        <td className="px-4 py-3 font-bold">
-                          {rotuloStatus(cupom.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex min-w-56 flex-wrap gap-2">
-                            <a
-                              href="https://www.mercadolivre.com.br/cupons/filter?all=true&source_page=int_view_all"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-50"
-                            >
-                              Abrir no ML
-                            </a>
-                            <button
-                              type="button"
-                              disabled={!podeAlterar || ocupado}
-                              onClick={() =>
-                                cupom.candidato_id &&
-                                alterarCandidato(cupom.candidato_id, "aprovar")
-                              }
-                              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
-                            >
-                              Aprovar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!podeAlterar || ocupado}
-                              onClick={() =>
-                                cupom.candidato_id &&
-                                alterarCandidato(cupom.candidato_id, "rejeitar")
-                              }
-                              className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
-                            >
-                              Rejeitar
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {cupom.validade
-                            ? new Date(cupom.validade).toLocaleString("pt-BR")
-                            : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>
