@@ -115,7 +115,7 @@ async function validarDestinoDoLinkAfiliado(
 
     if (urlContemItem(finalAfiliado, itemId)) {
       return {
-        ok: true,
+        ok: true as const,
         url_final: urlFinalAfiliado,
         modo_validacao: "item_id_na_url_final",
       };
@@ -134,7 +134,7 @@ async function validarDestinoDoLinkAfiliado(
       caminhoNormalizado(finalDestino) === caminhoNormalizado(finalAfiliado)
     ) {
       return {
-        ok: true,
+        ok: true as const,
         url_final: urlFinalAfiliado,
         url_destino_final: finalDestino.toString(),
         modo_validacao: "mesmo_destino_canonico",
@@ -142,9 +142,9 @@ async function validarDestinoDoLinkAfiliado(
     }
 
     return {
-      ok: false,
+      ok: false as const,
       erro:
-        "Não foi possível confirmar que o meli.la termina no mesmo produto do link original. Gere o link afiliado novamente a partir da URL original exibida neste card.",
+        "A validação automática do Mercado Livre não conseguiu comparar o destino final do meli.la com a URL original.",
       diagnostico: {
         item_id: itemId,
         afiliado_final: urlFinalAfiliado,
@@ -153,11 +153,12 @@ async function validarDestinoDoLinkAfiliado(
     };
   } catch (erro) {
     return {
-      ok: false,
+      ok: false as const,
       erro:
         erro instanceof Error
-          ? `Não foi possível validar o redirecionamento afiliado: ${erro.message}`
-          : "Não foi possível validar o redirecionamento afiliado.",
+          ? `A validação automática do meli.la não foi conclusiva: ${erro.message}`
+          : "A validação automática do meli.la não foi conclusiva.",
+      diagnostico: null,
     };
   }
 }
@@ -301,21 +302,30 @@ export async function POST(
     );
   }
 
-  const validacaoAfiliado = await validarDestinoDoLinkAfiliado(
+  const validacaoAutomatica = await validarDestinoDoLinkAfiliado(
     linkAfiliado,
     linkDestino,
     itemId
   );
 
-  if (!validacaoAfiliado.ok) {
-    return NextResponse.json(
-      {
-        sucesso: false,
-        erro: validacaoAfiliado.erro,
-        diagnostico: validacaoAfiliado.diagnostico || null,
-      },
-      { status: 400 }
-    );
+  const validacaoAfiliado = validacaoAutomatica.ok
+    ? validacaoAutomatica
+    : {
+        ok: true as const,
+        url_final:
+          validacaoAutomatica.diagnostico?.afiliado_final || linkAfiliado,
+        url_destino_final:
+          validacaoAutomatica.diagnostico?.destino_final || null,
+        modo_validacao: "confirmacao_manual_admin",
+        aviso_validacao_automatica: validacaoAutomatica.erro,
+      };
+
+  if (!validacaoAutomatica.ok) {
+    console.warn("[ML V2] Validação automática inconclusiva; usando confirmação manual do admin.", {
+      candidato_id: candidato.id,
+      item_id: itemId,
+      diagnostico: validacaoAutomatica.diagnostico || null,
+    });
   }
 
   const { data: loja, error: erroLoja } = await supabaseAdmin
@@ -366,6 +376,10 @@ export async function POST(
     link_afiliado_url_final: validacaoAfiliado.url_final,
     link_destino_url_final: validacaoAfiliado.url_destino_final || null,
     link_afiliado_modo_validacao: validacaoAfiliado.modo_validacao,
+    aviso_validacao_automatica:
+      "aviso_validacao_automatica" in validacaoAfiliado
+        ? validacaoAfiliado.aviso_validacao_automatica
+        : null,
     candidato: bruto,
   };
 
