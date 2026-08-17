@@ -20,14 +20,14 @@ if (!codigo.includes(trecho)) {
 codigo = codigo.replace(trecho, substituto);
 
 const pontoLista = `const listaFeeds = await buscarListaFeeds();\n  console.log(`;
-const listaComDiagnostico = `const listaFeeds = await buscarListaFeeds();\n  const feedListHeaders = Object.keys(listaFeeds[0] || {});\n  console.log(`;
+const listaComDiagnostico = `const listaFeeds = await buscarListaFeeds();\n  const feedListHeaders = Object.keys(listaFeeds[0] || {});\n  const feedListPartnerSamples = listaFeeds\n    .filter((row) => /c&a|renner|ashua|calvin|klein|stanley/i.test(String(row.advertiser_name || "")))\n    .slice(0, 30)\n    .map((row) => ({\n      advertiser_id: row.advertiser_id || null,\n      advertiser_name: row.advertiser_name || null,\n      primary_region: row.primary_region || null,\n      membership_status: row.membership_status || null,\n      feed_id: row.feed_id || null,\n      feed_name: row.feed_name || null,\n      language: row.language || null,\n      no_of_products: row.no_of_products || null,\n    }));\n  console.log(`;
 
 if (codigo.includes(pontoLista)) {
   codigo = codigo.replace(pontoLista, listaComDiagnostico);
 }
 
 const pontoResultado = `feeds_acessiveis_total: listaFeeds.length,\n    desconto_minimo:`;
-const resultadoComDiagnostico = `feeds_acessiveis_total: listaFeeds.length,\n    feed_list_headers: feedListHeaders,\n    desconto_minimo:`;
+const resultadoComDiagnostico = `feeds_acessiveis_total: listaFeeds.length,\n    feed_list_headers: feedListHeaders,\n    feed_list_partner_samples: feedListPartnerSamples,\n    desconto_minimo:`;
 
 if (codigo.includes(pontoResultado)) {
   codigo = codigo.replace(pontoResultado, resultadoComDiagnostico);
