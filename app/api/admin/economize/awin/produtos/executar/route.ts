@@ -10,6 +10,7 @@ const SANDBOX_NAME =
   process.env.KABUM_AWIN_SANDBOX_NAME || "achados-cupons-ml-test";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const SCRIPT_PATH = "/vercel/scripts/varrer-produtos-awin-legacy.cjs";
+const WRAPPER_PATH = "/vercel/scripts/varrer-produtos-awin-legacy-wrapper.cjs";
 const CONFIG_PATH = "/vercel/scripts/awin-lojas.config.cjs";
 const STATUS_PATH = "/vercel/tmp/awin-produtos-status.json";
 const RESULT_PATH = "/vercel/tmp/awin-produtos-resultado.json";
@@ -133,6 +134,10 @@ async function executar(request: NextRequest) {
         SCRIPT_PATH,
       ],
       [
+        `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-legacy-wrapper.cjs`,
+        WRAPPER_PATH,
+      ],
+      [
         `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/awin-lojas.config.cjs`,
         CONFIG_PATH,
       ],
@@ -166,7 +171,7 @@ async function executar(request: NextRequest) {
 
     await sandbox.runCommand({
       cmd: "node",
-      args: [SCRIPT_PATH, "CONFIRMAR"],
+      args: [WRAPPER_PATH, "CONFIRMAR"],
       cwd: "/vercel",
       env: {
         AWIN_API_TOKEN: awinToken,
@@ -184,6 +189,7 @@ async function executar(request: NextRequest) {
       commit,
       publisher,
       datafeed_configurado: true,
+      normalizacao_colunas_compactas: true,
       lojas: ["cea", "renner", "calvin-klein", "stanley"],
     });
 
@@ -197,6 +203,7 @@ async function executar(request: NextRequest) {
         desconto_minimo_percentual: 10,
         afiliado_obrigatorio: true,
         datafeed_configurado: true,
+        normalizacao_colunas_compactas: true,
         commit_script: commit,
         sandbox: SANDBOX_NAME,
         iniciadoEm: new Date().toISOString(),
