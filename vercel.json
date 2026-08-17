@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/admin/economize/awin/produtos/executar",
-      "schedule": "30 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/admin/viagens/radar/rodada",
