@@ -13,6 +13,10 @@
       "schedule": "0 1,7,13,19 * * *"
     },
     {
+      "path": "/api/admin/economize/awin/produtos/executar",
+      "schedule": "30 * * * *"
+    },
+    {
       "path": "/api/admin/viagens/radar/rodada",
       "schedule": "0 2,8,14,20 * * *"
     },
