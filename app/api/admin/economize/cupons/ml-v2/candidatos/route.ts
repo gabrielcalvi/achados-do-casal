@@ -19,6 +19,15 @@ async function usuarioAutenticado() {
   }
 }
 
+function urlProdutoMl(itemId: string) {
+  const normalizado = String(itemId || "").trim().toUpperCase();
+  const match = normalizado.match(/^MLB(\d+)$/);
+
+  if (!match) return null;
+
+  return `https://produto.mercadolivre.com.br/MLB-${match[1]}`;
+}
+
 export async function GET() {
   if (!(await usuarioAutenticado())) {
     return NextResponse.json(
@@ -63,6 +72,7 @@ export async function GET() {
         item_id: itemId,
         nome: produtos[indice]?.nome || null,
         imagem: produtos[indice]?.imagem || null,
+        url: urlProdutoMl(itemId),
       })),
     };
   });
