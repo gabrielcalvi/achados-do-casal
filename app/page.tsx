@@ -140,7 +140,7 @@ export default function Home() {
         .not("imagem_url", "is", null)
         .not("preco_oferta", "is", null)
         .order("desconto_percentual", { ascending: false, nullsFirst: false })
-        .limit(18);
+        .limit(120);
 
       if (error || !ofertas?.length) {
         if (error) console.error("Falha ao carregar seleção AWIN:", error);
@@ -155,22 +155,30 @@ export default function Home() {
       const { data: lojas } = lojaIds.length
         ? await supabase
             .from("economize_lojas")
-            .select("id,nome")
+            .select("id,nome,segmento")
             .in("id", lojaIds)
         : { data: [] };
 
-      const nomesLojas = new Map(
-        (lojas || []).map((loja) => [String(loja.id), loja.nome]),
+      const lojasPorId = new Map(
+        (lojas || []).map((loja) => [
+          String(loja.id),
+          {
+            nome: loja.nome,
+            segmento: loja.segmento || "varejo",
+          },
+        ]),
       );
       const porLoja = new Map<string, number>();
       const selecionadas: OfertaAwin[] = [];
 
       for (const oferta of ofertas) {
-        if (selecionadas.length >= 6) break;
-
         const lojaId = String(oferta.loja_id || "awin");
+        const loja = lojasPorId.get(lojaId);
+
+        if (loja?.segmento === "viagens") continue;
+
         const quantidadeLoja = porLoja.get(lojaId) || 0;
-        if (quantidadeLoja >= 2) continue;
+        if (quantidadeLoja >= 3) continue;
 
         const precoAtual = Number(oferta.preco_oferta);
         const precoAnterior = oferta.preco_original
@@ -192,7 +200,7 @@ export default function Home() {
           desconto: oferta.desconto_percentual
             ? Number(oferta.desconto_percentual)
             : null,
-          loja: nomesLojas.get(lojaId) || "Parceiro AWIN",
+          loja: loja?.nome || "Parceiro AWIN",
         });
         porLoja.set(lojaId, quantidadeLoja + 1);
       }
