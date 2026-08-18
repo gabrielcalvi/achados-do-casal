@@ -7,6 +7,7 @@ const saidaPath = String(process.env.MONITOR_ML_OUTPUT || "").trim();
 const authStatePath = String(
   process.env.MELI_BUYER_AUTH_STATE_PATH || "/vercel/tmp/meli-buyer-auth.json"
 ).trim();
+const CONCORRENCIA_ML = 2;
 
 function falhar(mensagem) {
   throw new Error(mensagem);
@@ -42,33 +43,61 @@ function falhar(mensagem) {
     },
   });
 
-  try {
-    const resultados = await Promise.all(
-      produtos.map(async (produto) => {
-        const pagina = await context.newPage();
+  async function processarProduto(produto) {
+    const pagina = await context.newPage();
 
-        try {
-          const dados = await extrairMercadoLivre(pagina, produto.url);
-          return {
-            id: produto.id,
-            sucesso: true,
-            dados,
-          };
-        } catch (erro) {
-          return {
-            id: produto.id,
-            sucesso: false,
-            erro: erro instanceof Error ? erro.message : "Erro desconhecido",
-          };
-        } finally {
-          await pagina.close().catch(() => undefined);
-        }
-      })
-    );
+    try {
+      const dados = await extrairMercadoLivre(pagina, produto.url);
+      return {
+        id: produto.id,
+        sucesso: true,
+        dados,
+      };
+    } catch (erro) {
+      return {
+        id: produto.id,
+        sucesso: false,
+        erro: erro instanceof Error ? erro.message : "Erro desconhecido",
+      };
+    } finally {
+      await pagina.close().catch(() => undefined);
+    }
+  }
+
+  try {
+    const resultados = [];
+
+    for (
+      let indice = 0;
+      indice < produtos.length;
+      indice += CONCORRENCIA_ML
+    ) {
+      const grupo = produtos.slice(indice, indice + CONCORRENCIA_ML);
+
+      console.log(
+        `[MONITOR ML LOTE] Grupo ${Math.floor(indice / CONCORRENCIA_ML) + 1}: ${grupo
+          .map((produto) => produto.id)
+          .join(", ")}`
+      );
+
+      const resultadosGrupo = await Promise.all(
+        grupo.map((produto) => processarProduto(produto))
+      );
+
+      resultados.push(...resultadosGrupo);
+    }
 
     fs.writeFileSync(
       saidaPath,
-      JSON.stringify({ sucesso: true, resultados }, null, 2),
+      JSON.stringify(
+        {
+          sucesso: true,
+          concorrencia_ml: CONCORRENCIA_ML,
+          resultados,
+        },
+        null,
+        2
+      ),
       "utf8"
     );
 
