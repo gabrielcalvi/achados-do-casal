@@ -13,6 +13,16 @@ type DadosAtuaisMonitor = {
   urlFinal?: string;
 };
 
+type ProdutoFilaMonitor = {
+  id: number;
+  nome: string;
+  loja?: string | null;
+  link?: string | null;
+};
+
+const LIMITE_CONCORRENCIA = 4;
+const LIMITE_RODADA_AUTOMATICA = 12;
+
 function ehMercadoLivre(produto: {
   loja?: string | null;
   link?: string | null;
@@ -25,6 +35,10 @@ function ehMercadoLivre(produto: {
     texto.includes("mercadolibre") ||
     texto.includes("meli.la")
   );
+}
+
+function possuiLinkMonitoravel(produto: ProdutoFilaMonitor) {
+  return typeof produto.link === "string" && produto.link.trim().length > 0;
 }
 
 async function obterDadosAtuais(
@@ -224,23 +238,17 @@ export async function consultarPrecoProduto(
   }
 }
 
-export async function monitorarTodosProdutos(modoLocal = false) {
-  const { data: produtos, error } = await supabaseAdmin
-    .from("produtos")
-    .select("id, nome, loja, link")
-    .eq("ativo", true)
-    .order("id");
-
-  if (error) {
-    throw new Error(`Erro ao buscar produtos: ${error.message}`);
-  }
-
-  const resultados = [];
+async function executarFilaMonitor(
+  produtos: ProdutoFilaMonitor[],
+  modoLocal = false
+) {
+  const produtosMonitoraveis = produtos.filter(possuiLinkMonitoravel);
+  const ignoradosSemLink = produtos.length - produtosMonitoraveis.length;
+  const resultados: Array<Record<string, unknown>> = [];
   let alterados = 0;
   let erros = 0;
 
-  const produtosAtivos = produtos ?? [];
-  const possuiMercadoLivre = produtosAtivos.some((produto) =>
+  const possuiMercadoLivre = produtosMonitoraveis.some((produto) =>
     ehMercadoLivre(produto)
   );
 
@@ -256,14 +264,12 @@ export async function monitorarTodosProdutos(modoLocal = false) {
       console.log("[MONITOR LOCAL] Rodada local iniciada. Preços válidos serão aplicados automaticamente.");
     }
 
-    const LIMITE_CONCORRENCIA = 4;
-
     for (
       let indice = 0;
-      indice < produtosAtivos.length;
+      indice < produtosMonitoraveis.length;
       indice += LIMITE_CONCORRENCIA
     ) {
-      const lote = produtosAtivos.slice(
+      const lote = produtosMonitoraveis.slice(
         indice,
         indice + LIMITE_CONCORRENCIA
       );
@@ -321,9 +327,59 @@ export async function monitorarTodosProdutos(modoLocal = false) {
   }
 
   return {
-    total: produtosAtivos.length,
+    total: produtosMonitoraveis.length,
+    ignoradosSemLink,
     alterados,
     erros,
+    concorrencia: LIMITE_CONCORRENCIA,
     resultados,
+  };
+}
+
+export async function monitorarTodosProdutos(modoLocal = false) {
+  const { data: produtos, error } = await supabaseAdmin
+    .from("produtos")
+    .select("id, nome, loja, link")
+    .eq("ativo", true)
+    .order("id");
+
+  if (error) {
+    throw new Error(`Erro ao buscar produtos: ${error.message}`);
+  }
+
+  return executarFilaMonitor(produtos ?? [], modoLocal);
+}
+
+export async function monitorarProdutosMaisAntigos(
+  limite = LIMITE_RODADA_AUTOMATICA
+) {
+  const limiteSeguro = Math.max(
+    1,
+    Math.min(24, Number.isFinite(limite) ? Math.trunc(limite) : LIMITE_RODADA_AUTOMATICA)
+  );
+
+  const { data: produtos, error } = await supabaseAdmin
+    .from("produtos")
+    .select("id, nome, loja, link, ultima_verificacao")
+    .eq("ativo", true)
+    .not("link", "is", null)
+    .neq("link", "")
+    .order("ultima_verificacao", {
+      ascending: true,
+      nullsFirst: true,
+    })
+    .order("id", { ascending: true })
+    .limit(limiteSeguro);
+
+  if (error) {
+    throw new Error(`Erro ao montar fila automática: ${error.message}`);
+  }
+
+  const resultado = await executarFilaMonitor(produtos ?? [], false);
+
+  return {
+    modo: "rodada_automatica",
+    limite: limiteSeguro,
+    ...resultado,
   };
 }
