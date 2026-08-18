@@ -3,6 +3,8 @@ import type { ProdutoExtraidoWorker } from "@/lib/workers/playwrightWorker";
 
 const SANDBOX_NAME = "achados-cupons-ml-test";
 const WORKER_BASE_URL = "http://127.0.0.1:4317";
+const BUYER_AUTH_STATE_PATH = "/vercel/tmp/meli-buyer-auth.json";
+const FALLBACK_AUTH_STATE_PATH = "/vercel/tmp/meli-auth.json";
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
@@ -70,6 +72,29 @@ async function rodarComando(
   const stderr = (await resultado.stderr()).trim();
 
   return { resultado, stdout, stderr };
+}
+
+async function arquivoExiste(sandbox: SandboxInstancia, caminho: string) {
+  const teste = await sandbox.runCommand({
+    cmd: "test",
+    args: ["-s", caminho],
+  });
+
+  return teste.exitCode === 0;
+}
+
+async function escolherAuthState(sandbox: SandboxInstancia) {
+  if (await arquivoExiste(sandbox, BUYER_AUTH_STATE_PATH)) {
+    return BUYER_AUTH_STATE_PATH;
+  }
+
+  if (await arquivoExiste(sandbox, FALLBACK_AUTH_STATE_PATH)) {
+    return FALLBACK_AUTH_STATE_PATH;
+  }
+
+  throw new Error(
+    "Nenhuma sessao autenticada do Mercado Livre foi encontrada no Sandbox."
+  );
 }
 
 async function consultarJson(
@@ -158,12 +183,17 @@ async function health(sandbox: SandboxInstancia) {
   }
 }
 
-async function garantirWorker(sandbox: SandboxInstancia) {
+async function garantirWorker(
+  sandbox: SandboxInstancia,
+  authStatePath: string
+) {
   const atual = await health(sandbox);
 
   if (atual?.sucesso === true) {
     return;
   }
+
+  console.log(`[MONITOR ML] Sessao escolhida: ${authStatePath}`);
 
   await sandbox.runCommand({
     cmd: "sh",
@@ -172,7 +202,7 @@ async function garantirWorker(sandbox: SandboxInstancia) {
       [
         "rm -f /vercel/.playwright-profile/Singleton*;",
         "exec env",
-        "MELI_AUTH_STATE_PATH=/vercel/tmp/meli-auth.json",
+        `MELI_AUTH_STATE_PATH=${authStatePath}`,
         "PLAYWRIGHT_HEADLESS=false",
         "xvfb-run -a node /vercel/playwright-worker.cjs",
         ">/vercel/worker.log 2>&1",
@@ -182,7 +212,7 @@ async function garantirWorker(sandbox: SandboxInstancia) {
     detached: true,
   });
 
-  for (let tentativa = 1; tentativa <= 15; tentativa += 1) {
+  for (let tentativa = 1; tentativa <= 30; tentativa += 1) {
     await esperar(2000);
 
     const resposta = await health(sandbox);
@@ -204,8 +234,10 @@ async function garantirWorker(sandbox: SandboxInstancia) {
 
 export async function criarSessaoMonitorMercadoLivre(): Promise<SessaoMonitorMercadoLivre> {
   const sandbox = await Sandbox.get({ name: SANDBOX_NAME });
+  const authStatePath = await escolherAuthState(sandbox);
 
-  await garantirWorker(sandbox);
+  console.log(`[MONITOR ML] Auth state selecionado: ${authStatePath}`);
+  await garantirWorker(sandbox, authStatePath);
 
   return {
     async extrair(link: string) {
