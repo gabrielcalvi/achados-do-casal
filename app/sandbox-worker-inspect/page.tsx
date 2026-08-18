@@ -12,8 +12,11 @@ export default async function SandboxWorkerInspectPage() {
 
   const sandbox = await Sandbox.get({ name: "achados-cupons-ml-test" });
   const resultado = await sandbox.runCommand({
-    cmd: "sed",
-    args: ["-n", "145,225p", "/vercel/playwright-worker.cjs"],
+    cmd: "sh",
+    args: [
+      "-lc",
+      "grep -n -E 'pathname ===|pathname ==|storageState|setStorageState|sess[aã]o|auth' /vercel/playwright-worker.cjs | tail -n 160",
+    ],
     cwd: "/vercel",
   });
 
