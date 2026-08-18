@@ -183,17 +183,37 @@ async function health(sandbox: SandboxInstancia) {
   }
 }
 
-async function garantirWorker(
+async function pararWorkerAtual(sandbox: SandboxInstancia) {
+  console.log("[MONITOR ML] Reiniciando Worker para aplicar a sessao selecionada...");
+
+  await sandbox.runCommand({
+    cmd: "sh",
+    args: [
+      "-lc",
+      [
+        "pkill -TERM -f 'node /vercel/playwright-worker.cjs' 2>/dev/null || true;",
+        "sleep 1;",
+        "pkill -TERM -f '/vercel/.playwright-profile' 2>/dev/null || true;",
+        "rm -f /vercel/.playwright-profile/Singleton*;",
+      ].join(" "),
+    ],
+    cwd: "/vercel",
+  }).catch(() => undefined);
+
+  for (let tentativa = 1; tentativa <= 5; tentativa += 1) {
+    if (!(await health(sandbox))) {
+      return;
+    }
+
+    await esperar(500);
+  }
+}
+
+async function iniciarWorker(
   sandbox: SandboxInstancia,
   authStatePath: string
 ) {
-  const atual = await health(sandbox);
-
-  if (atual?.sucesso === true) {
-    return;
-  }
-
-  console.log(`[MONITOR ML] Sessao escolhida: ${authStatePath}`);
+  console.log(`[MONITOR ML] Sessao usada no novo Worker: ${authStatePath}`);
 
   await sandbox.runCommand({
     cmd: "sh",
@@ -237,7 +257,9 @@ export async function criarSessaoMonitorMercadoLivre(): Promise<SessaoMonitorMer
   const authStatePath = await escolherAuthState(sandbox);
 
   console.log(`[MONITOR ML] Auth state selecionado: ${authStatePath}`);
-  await garantirWorker(sandbox, authStatePath);
+
+  await pararWorkerAtual(sandbox);
+  await iniciarWorker(sandbox, authStatePath);
 
   return {
     async extrair(link: string) {
