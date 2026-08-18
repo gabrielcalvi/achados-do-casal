@@ -10,8 +10,8 @@ export default async function MonitorLoteSmokePage() {
     return <pre>teste ignorado</pre>;
   }
 
-  console.log("[MONITOR LOTE SMOKE] Iniciando teste de 1 produto...");
-  const resultado = await monitorarProdutosAutomaticamente(1);
+  console.log("[MONITOR LOTE SMOKE] Iniciando teste de 4 produtos...");
+  const resultado = await monitorarProdutosAutomaticamente(4);
   console.log("[MONITOR LOTE SMOKE] Resultado:", JSON.stringify(resultado));
 
   return <pre>{JSON.stringify(resultado, null, 2)}</pre>;
