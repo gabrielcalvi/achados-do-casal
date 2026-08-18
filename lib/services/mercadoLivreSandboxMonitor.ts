@@ -2,9 +2,13 @@ import { Sandbox } from "@vercel/sandbox";
 import type { ProdutoExtraidoWorker } from "@/lib/workers/playwrightWorker";
 
 const SANDBOX_NAME = "achados-cupons-ml-test";
-const WORKER_BASE_URL = "http://127.0.0.1:4317";
+const WORKER_BASE_URL = "http://127.0.0.1:4318";
+const WORKER_PATH = "/vercel/monitor-worker/monitor-mercado-livre-worker.cjs";
+const EXTRACTOR_PATH = "/vercel/monitor-worker/extractors/mercado-livre.cjs";
+const HELPERS_PATH = "/vercel/monitor-worker/extractors/helpers.cjs";
+const LOG_PATH = "/vercel/monitor-worker.log";
 const BUYER_AUTH_STATE_PATH = "/vercel/tmp/meli-buyer-auth.json";
-const FALLBACK_AUTH_STATE_PATH = "/vercel/tmp/meli-auth.json";
+const REPOSITORY = "gabrielcalvi/achados-do-casal";
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
@@ -54,9 +58,7 @@ function urlDiretaAnuncio(link: string) {
     return null;
   }
 
-  const numero = itemId.replace(/^MLB/i, "");
-
-  return `https://produto.mercadolivre.com.br/MLB-${numero}-_JM`;
+  return `https://produto.mercadolivre.com.br/MLB-${itemId.replace(/^MLB/i, "")}-_JM`;
 }
 
 async function rodarComando(
@@ -83,37 +85,27 @@ async function arquivoExiste(sandbox: SandboxInstancia, caminho: string) {
   return teste.exitCode === 0;
 }
 
-async function escolherAuthState(sandbox: SandboxInstancia) {
-  if (await arquivoExiste(sandbox, BUYER_AUTH_STATE_PATH)) {
-    return BUYER_AUTH_STATE_PATH;
-  }
-
-  if (await arquivoExiste(sandbox, FALLBACK_AUTH_STATE_PATH)) {
-    return FALLBACK_AUTH_STATE_PATH;
-  }
-
-  throw new Error(
-    "Nenhuma sessao autenticada do Mercado Livre foi encontrada no Sandbox."
-  );
-}
-
 async function consultarJson(
   sandbox: SandboxInstancia,
   caminho: string,
-  timeoutSegundos = 45
+  timeoutSegundos = 45,
+  metodo: "GET" | "POST" = "GET"
 ): Promise<Record<string, unknown>> {
   const marcadorStatus = "__HTTP_STATUS__";
+  const args = [
+    "-sS",
+    "--max-time",
+    String(timeoutSegundos),
+    "-X",
+    metodo,
+    "-w",
+    `\n${marcadorStatus}%{http_code}`,
+    `${WORKER_BASE_URL}${caminho}`,
+  ];
 
   const execucao = await rodarComando(sandbox, {
     cmd: "curl",
-    args: [
-      "-sS",
-      "--max-time",
-      String(timeoutSegundos),
-      "-w",
-      `\n${marcadorStatus}%{http_code}`,
-      `${WORKER_BASE_URL}${caminho}`,
-    ],
+    args,
   });
 
   if (execucao.resultado.exitCode !== 0) {
@@ -152,15 +144,15 @@ async function consultarJson(
 
     const log = await rodarComando(sandbox, {
       cmd: "tail",
-      args: ["-n", "40", "/vercel/worker.log"],
+      args: ["-n", "60", LOG_PATH],
     }).catch(() => null);
 
     const detalheLog = log?.stdout
-      ? ` | Worker log: ${log.stdout.slice(-2500)}`
+      ? ` | Monitor worker log: ${log.stdout.slice(-3000)}`
       : "";
 
     throw new Error(
-      `Worker Sandbox respondeu ${statusTexto || "erro"}: ${erroWorker}${detalheLog}`
+      `Worker isolado do monitor respondeu ${statusTexto || "erro"}: ${erroWorker}${detalheLog}`
     );
   }
 
@@ -177,98 +169,137 @@ async function consultarJson(
 
 async function health(sandbox: SandboxInstancia) {
   try {
-    return await consultarJson(sandbox, "/health", 5);
+    return await consultarJson(sandbox, "/health", 4);
   } catch {
     return null;
   }
 }
 
-async function pararWorkerAtual(sandbox: SandboxInstancia) {
-  console.log("[MONITOR ML] Reiniciando Worker para aplicar a sessao selecionada...");
+async function baixarArquivo(
+  sandbox: SandboxInstancia,
+  origem: string,
+  destino: string
+) {
+  const download = await rodarComando(sandbox, {
+    cmd: "curl",
+    args: ["-fsSL", "--max-time", "30", origem, "-o", destino],
+  });
 
-  await sandbox.runCommand({
-    cmd: "sh",
-    args: [
-      "-lc",
-      [
-        "pkill -TERM -f 'node /vercel/playwright-worker.cjs' 2>/dev/null || true;",
-        "sleep 1;",
-        "pkill -TERM -f '/vercel/.playwright-profile' 2>/dev/null || true;",
-        "rm -f /vercel/.playwright-profile/Singleton*;",
-      ].join(" "),
-    ],
-    cwd: "/vercel",
-  }).catch(() => undefined);
-
-  for (let tentativa = 1; tentativa <= 5; tentativa += 1) {
-    if (!(await health(sandbox))) {
-      return;
-    }
-
-    await esperar(500);
+  if (download.resultado.exitCode !== 0) {
+    throw new Error(
+      download.stderr || `Falha ao preparar ${destino} no Sandbox.`
+    );
   }
 }
 
-async function iniciarWorker(
-  sandbox: SandboxInstancia,
-  authStatePath: string
-) {
-  console.log(`[MONITOR ML] Sessao usada no novo Worker: ${authStatePath}`);
+async function prepararWorker(sandbox: SandboxInstancia) {
+  if (!(await arquivoExiste(sandbox, BUYER_AUTH_STATE_PATH))) {
+    throw new Error(
+      "Sessao buyer do Mercado Livre nao encontrada no Sandbox. Renove a sessao ML V2 antes de executar o monitor."
+    );
+  }
+
+  const diretorios = await rodarComando(sandbox, {
+    cmd: "mkdir",
+    args: ["-p", "/vercel/monitor-worker/extractors"],
+  });
+
+  if (diretorios.resultado.exitCode !== 0) {
+    throw new Error(
+      diretorios.stderr || "Falha preparando o worker isolado do monitor."
+    );
+  }
+
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
+  const base = `https://raw.githubusercontent.com/${REPOSITORY}/${commit}`;
+
+  await baixarArquivo(
+    sandbox,
+    `${base}/scripts/monitor-mercado-livre-worker.cjs`,
+    WORKER_PATH
+  );
+  await baixarArquivo(
+    sandbox,
+    `${base}/scripts/extractors/mercado-livre.cjs`,
+    EXTRACTOR_PATH
+  );
+  await baixarArquivo(
+    sandbox,
+    `${base}/scripts/extractors/helpers.cjs`,
+    HELPERS_PATH
+  );
+}
+
+async function pararWorkerIsolado(sandbox: SandboxInstancia) {
+  if (!(await health(sandbox))) {
+    return;
+  }
+
+  await consultarJson(sandbox, "/shutdown", 8, "POST").catch(() => undefined);
+
+  for (let tentativa = 1; tentativa <= 10; tentativa += 1) {
+    await esperar(300);
+
+    if (!(await health(sandbox))) {
+      return;
+    }
+  }
+}
+
+async function iniciarWorkerIsolado(sandbox: SandboxInstancia) {
+  await pararWorkerIsolado(sandbox);
+  await prepararWorker(sandbox);
+
+  console.log("[MONITOR ML] Iniciando Worker isolado na porta 4318 com sessao buyer.");
 
   await sandbox.runCommand({
     cmd: "sh",
     args: [
       "-lc",
       [
-        "rm -f /vercel/.playwright-profile/Singleton*;",
         "exec env",
-        `MELI_AUTH_STATE_PATH=${authStatePath}`,
-        "PLAYWRIGHT_HEADLESS=false",
-        "xvfb-run -a node /vercel/playwright-worker.cjs",
-        ">/vercel/worker.log 2>&1",
+        `MELI_BUYER_AUTH_STATE_PATH=${BUYER_AUTH_STATE_PATH}`,
+        "MONITOR_ML_PORT=4318",
+        `xvfb-run -a node ${WORKER_PATH}`,
+        `>${LOG_PATH} 2>&1`,
       ].join(" "),
     ],
     cwd: "/vercel",
     detached: true,
   });
 
-  for (let tentativa = 1; tentativa <= 30; tentativa += 1) {
-    await esperar(2000);
+  for (let tentativa = 1; tentativa <= 20; tentativa += 1) {
+    await esperar(500);
 
     const resposta = await health(sandbox);
 
     if (resposta?.sucesso === true) {
+      console.log("[MONITOR ML] Worker isolado pronto.");
       return;
     }
   }
 
   const log = await rodarComando(sandbox, {
     cmd: "tail",
-    args: ["-n", "60", "/vercel/worker.log"],
+    args: ["-n", "80", LOG_PATH],
   });
 
   throw new Error(
-    `Worker do Sandbox nao respondeu. ${log.stdout || log.stderr || "Log vazio."}`
+    `Worker isolado do monitor nao iniciou. ${log.stdout || log.stderr || "Log vazio."}`
   );
 }
 
 export async function criarSessaoMonitorMercadoLivre(): Promise<SessaoMonitorMercadoLivre> {
   const sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-  const authStatePath = await escolherAuthState(sandbox);
 
-  console.log(`[MONITOR ML] Auth state selecionado: ${authStatePath}`);
-
-  await pararWorkerAtual(sandbox);
-  await iniciarWorker(sandbox, authStatePath);
+  await iniciarWorkerIsolado(sandbox);
 
   return {
     async extrair(link: string) {
       const linkDireto = urlDiretaAnuncio(link);
       const linkTeste = linkDireto || link;
 
-      console.log(
-        `[MONITOR ML] Link usado no Sandbox: ${linkTeste}`
-      );
+      console.log(`[MONITOR ML] Link usado no Worker isolado: ${linkTeste}`);
 
       const dados = await consultarJson(
         sandbox,
@@ -279,14 +310,14 @@ export async function criarSessaoMonitorMercadoLivre(): Promise<SessaoMonitorMer
       const produto = dados.dados as ProdutoExtraidoWorker | undefined;
 
       if (!produto?.precoAtual) {
-        throw new Error("Worker do Sandbox nao retornou preco do Mercado Livre.");
+        throw new Error("Worker isolado nao retornou preco do Mercado Livre.");
       }
 
       return produto;
     },
     async fechar() {
-      await sandbox.stop().catch((erro) => {
-        console.error("[MONITOR ML] Falha ao parar Sandbox:", erro);
+      await pararWorkerIsolado(sandbox).catch((erro) => {
+        console.error("[MONITOR ML] Falha ao encerrar Worker isolado:", erro);
       });
     },
   };
