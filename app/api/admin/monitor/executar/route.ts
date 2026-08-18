@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { monitorarProdutosMaisAntigos } from "@/lib/services/priceMonitor";
+import { monitorarProdutosAutomaticamente } from "@/lib/services/automaticPriceMonitor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   try {
     const limite = obterLimite(request);
     const inicio = Date.now();
-    const resultado = await monitorarProdutosMaisAntigos(limite);
+    const resultado = await monitorarProdutosAutomaticamente(limite);
 
     return NextResponse.json({
       sucesso: true,
