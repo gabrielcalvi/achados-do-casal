@@ -227,6 +227,7 @@ export default function NikePage() {
               const precoOriginal = moeda(oferta.preco_original);
               const validade = dataCurta(oferta.validade);
               const desconto = Number(oferta.desconto_percentual) || 0;
+              const paginaProduto = `/achado/${oferta.id}`;
 
               return (
                 <article
@@ -234,7 +235,7 @@ export default function NikePage() {
                   className="group flex min-h-[470px] flex-col overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
                 >
                   <Link
-                    href={`/oferta/${oferta.id}`}
+                    href={paginaProduto}
                     className="relative flex h-64 items-center justify-center bg-[#f7f7f7] p-5"
                   >
                     {desconto > 0 ? (
@@ -275,14 +276,14 @@ export default function NikePage() {
                       ) : null}
 
                       <Link
-                        href={`/oferta/${oferta.id}`}
+                        href={paginaProduto}
                         className="mt-4 flex h-12 items-center justify-center rounded-full bg-black px-5 font-black text-white transition hover:bg-zinc-800"
                       >
-                        Ver oferta
+                        Ver produto
                       </Link>
 
                       <p className="mt-2 text-center text-[10px] leading-4 text-zinc-400">
-                        Link de afiliado. Preço e disponibilidade podem mudar.
+                        Página compartilhável do Achados. Preço e disponibilidade podem mudar.
                         {validade ? ` Válido até ${validade}.` : ""}
                       </p>
                     </div>
