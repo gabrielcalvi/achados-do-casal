@@ -65,6 +65,12 @@ function normalizarOrigem(valor: string | string[] | undefined) {
   return ORIGENS_PERMITIDAS.has(normalizada) ? normalizada : "site";
 }
 
+function rotaVitrine(slug: string | undefined) {
+  if (slug === "nike") return "/nike";
+  if (slug === "kabum") return "/kabum";
+  return "/economize";
+}
+
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Metadata> {
@@ -131,7 +137,7 @@ export default async function AchadoPage(
           <Link href="/" className="flex items-center">
             <img src="/logo-achados-do-casal.png" alt="Achados do Casal" className="h-12 w-auto" />
           </Link>
-          <Link href={oferta.loja?.slug === "nike" ? "/nike" : "/economize"} className="rounded-full border border-black px-4 py-2 text-sm font-black hover:bg-black hover:text-white">
+          <Link href={rotaVitrine(oferta.loja?.slug)} className="rounded-full border border-black px-4 py-2 text-sm font-black hover:bg-black hover:text-white">
             Ver mais achados
           </Link>
         </div>
