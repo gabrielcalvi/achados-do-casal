@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -57,6 +58,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-950">
+        <div className="bg-black text-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-center px-5 py-2 text-center text-xs font-black uppercase tracking-[0.16em] sm:justify-end">
+            <Link href="/nike" className="transition hover:text-zinc-300">
+              Nike · Ver seleção de ofertas →
+            </Link>
+          </div>
+        </div>
         {children}
         <Analytics />
       </body>
