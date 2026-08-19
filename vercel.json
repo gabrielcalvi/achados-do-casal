@@ -17,10 +17,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/admin/economize/awin/nike/produtos/executar",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/admin/viagens/radar/rodada",
       "schedule": "0 2,8,14,20 * * *"
     },
