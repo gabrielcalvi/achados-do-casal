@@ -31,12 +31,6 @@ export default function PartnerPromoBar() {
         >
           C&A · VER OFERTAS
         </Link>
-        <Link
-          href="/renner"
-          className="inline-flex items-center rounded-full bg-[#8b1e2d] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#731824]"
-        >
-          RENNER · VER OFERTAS
-        </Link>
       </div>
     </div>
   );
