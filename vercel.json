@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/admin/economize/awin/kabum/executar",
-      "schedule": "* * * * *"
+      "schedule": "0 0,6,12,18 * * *"
     },
     {
       "path": "/api/admin/economize/awin/multiloja/executar",
