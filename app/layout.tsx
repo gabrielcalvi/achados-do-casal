@@ -59,9 +59,13 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-950">
         <div className="bg-black text-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-center px-5 py-2 text-center text-xs font-black uppercase tracking-[0.16em] sm:justify-end">
-            <Link href="/nike" className="transition hover:text-zinc-300">
-              Nike · Ver seleção de ofertas →
+          <div className="mx-auto flex max-w-7xl items-center justify-center px-5 py-2.5 text-center">
+            <Link
+              href="/nike"
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-black uppercase tracking-[0.16em] transition hover:bg-white hover:text-black"
+            >
+              <span aria-hidden="true">🔥</span>
+              Destaque Nike · Ver ofertas →
             </Link>
           </div>
         </div>
