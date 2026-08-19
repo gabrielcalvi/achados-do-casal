@@ -7,14 +7,20 @@ export default async function KabumStatusBuildPage() {
     const sandbox = await Sandbox.get({
       name: process.env.KABUM_AWIN_SANDBOX_NAME || "achados-cupons-ml-test",
     });
-    const resultado = await sandbox.runCommand({
+
+    const status = await sandbox.runCommand({
       cmd: "cat",
-      args: ["/vercel/tmp/awin-kabum-produtos-status.json"],
+      args: ["/vercel/tmp/kabum-awin-status.json"],
       cwd: "/vercel",
     });
-    const stdout = (await resultado.stdout()).trim();
-    const stderr = (await resultado.stderr()).trim();
-    console.log("[KABUM STATUS BUILD]", stdout || stderr || `exit=${resultado.exitCode}`);
+    console.log("[KABUM PIPELINE STATUS]", (await status.stdout()).trim() || (await status.stderr()).trim() || `exit=${status.exitCode}`);
+
+    const log = await sandbox.runCommand({
+      cmd: "tail",
+      args: ["-n", "80", "/vercel/tmp/kabum-awin.log"],
+      cwd: "/vercel",
+    });
+    console.log("[KABUM PIPELINE LOG]", (await log.stdout()).trim() || (await log.stderr()).trim() || `exit=${log.exitCode}`);
   } catch (erro) {
     console.log("[KABUM STATUS BUILD ERRO]", erro instanceof Error ? erro.message : String(erro));
   }
