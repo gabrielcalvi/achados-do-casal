@@ -14,15 +14,15 @@
     },
     {
       "path": "/api/admin/economize/awin/produtos/executar",
-      "schedule": "* * * * *"
+      "schedule": "15 3,9,15,21 * * *"
     },
     {
       "path": "/api/admin/economize/awin/nike/produtos/executar",
-      "schedule": "* * * * *"
+      "schedule": "30 2,8,14,20 * * *"
     },
     {
       "path": "/api/admin/economize/awin/kabum/produtos/executar",
-      "schedule": "* * * * *"
+      "schedule": "45 0,6,12,18 * * *"
     },
     {
       "path": "/api/admin/viagens/radar/rodada",
