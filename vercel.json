@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/admin/economize/awin/produtos/executar",
-      "schedule": "15 3,9,15,21 * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/admin/economize/awin/nike/produtos/executar",
