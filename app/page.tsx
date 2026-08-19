@@ -60,7 +60,8 @@ export default function Home() {
     }
 
     async function carregarSelecaoAwin() {
-      const { data: ofertas, error } = await supabase.from("economize_ofertas").select("id,titulo,categoria,imagem_url,preco_original,preco_oferta,desconto_percentual,loja_id").eq("status","ativo").like("origem","agente_produtos_awin_%").not("link_afiliado","is",null).not("imagem_url","is",null).not("preco_oferta","is",null).order("desconto_percentual",{ascending:false,nullsFirst:false}).limit(120);
+      const agora = new Date().toISOString();
+      const { data: ofertas, error } = await supabase.from("economize_ofertas").select("id,titulo,categoria,imagem_url,preco_original,preco_oferta,desconto_percentual,loja_id").eq("status","ativo").like("origem","agente_produtos_awin_%").or(`data_inicio.is.null,data_inicio.lte.${agora}`).or(`validade.is.null,validade.gt.${agora}`).not("link_afiliado","is",null).not("imagem_url","is",null).not("preco_oferta","is",null).order("desconto_percentual",{ascending:false,nullsFirst:false}).limit(120);
       if (error || !ofertas?.length) { if (error) console.error("Falha ao carregar seleção AWIN:", error); setOfertasAwin([]); return; }
       const lojaIds = Array.from(new Set(ofertas.map((o)=>o.loja_id).filter(Boolean)));
       const { data: lojas } = lojaIds.length ? await supabase.from("economize_lojas").select("id,nome,segmento").in("id",lojaIds) : {data:[]};
@@ -88,7 +89,6 @@ export default function Home() {
         <a href="/" className="shrink-0"><img src="/logo-achados-do-casal.png" alt="Achados do Casal" className="h-16 w-auto object-contain"/></a>
         <div className="flex min-w-0 flex-1 gap-2 xl:max-w-2xl"><input type="search" value={pesquisa} onChange={(e)=>setPesquisa(e.target.value)} placeholder="Pesquisar produtos, categorias ou lojas..." className="h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-4 outline-none transition focus:border-blue-900 focus:bg-white"/><button className="hidden rounded-xl bg-blue-950 px-6 font-bold text-white hover:bg-blue-900 sm:block">Buscar</button></div>
         <div className="flex shrink-0 items-center gap-2 overflow-x-auto">
-          <Link href="/nike" className="whitespace-nowrap rounded-xl border-2 border-black bg-black px-5 py-3 text-sm font-black text-white shadow-md transition hover:-translate-y-0.5 hover:bg-zinc-800">🔥 NIKE</Link>
           <a href="/economize" className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">💰 Economize</a>
           <a href="/viagens" className="rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700">✈️ Viagens</a>
           <a href="https://www.instagram.com/achadosdocasal26/" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-pink-500 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600">Instagram</a>
