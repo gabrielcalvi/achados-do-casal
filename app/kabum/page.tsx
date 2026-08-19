@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import TechGroupBrand from "@/components/TechGroupBrand";
 
 type Oferta = {
   id: string;
@@ -79,17 +80,22 @@ export default function KabumPage() {
       </header>
 
       <section className="bg-[#101010] text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:py-20">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-20">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-[#ff8a3d]">Parceiro AWIN · seleção do Achados</p>
             <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">KaBuM!</h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-zinc-300">Tecnologia, gamer e casa tech ordenados pelas maiores oportunidades de desconto disponíveis agora.</p>
             <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex rounded-xl bg-green-600 px-5 py-3 font-black text-white transition hover:bg-green-700">💬 Entrar no grupo de Informática e Tecnologia</a>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Ativas</p><p className="mt-2 text-3xl font-black">{ofertas.length}</p></div>
-            <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Com cupom</p><p className="mt-2 text-3xl font-black">{comCupom}</p></div>
-            <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Até</p><p className="mt-2 text-3xl font-black">{melhor > 0 ? `${Math.round(melhor)}%` : "—"}</p></div>
+          <div className="space-y-3">
+            <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="block transition hover:-translate-y-0.5">
+              <TechGroupBrand compact />
+            </a>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Ativas</p><p className="mt-2 text-3xl font-black">{ofertas.length}</p></div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Com cupom</p><p className="mt-2 text-3xl font-black">{comCupom}</p></div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Até</p><p className="mt-2 text-3xl font-black">{melhor > 0 ? `${Math.round(melhor)}%` : "—"}</p></div>
+            </div>
           </div>
         </div>
       </section>
