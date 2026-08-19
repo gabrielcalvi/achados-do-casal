@@ -247,9 +247,11 @@ async function main() {
   try {
     criarEnvTemporario();
 
-    const lojas = lojasConfig.map(
-      (loja) => loja.slug
-    );
+    // KaBuM tem pipeline proprio, com enriquecimento de produto, imagem e preco.
+    // O fluxo multiloja generico nao deve sobrescrever esses dados.
+    const lojas = lojasConfig
+      .filter((loja) => loja.slug !== "kabum")
+      .map((loja) => loja.slug);
 
     for (const loja of lojas) {
       executar(
