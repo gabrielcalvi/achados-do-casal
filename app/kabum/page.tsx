@@ -57,14 +57,33 @@ export default function KabumPage() {
     const termo = busca.trim().toLowerCase();
     if (!termo) return ofertas;
     return ofertas.filter((oferta) =>
-      [oferta.titulo, oferta.categoria, oferta.descricao]
+      [oferta.titulo, oferta.categoria, oferta.descricao, oferta.codigo]
         .filter(Boolean)
         .some((texto) => String(texto).toLowerCase().includes(termo)),
     );
   }, [busca, ofertas]);
 
+  const produtos = useMemo(
+    () => filtradas.filter((oferta) => Boolean(oferta.imagem_url)),
+    [filtradas],
+  );
+
+  const cuponsGerais = useMemo(
+    () => filtradas.filter((oferta) => !oferta.imagem_url && Boolean(oferta.codigo)),
+    [filtradas],
+  );
+
   const melhor = ofertas.reduce((maior, oferta) => Math.max(maior, Number(oferta.desconto_percentual) || 0), 0);
   const comCupom = ofertas.filter((oferta) => Boolean(oferta.codigo)).length;
+
+  async function usarCupom(oferta: Oferta) {
+    if (oferta.codigo) {
+      try {
+        await navigator.clipboard.writeText(oferta.codigo);
+      } catch {}
+    }
+    window.location.href = `/oferta/${oferta.id}?origem=site`;
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f4f5] text-zinc-950">
@@ -111,32 +130,68 @@ export default function KabumPage() {
         ) : erro ? (
           <div className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-8 text-red-800">{erro}</div>
         ) : (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtradas.map((oferta) => {
-              const atual = moeda(oferta.preco_oferta);
-              const anterior = moeda(oferta.preco_original);
-              const desconto = Number(oferta.desconto_percentual) || 0;
-              return (
-                <article key={oferta.id} className="group flex min-h-[470px] flex-col overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                  <Link href={`/achado/${oferta.id}`} className="relative flex h-64 items-center justify-center bg-zinc-50 p-5">
-                    {desconto > 0 ? <span className="absolute left-4 top-4 rounded-full bg-[#ff6500] px-3 py-2 text-xs font-black text-white">-{Math.round(desconto)}%</span> : null}
-                    {oferta.codigo ? <span className="absolute right-4 top-4 rounded-full bg-black px-3 py-2 text-[11px] font-black uppercase text-white">Cupom</span> : null}
-                    {oferta.imagem_url ? <img src={oferta.imagem_url} alt={oferta.titulo} className="h-full w-full object-contain transition group-hover:scale-[1.03]" /> : null}
-                  </Link>
-                  <div className="flex flex-1 flex-col p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#d95100]">KaBuM {oferta.categoria ? `· ${oferta.categoria}` : ""}</p>
-                    <h3 className="mt-2 line-clamp-3 text-lg font-black leading-6">{oferta.titulo}</h3>
-                    <div className="mt-auto pt-5">
-                      {anterior && oferta.preco_original && oferta.preco_oferta && Number(oferta.preco_original) > Number(oferta.preco_oferta) ? <p className="text-sm text-zinc-400 line-through">{anterior}</p> : null}
-                      <p className="mt-1 text-2xl font-black">{atual || "Ver condição"}</p>
-                      {oferta.codigo ? <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-center text-xs font-black text-[#d95100]">Cupom: {oferta.codigo}</p> : null}
-                      <Link href={`/achado/${oferta.id}`} className="mt-4 flex h-12 items-center justify-center rounded-full bg-[#ff6500] px-5 font-black text-white hover:bg-[#e65c00]">Ver produto</Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          <>
+            {produtos.length > 0 ? (
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {produtos.map((oferta) => {
+                  const atual = moeda(oferta.preco_oferta);
+                  const anterior = moeda(oferta.preco_original);
+                  const desconto = Number(oferta.desconto_percentual) || 0;
+                  return (
+                    <article key={oferta.id} className="group flex min-h-[470px] flex-col overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                      <Link href={`/achado/${oferta.id}`} className="relative flex h-64 items-center justify-center bg-zinc-50 p-5">
+                        {desconto > 0 ? <span className="absolute left-4 top-4 rounded-full bg-[#ff6500] px-3 py-2 text-xs font-black text-white">-{Math.round(desconto)}%</span> : null}
+                        {oferta.codigo ? <span className="absolute right-4 top-4 rounded-full bg-black px-3 py-2 text-[11px] font-black uppercase text-white">Cupom</span> : null}
+                        <img src={oferta.imagem_url!} alt={oferta.titulo} className="h-full w-full object-contain transition group-hover:scale-[1.03]" />
+                      </Link>
+                      <div className="flex flex-1 flex-col p-5">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#d95100]">KaBuM {oferta.categoria ? `· ${oferta.categoria}` : ""}</p>
+                        <h3 className="mt-2 line-clamp-3 text-lg font-black leading-6">{oferta.titulo}</h3>
+                        <div className="mt-auto pt-5">
+                          {anterior && oferta.preco_original && oferta.preco_oferta && Number(oferta.preco_original) > Number(oferta.preco_oferta) ? <p className="text-sm text-zinc-400 line-through">{anterior}</p> : null}
+                          <p className="mt-1 text-2xl font-black">{atual || "Ver condição"}</p>
+                          {oferta.codigo ? <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-center text-xs font-black text-[#d95100]">Cupom: {oferta.codigo}</p> : null}
+                          <Link href={`/achado/${oferta.id}`} className="mt-4 flex h-12 items-center justify-center rounded-full bg-[#ff6500] px-5 font-black text-white hover:bg-[#e65c00]">Ver produto</Link>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {cuponsGerais.length > 0 ? (
+              <section className="mt-10">
+                <div className="mb-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#d95100]">Cupons gerais KaBuM</p>
+                  <h2 className="mt-1 text-2xl font-black">Descontos sem produto específico</h2>
+                  <p className="mt-2 text-sm text-zinc-500">Esses cupons são válidos para linhas ou seleções de produtos. Por isso não exibimos uma foto aleatória.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {cuponsGerais.map((oferta) => {
+                    const desconto = Number(oferta.desconto_percentual) || 0;
+                    return (
+                      <article key={oferta.id} className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase text-[#d95100]">KaBuM · Cupom</p>
+                            <h3 className="mt-2 text-lg font-black leading-6">{oferta.titulo}</h3>
+                          </div>
+                          {desconto > 0 ? <span className="shrink-0 rounded-full bg-[#ff6500] px-3 py-2 text-xs font-black text-white">-{Math.round(desconto)}%</span> : null}
+                        </div>
+                        {oferta.codigo ? <div className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-center font-black text-[#d95100]">{oferta.codigo}</div> : null}
+                        <button type="button" onClick={() => usarCupom(oferta)} className="mt-4 h-12 w-full rounded-full bg-[#ff6500] px-5 font-black text-white transition hover:bg-[#e65c00]">USAR CUPOM</button>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {produtos.length === 0 && cuponsGerais.length === 0 ? (
+              <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-sm"><p className="text-xl font-black">Nenhuma oferta encontrada.</p></div>
+            ) : null}
+          </>
         )}
       </section>
     </main>
