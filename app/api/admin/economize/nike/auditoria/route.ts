@@ -115,9 +115,9 @@ export async function GET() {
     if (ids.length > 0) {
       const { data: cliques, error: erroCliques } = await supabaseAdmin
         .from("economize_cliques")
-        .select("oferta_id,origem,created_at")
+        .select("oferta_id,origem,clicado_em")
         .in("oferta_id", ids)
-        .order("created_at", { ascending: false })
+        .order("clicado_em", { ascending: false })
         .limit(5000);
 
       if (erroCliques) throw erroCliques;
@@ -134,7 +134,7 @@ export async function GET() {
         const origem = String(clique.origem || "desconhecida");
 
         atual.total += 1;
-        atual.ultimo = atual.ultimo || clique.created_at || null;
+        atual.ultimo = atual.ultimo || clique.clicado_em || null;
         atual.origens[origem] = (atual.origens[origem] || 0) + 1;
         cliquesPorOferta.set(ofertaId, atual);
       }
