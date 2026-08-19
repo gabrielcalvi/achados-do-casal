@@ -18,27 +18,40 @@ codigo = codigo.replace(
 );
 
 const marcadorLeitura = "async function lerFeedLegacy(loja, feeds) {";
-const helperMix = `function produtoEhTenisNike(produto) {
+const helperMix = `function grupoNike(produto) {
   const conteudo = \`\${produto?.titulo || ""} \${produto?.categoria || ""}\`
     .normalize("NFD")
     .replace(/[\\u0300-\\u036f]/g, "")
     .toLowerCase();
-  return /(tenis|sneaker)/i.test(conteudo);
+
+  if (/(tenis|sneaker)/i.test(conteudo)) return "tenis";
+  if (/(chuteira)/i.test(conteudo)) return "chuteiras";
+  if (/(camiseta|camisa|regata|short|calca|moletom|jaqueta|top|vestido)/i.test(conteudo)) return "roupas";
+  if (/(mochila|bolsa)/i.test(conteudo)) return "mochilas";
+  if (/(bola)/i.test(conteudo)) return "bolas";
+  if (/(chinelo|sandalia)/i.test(conteudo)) return "chinelos";
+  return "outros";
 }
 
 function selecionarMixNike(top) {
-  const reservaTenis = Math.min(20, LIMITE_POR_LOJA);
-  const tenis = top.filter(produtoEhTenisNike);
-  const variados = top.filter((produto) => !produtoEhTenisNike(produto));
+  const limiteGrupo = Math.max(6, Math.ceil(LIMITE_POR_LOJA * 0.35));
+  const contagem = new Map();
   const selecionados = [];
 
-  selecionados.push(...tenis.slice(0, reservaTenis));
-  selecionados.push(...variados.slice(0, Math.max(0, LIMITE_POR_LOJA - selecionados.length)));
+  for (const produto of top) {
+    const grupo = grupoNike(produto);
+    const usados = contagem.get(grupo) || 0;
+    if (usados >= limiteGrupo) continue;
+
+    selecionados.push(produto);
+    contagem.set(grupo, usados + 1);
+    if (selecionados.length >= LIMITE_POR_LOJA) break;
+  }
 
   if (selecionados.length < LIMITE_POR_LOJA) {
-    const usados = new Set(selecionados.map((produto) => produto.id));
+    const ids = new Set(selecionados.map((produto) => produto.id));
     selecionados.push(
-      ...top.filter((produto) => !usados.has(produto.id)).slice(0, LIMITE_POR_LOJA - selecionados.length),
+      ...top.filter((produto) => !ids.has(produto.id)).slice(0, LIMITE_POR_LOJA - selecionados.length),
     );
   }
 
@@ -70,7 +83,8 @@ try {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "50",
+      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "40",
+      NIKE_AWIN_DESCONTO_MINIMO: process.env.NIKE_AWIN_DESCONTO_MINIMO || "10",
     },
     stdio: "inherit",
   });
