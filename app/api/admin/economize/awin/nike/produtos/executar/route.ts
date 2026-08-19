@@ -10,7 +10,8 @@ const SANDBOX_NAME =
   process.env.KABUM_AWIN_SANDBOX_NAME || "achados-cupons-ml-test";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const BASE_SCRIPT = "/vercel/scripts/varrer-produtos-awin-legacy.cjs";
-const NIKE_SCRIPT = "/vercel/scripts/varrer-produtos-awin-nike-seguro.cjs";
+const NIKE_SAFE_SCRIPT = "/vercel/scripts/varrer-produtos-awin-nike-seguro.cjs";
+const NIKE_SCRIPT = "/vercel/scripts/varrer-produtos-awin-nike-ampliado.cjs";
 const CONFIG_PATH = "/vercel/scripts/awin-lojas.config.cjs";
 const STATUS_PATH = "/vercel/tmp/awin-nike-produtos-status.json";
 const RESULT_PATH = "/vercel/tmp/awin-nike-produtos-resultado.json";
@@ -122,6 +123,10 @@ async function executar(request: NextRequest) {
       ],
       [
         `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-nike-seguro.cjs`,
+        NIKE_SAFE_SCRIPT,
+      ],
+      [
+        `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-nike-ampliado.cjs`,
         NIKE_SCRIPT,
       ],
       [
@@ -155,7 +160,7 @@ async function executar(request: NextRequest) {
         AWIN_PUBLISHER_ID: publisher,
         NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
         SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-        NIKE_AWIN_LIMITE_PRODUTOS: "30",
+        NIKE_AWIN_LIMITE_PRODUTOS: "40",
         NIKE_AWIN_DESCONTO_MINIMO: "10",
         NIKE_AWIN_OBSERVACAO_HORAS: "24",
       },
@@ -166,9 +171,11 @@ async function executar(request: NextRequest) {
       {
         sucesso: true,
         iniciado: true,
-        modo: "nike_seguro",
+        modo: "nike_seguro_mix",
         advertiser_id: 17652,
-        limite_produtos: 30,
+        candidatos_internos: 40,
+        minimo_calcados: 15,
+        vitrine_alvo: 30,
         desconto_minimo_percentual: 10,
         observacao_minima_horas: 24,
         bloqueio_sinais_lancamento: true,
