@@ -24,11 +24,24 @@ export default function AdminEconomizeLayout({
               ✓ NIKE / AWIN
             </Link>
             <Link
+              href="/admin/economize/kabum"
+              className="rounded-lg bg-[#ff6500] px-4 py-2 text-xs font-black text-white transition hover:bg-[#e65c00]"
+            >
+              ✓ KABUM / AWIN
+            </Link>
+            <Link
               href="/nike"
               target="_blank"
               className="rounded-lg border border-white/20 px-3 py-2 text-xs font-black transition hover:bg-white/10"
             >
-              Ver Nike pública ↗
+              Nike pública ↗
+            </Link>
+            <Link
+              href="/kabum"
+              target="_blank"
+              className="rounded-lg border border-[#ff6500]/60 px-3 py-2 text-xs font-black text-[#ff9a57] transition hover:bg-[#ff6500] hover:text-white"
+            >
+              KaBuM pública ↗
             </Link>
           </div>
         </div>
