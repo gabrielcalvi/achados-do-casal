@@ -40,6 +40,14 @@ const lojas = [
     logoUrl: null
   },
   {
+    slug: "kabum",
+    dbSlug: "kabum",
+    nome: "KaBuM!",
+    advertiserId: "17729",
+    dominio: "kabum.com.br",
+    logoUrl: null
+  },
+  {
     slug: "decolar",
     dbSlug: "decolar",
     nome: "Decolar",
