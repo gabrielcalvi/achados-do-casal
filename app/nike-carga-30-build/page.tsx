@@ -54,7 +54,7 @@ async function disparar() {
     detached: true,
   });
 
-  console.log("[NIKE MIX 40] Scanner iniciado.");
+  console.log("[NIKE MIX TENIS] Scanner iniciado.");
   return "iniciado";
 }
 
