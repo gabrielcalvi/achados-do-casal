@@ -150,7 +150,7 @@ export default async function AchadoPage(
             ) : null}
 
             <div className="mt-auto pt-8">
-              <Link href={`/oferta/${oferta.id}`} className="flex h-14 w-full items-center justify-center rounded-full bg-black px-6 text-lg font-black text-white transition hover:bg-zinc-800">
+              <Link href={`/oferta/${oferta.id}?origem=site`} className="flex h-14 w-full items-center justify-center rounded-full bg-black px-6 text-lg font-black text-white transition hover:bg-zinc-800">
                 Ver oferta na {loja}
               </Link>
               <p className="mt-3 text-center text-[11px] leading-5 text-zinc-400">Link de afiliado do Achados do Casal. Preço e disponibilidade podem mudar na loja.</p>
