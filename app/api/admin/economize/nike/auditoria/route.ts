@@ -10,56 +10,31 @@ const PUBLISHER_ID = "2922231";
 
 async function obterUsuarioAutenticado() {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
   return error || !user ? null : user;
 }
 
 function auditarLink(link: string | null) {
-  if (!link) {
-    return {
-      afiliadoOk: false,
-      advertiserId: null,
-      publisherId: null,
-      destino: null,
-    };
-  }
-
+  if (!link) return { afiliadoOk: false, advertiserId: null, publisherId: null, destino: null };
   try {
     const url = new URL(link);
     const advertiserId = url.searchParams.get("awinmid");
     const publisherId = url.searchParams.get("awinaffid");
-    const destino = url.searchParams.get("ued");
-
     return {
-      afiliadoOk:
-        advertiserId === ADVERTISER_ID &&
-        publisherId === PUBLISHER_ID,
+      afiliadoOk: advertiserId === ADVERTISER_ID && publisherId === PUBLISHER_ID,
       advertiserId,
       publisherId,
-      destino,
+      destino: url.searchParams.get("ued"),
     };
   } catch {
-    return {
-      afiliadoOk: false,
-      advertiserId: null,
-      publisherId: null,
-      destino: null,
-    };
+    return { afiliadoOk: false, advertiserId: null, publisherId: null, destino: null };
   }
 }
 
 export async function GET() {
   try {
-    const usuario = await obterUsuarioAutenticado();
-
-    if (!usuario) {
-      return NextResponse.json(
-        { error: "Não autorizado." },
-        { status: 401 },
-      );
+    if (!(await obterUsuarioAutenticado())) {
+      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
     const { data: loja, error: erroLoja } = await supabaseAdmin
@@ -68,93 +43,48 @@ export async function GET() {
       .eq("slug", "nike")
       .eq("ativa", true)
       .maybeSingle();
-
     if (erroLoja) throw erroLoja;
+    if (!loja) return NextResponse.json({ advertiserId: ADVERTISER_ID, publisherId: PUBLISHER_ID, ofertas: [], resumo: { total: 0, ativos: 0, afiliadoOk: 0, cliques: 0 } });
 
-    if (!loja) {
-      return NextResponse.json({
-        advertiserId: ADVERTISER_ID,
-        publisherId: PUBLISHER_ID,
-        ofertas: [],
-        resumo: { total: 0, ativos: 0, afiliadoOk: 0, cliques: 0 },
-      });
-    }
-
+    const agora = new Date().toISOString();
     const { data: ofertas, error: erroOfertas } = await supabaseAdmin
       .from("economize_ofertas")
-      .select(`
-        id,
-        status,
-        titulo,
-        categoria,
-        imagem_url,
-        link_destino,
-        link_afiliado,
-        preco_original,
-        preco_oferta,
-        desconto_percentual,
-        origem,
-        validade,
-        verificado_em,
-        updated_at,
-        dados_brutos
-      `)
+      .select("id,status,titulo,categoria,imagem_url,link_destino,link_afiliado,preco_original,preco_oferta,desconto_percentual,origem,validade,verificado_em,updated_at,dados_brutos")
       .eq("loja_id", loja.id)
       .neq("status", "expirado")
+      .or(`validade.is.null,validade.gt.${agora}`)
       .order("desconto_percentual", { ascending: false, nullsFirst: false })
       .limit(100);
-
     if (erroOfertas) throw erroOfertas;
 
     const ids = (ofertas ?? []).map((oferta) => oferta.id);
-    const cliquesPorOferta = new Map<
-      string,
-      { total: number; ultimo: string | null; origens: Record<string, number> }
-    >();
-
-    if (ids.length > 0) {
-      const { data: cliques, error: erroCliques } = await supabaseAdmin
-        .from("economize_cliques")
-        .select("oferta_id,origem,clicado_em")
-        .in("oferta_id", ids)
-        .order("clicado_em", { ascending: false })
-        .limit(5000);
-
-      if (erroCliques) throw erroCliques;
-
+    const cliquesPorOferta = new Map<string, { total: number; ultimo: string | null; origens: Record<string, number> }>();
+    if (ids.length) {
+      const { data: cliques, error } = await supabaseAdmin.from("economize_cliques").select("oferta_id,origem,clicado_em").in("oferta_id", ids).order("clicado_em", { ascending: false }).limit(5000);
+      if (error) throw error;
       for (const clique of cliques ?? []) {
-        const ofertaId = String(clique.oferta_id || "");
-        if (!ofertaId) continue;
-
-        const atual = cliquesPorOferta.get(ofertaId) || {
-          total: 0,
-          ultimo: null,
-          origens: {},
-        };
+        const id = String(clique.oferta_id || "");
+        if (!id) continue;
+        const item = cliquesPorOferta.get(id) || { total: 0, ultimo: null, origens: {} };
         const origem = String(clique.origem || "desconhecida");
-
-        atual.total += 1;
-        atual.ultimo = atual.ultimo || clique.clicado_em || null;
-        atual.origens[origem] = (atual.origens[origem] || 0) + 1;
-        cliquesPorOferta.set(ofertaId, atual);
+        item.total += 1;
+        item.ultimo ||= clique.clicado_em || null;
+        item.origens[origem] = (item.origens[origem] || 0) + 1;
+        cliquesPorOferta.set(id, item);
       }
     }
 
     const auditadas = (ofertas ?? []).map((oferta) => {
-      const auditoria = auditarLink(oferta.link_afiliado);
-      const cliques = cliquesPorOferta.get(oferta.id) || {
-        total: 0,
-        ultimo: null,
-        origens: {},
-      };
-
+      const publicavel = oferta.status === "ativo" && (!oferta.validade || new Date(oferta.validade).getTime() > Date.now());
+      const base = publicavel ? `https://achadosdocasal.com.br/achado/${oferta.id}` : null;
       return {
         ...oferta,
-        auditoria,
-        cliques,
-        compartilhavel: `https://achadosdocasal.com.br/achado/${oferta.id}`,
-        whatsapp: `https://achadosdocasal.com.br/achado/${oferta.id}?origem=whatsapp`,
-        telegram: `https://achadosdocasal.com.br/achado/${oferta.id}?origem=telegram`,
+        publicavel,
+        auditoria: auditarLink(oferta.link_afiliado),
+        cliques: cliquesPorOferta.get(oferta.id) || { total: 0, ultimo: null, origens: {} },
+        compartilhavel: base,
+        whatsapp: base ? `${base}?origem=whatsapp` : null,
+        telegram: base ? `${base}?origem=telegram` : null,
       };
     });
 
@@ -165,16 +95,13 @@ export async function GET() {
       ofertas: auditadas,
       resumo: {
         total: auditadas.length,
-        ativos: auditadas.filter((oferta) => oferta.status === "ativo").length,
-        afiliadoOk: auditadas.filter((oferta) => oferta.auditoria.afiliadoOk).length,
-        cliques: auditadas.reduce((soma, oferta) => soma + oferta.cliques.total, 0),
+        ativos: auditadas.filter((o) => o.publicavel).length,
+        afiliadoOk: auditadas.filter((o) => o.auditoria.afiliadoOk).length,
+        cliques: auditadas.reduce((s, o) => s + o.cliques.total, 0),
       },
     });
   } catch (error) {
     console.error("Erro na auditoria Nike/AWIN:", error);
-    return NextResponse.json(
-      { error: "Não foi possível carregar a auditoria Nike/AWIN." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Não foi possível carregar a auditoria Nike/AWIN." }, { status: 500 });
   }
 }
