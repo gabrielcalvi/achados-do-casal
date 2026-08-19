@@ -15,6 +15,12 @@ const SANDBOX_NAME =
   process.env.KABUM_AWIN_SANDBOX_NAME ||
   "achados-cupons-ml-test";
 
+const REPOSITORY =
+  "gabrielcalvi/achados-do-casal";
+
+const CONFIG_PATH =
+  "/vercel/scripts/awin-lojas.config.cjs";
+
 function autorizado(
   request: NextRequest
 ) {
@@ -101,6 +107,33 @@ async function executar(
       );
     }
 
+    const commit =
+      process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+      "main";
+
+    const configUrl =
+      `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/awin-lojas.config.cjs`;
+
+    const sincronizarConfig =
+      await sandbox.runCommand({
+        cmd: "curl",
+        args: [
+          "-fsSL",
+          "--max-time",
+          "30",
+          configUrl,
+          "-o",
+          CONFIG_PATH,
+        ],
+        cwd: "/vercel",
+      });
+
+    if (sincronizarConfig.exitCode !== 0) {
+      throw new Error(
+        "Nao foi possivel sincronizar a configuracao AWIN com o commit atual."
+      );
+    }
+
     await sandbox.runCommand({
       cmd: "node",
       args: [
@@ -133,7 +166,17 @@ async function executar(
           "renner",
           "calvin-klein",
           "stanley",
+          "nike",
         ],
+        nike: {
+          advertiserId: "17652",
+          modo:
+            "cupons_e_promocoes_oficiais_awin",
+          produtosAutomaticos:
+            false,
+        },
+        commitConfig:
+          commit,
         iniciadoEm:
           new Date().toISOString(),
       },
