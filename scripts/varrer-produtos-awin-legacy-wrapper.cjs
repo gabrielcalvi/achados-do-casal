@@ -13,7 +13,7 @@ let codigo = fs.readFileSync(origem, "utf8");
 
 codigo = codigo.replace(
   "Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
-  "Math.min(60, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
+  "Math.min(120, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
 );
 
 codigo = codigo.replace(
@@ -56,6 +56,24 @@ codigo = codigo.replace(blocoDescontoOriginal, blocoDescontoCatalogo);
 codigo = codigo.replace(
   `precoOriginal: Math.round(precoOriginal.valor * 100) / 100,`,
   `precoOriginal: precoOriginalFinal ? Math.round(precoOriginalFinal.valor * 100) / 100 : null,`,
+);
+
+const marcadorLeitura = "async function lerFeedLegacy(loja, feeds) {";
+const helperCea = `function textoCea(produto) {\n  return \`${"${produto?.categoria || \"\"} ${produto?.titulo || \"\"}"}\`\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .toLowerCase();\n}\n\nfunction grupoCea(produto) {\n  const t = textoCea(produto);\n  if (/(infantil|bebe|bebê|menina|menino|kids|baby)/i.test(t)) return \"infantil\";\n  if (/(calcado|calçado|sapato|sandalia|sandália|tenis|tênis|bota|chinelo)/i.test(t)) return \"calcados\";\n  if (/(beleza|maquiagem|perfume|cosmetico|cosmético|cabelo|unha|corpo e banho)/i.test(t)) return \"beleza\";\n  if (/(feminina|feminino|mulher|vestido|saia|sutia|sutiã|lingerie)/i.test(t)) return \"feminino\";\n  if (/(masculina|masculino|homem)/i.test(t)) return \"masculino\";\n  if (/(acessorio|acessório|bolsa|mochila|cinto|bone|boné|gorro|luva|oculos|óculos)/i.test(t)) return \"acessorios\";\n  return \"outros\";\n}\n\nfunction faixaPrecoCea(produto) {\n  const p = Number(produto?.precoOferta) || 0;\n  if (p >= 300) return \"300mais\";\n  if (p >= 150) return \"150a299\";\n  if (p >= 80) return \"80a149\";\n  if (p >= 30) return \"30a79\";\n  return \"ate29\";\n}\n\nfunction chavePoolCea(produto) {\n  return \`${"${grupoCea(produto)}|${faixaPrecoCea(produto)}"}\`;\n}\n\nfunction inserirPoolCea(lista, produto) {\n  const similar = chaveSimilar(produto);\n  if (lista.some((item) => chaveSimilar(item) === similar)) return;\n\n  const chave = chavePoolCea(produto);\n  const mesmoBucket = lista.filter((item) => chavePoolCea(item) === chave);\n  if (mesmoBucket.length < 45) {\n    lista.push(produto);\n    return;\n  }\n\n  const candidatos = lista\n    .map((item, index) => ({ item, index }))\n    .filter(({ item }) => chavePoolCea(item) === chave)\n    .sort((a, b) => (Number(a.item.precoOferta) || 0) - (Number(b.item.precoOferta) || 0));\n\n  const menor = candidatos[0];\n  if (menor && (Number(produto.precoOferta) || 0) > (Number(menor.item.precoOferta) || 0)) {\n    lista[menor.index] = produto;\n  }\n}\n\nfunction selecionarMixCea(lista) {\n  const grupos = [\"feminino\", \"infantil\", \"masculino\", \"calcados\", \"beleza\", \"acessorios\", \"outros\"];\n  const faixas = [\"300mais\", \"150a299\", \"80a149\", \"30a79\", \"ate29\"];\n  const buckets = new Map();\n\n  for (const produto of lista) {\n    const chave = chavePoolCea(produto);\n    if (!buckets.has(chave)) buckets.set(chave, []);\n    buckets.get(chave).push(produto);\n  }\n\n  for (const produtos of buckets.values()) {\n    produtos.sort((a, b) => (Number(b.precoOferta) || 0) - (Number(a.precoOferta) || 0));\n  }\n\n  const selecionados = [];\n  const usados = new Set();\n  let avancou = true;\n\n  while (selecionados.length < LIMITE_POR_LOJA && avancou) {\n    avancou = false;\n    for (const grupo of grupos) {\n      for (const faixa of faixas) {\n        const bucket = buckets.get(\`${"${grupo}|${faixa}"}\`) || [];\n        const produto = bucket.find((item) => !usados.has(item.id));\n        if (!produto) continue;\n        selecionados.push(produto);\n        usados.add(produto.id);\n        avancou = true;\n        if (selecionados.length >= LIMITE_POR_LOJA) break;\n      }\n      if (selecionados.length >= LIMITE_POR_LOJA) break;\n    }\n  }\n\n  if (selecionados.length < LIMITE_POR_LOJA) {\n    const restantes = lista\n      .filter((produto) => !usados.has(produto.id))\n      .sort((a, b) => (Number(b.precoOferta) || 0) - (Number(a.precoOferta) || 0));\n    selecionados.push(...restantes.slice(0, LIMITE_POR_LOJA - selecionados.length));\n  }\n\n  return selecionados.slice(0, LIMITE_POR_LOJA);\n}\n\n${marcadorLeitura}`;
+
+if (!codigo.includes(marcadorLeitura)) {
+  throw new Error("Marcador de leitura do feed não encontrado.");
+}
+codigo = codigo.replace(marcadorLeitura, helperCea);
+
+codigo = codigo.replace(
+  `inserirTop(top, produto);`,
+  `loja.slug === "cea" ? inserirPoolCea(top, produto) : inserirTop(top, produto);`,
+);
+
+codigo = codigo.replace(
+  `selecionados: top.slice(0, LIMITE_POR_LOJA),`,
+  `selecionados: loja.slug === "cea" ? selecionarMixCea(top) : top.slice(0, LIMITE_POR_LOJA),`,
 );
 
 codigo = codigo.replace(
