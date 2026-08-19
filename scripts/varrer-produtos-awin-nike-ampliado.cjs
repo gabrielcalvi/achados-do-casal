@@ -14,25 +14,25 @@ let codigo = original;
 
 codigo = codigo.replace(
   "Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
-  "Math.min(50, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
+  "Math.min(60, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
 );
 
 const marcadorLeitura = "async function lerFeedLegacy(loja, feeds) {";
-const helperMix = `function produtoEhCalcadoNike(produto) {
+const helperMix = `function produtoEhTenisNike(produto) {
   const conteudo = \`\${produto?.titulo || ""} \${produto?.categoria || ""}\`
     .normalize("NFD")
     .replace(/[\\u0300-\\u036f]/g, "")
     .toLowerCase();
-  return /(calcado|calcados|tenis|chuteira|sapatilha|shoe|shoes|sneaker)/i.test(conteudo);
+  return /(tenis|sneaker)/i.test(conteudo);
 }
 
 function selecionarMixNike(top) {
-  const reservaCalcados = Math.min(18, LIMITE_POR_LOJA);
-  const calcados = top.filter(produtoEhCalcadoNike);
-  const variados = top.filter((produto) => !produtoEhCalcadoNike(produto));
+  const reservaTenis = Math.min(20, LIMITE_POR_LOJA);
+  const tenis = top.filter(produtoEhTenisNike);
+  const variados = top.filter((produto) => !produtoEhTenisNike(produto));
   const selecionados = [];
 
-  selecionados.push(...calcados.slice(0, reservaCalcados));
+  selecionados.push(...tenis.slice(0, reservaTenis));
   selecionados.push(...variados.slice(0, Math.max(0, LIMITE_POR_LOJA - selecionados.length)));
 
   if (selecionados.length < LIMITE_POR_LOJA) {
@@ -70,7 +70,7 @@ try {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "40",
+      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "50",
     },
     stdio: "inherit",
   });
