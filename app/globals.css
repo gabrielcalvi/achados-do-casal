@@ -160,3 +160,30 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Navegação pública mais limpa: mantém os botões, remove apenas os emojis. */
+main > header a[href="/economize"],
+main > header a[href="/viagens"],
+main > header a[href="/gamer"] {
+  font-size: 0 !important;
+}
+
+main > header a[href="/economize"]::after {
+  content: "Economize";
+  font-size: 0.875rem;
+}
+
+main > header a[href="/viagens"]::after {
+  content: "Viagens";
+  font-size: 0.875rem;
+}
+
+main > header a[href="/gamer"]::after {
+  content: "Gamer";
+  font-size: 0.875rem;
+}
+
+/* Selo interno desnecessário na seleção de parceiros da home. */
+#ofertas span.bg-emerald-100.text-emerald-800 {
+  display: none !important;
+}
