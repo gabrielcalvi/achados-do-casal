@@ -14,7 +14,7 @@ let codigo = original;
 
 codigo = codigo.replace(
   "Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
-  "Math.min(60, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
+  "Math.min(120, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))",
 );
 
 const marcadorLeitura = "async function lerFeedLegacy(loja, feeds) {";
@@ -34,7 +34,7 @@ const helperMix = `function grupoNike(produto) {
 }
 
 function selecionarMixNike(top) {
-  const limiteGrupo = Math.max(6, Math.ceil(LIMITE_POR_LOJA * 0.35));
+  const limiteGrupo = Math.max(10, Math.ceil(LIMITE_POR_LOJA * 0.35));
   const contagem = new Map();
   const selecionados = [];
 
@@ -55,7 +55,14 @@ function selecionarMixNike(top) {
     );
   }
 
-  return selecionados.slice(0, LIMITE_POR_LOJA);
+  return selecionados
+    .sort((a, b) => {
+      const descontoA = Number(a.percentual) || 0;
+      const descontoB = Number(b.percentual) || 0;
+      if (descontoA !== descontoB) return descontoB - descontoA;
+      return (Number(b.economia) || 0) - (Number(a.economia) || 0);
+    })
+    .slice(0, LIMITE_POR_LOJA);
 }
 
 ${marcadorLeitura}`;
@@ -83,7 +90,7 @@ try {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "40",
+      NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "80",
       NIKE_AWIN_DESCONTO_MINIMO: process.env.NIKE_AWIN_DESCONTO_MINIMO || "10",
     },
     stdio: "inherit",
