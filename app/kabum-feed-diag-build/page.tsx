@@ -1,3 +1,5 @@
+import { gunzipSync } from "node:zlib";
+
 export const dynamic = "force-static";
 
 function parseCsvLine(line: string) {
@@ -36,20 +38,21 @@ export default async function KabumFeedDiagBuildPage() {
     const linhaKabum = linhas.slice(1).map(parseCsvLine).find((r) => String(r[idxAdv] || "").trim() === "17729");
     if (!linhaKabum || idxUrl < 0) throw new Error("Feed KaBuM nao localizado");
 
-    const feedUrl = linhaKabum[idxUrl];
-    const feedResp = await fetch(feedUrl, { cache: "no-store" });
-    const texto = await feedResp.text();
+    const feedResp = await fetch(linhaKabum[idxUrl], { cache: "no-store" });
+    const bytes = Buffer.from(await feedResp.arrayBuffer());
     if (!feedResp.ok) throw new Error(`Feed HTTP ${feedResp.status}`);
+    const descompactado = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+    const texto = descompactado.toString("utf8");
 
-    const feedLinhas = texto.split(/\r?\n/).filter(Boolean).slice(0, 4);
+    const feedLinhas = texto.split(/\r?\n/).filter(Boolean).slice(0, 5);
     const cab = parseCsvLine(feedLinhas[0]);
     const amostras = feedLinhas.slice(1).map((linha) => {
       const valores = parseCsvLine(linha);
       const obj: Record<string, string> = {};
       for (let i = 0; i < cab.length; i += 1) {
         const chave = cab[i];
-        if (/price|saving|discount|stock|sale|offer|link|url|currency|availability|product.?id|product.?name/i.test(chave)) {
-          obj[chave] = String(valores[i] || "").slice(0, 240);
+        if (/price|saving|discount|stock|sale|offer|link|url|currency|availability|product.?id|product.?name|image/i.test(chave)) {
+          obj[chave] = String(valores[i] || "").slice(0, 220);
         }
       }
       return obj;
