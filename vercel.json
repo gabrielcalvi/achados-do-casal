@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/admin/economize/awin/kabum/produtos/executar",
-      "schedule": "* * * * *"
+      "schedule": "20 0,6,12,18 * * *"
     },
     {
       "path": "/api/admin/economize/awin/multiloja/executar",
