@@ -44,14 +44,14 @@ export default async function KabumFeedDiagBuildPage() {
     const descompactado = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
     const texto = descompactado.toString("utf8");
 
-    const feedLinhas = texto.split(/\r?\n/).filter(Boolean).slice(0, 5);
+    const feedLinhas = texto.split(/\r?\n/).filter(Boolean).slice(0, 12);
     const cab = parseCsvLine(feedLinhas[0]);
     const amostras = feedLinhas.slice(1).map((linha) => {
       const valores = parseCsvLine(linha);
       const obj: Record<string, string> = {};
       for (let i = 0; i < cab.length; i += 1) {
         const chave = cab[i];
-        if (/price|saving|discount|stock|sale|offer|link|url|currency|availability|product.?id|product.?name|image/i.test(chave)) {
+        if (/price|saving|discount|stock|sale|offer|link|url|currency|availability|product.?id|product.?name|image|custom/i.test(chave)) {
           obj[chave] = String(valores[i] || "").slice(0, 220);
         }
       }
