@@ -13,8 +13,8 @@ const saidaPath = path.join(
   "promocoes-kabum-awin-selecionadas.json"
 );
 
-const MAX_PUBLICAR = 10;
-const MAX_POR_GRUPO = 2;
+const MAX_PUBLICAR = Math.min(60, Number(process.env.KABUM_PROMOCOES_MAX_PUBLICAR || 40));
+const MAX_POR_GRUPO = Math.min(12, Number(process.env.KABUM_PROMOCOES_MAX_POR_GRUPO || 6));
 const MARGEM_VALIDADE_MIN = 60;
 
 function n(valor) {
@@ -34,17 +34,8 @@ function grupo(item) {
 
   if (item.ehGpu) return "placa-video";
 
-  // Ordem importa: PC/notebook podem conter "SSD".
-  if (/notebook|macbook/.test(t)) {
-    return "notebook";
-  }
-
-  if (
-    /pc gamer|computador gamer|computador\b|desktop/.test(t)
-  ) {
-    return "computador";
-  }
-
+  if (/notebook|macbook/.test(t)) return "notebook";
+  if (/pc gamer|computador gamer|computador\b|desktop/.test(t)) return "computador";
   if (/monitor/.test(t)) return "monitor";
   if (/processador/.test(t)) return "processador";
   if (/placa-mae/.test(t)) return "placa-mae";
@@ -66,27 +57,13 @@ function precoSuspeito(item) {
   const t = texto(item.nome);
   const g = grupo(item);
 
-  if (preco === null || preco <= 0) {
+  if (preco === null || preco <= 0) return true;
+
+  if (g === "memoria" && /ddr4/.test(t) && preco > 1500 && n(item.descontoReal) === null) {
     return true;
   }
 
-  // Proteções simples contra preços claramente estranhos
-  // quando não temos preço anterior para comparar.
-  if (
-    g === "memoria" &&
-    /ddr4/.test(t) &&
-    preco > 1500 &&
-    n(item.descontoReal) === null
-  ) {
-    return true;
-  }
-
-  if (
-    g === "ssd" &&
-    /256gb|240gb/.test(t) &&
-    preco > 1000 &&
-    n(item.descontoReal) === null
-  ) {
+  if (g === "ssd" && /256gb|240gb/.test(t) && preco > 1000 && n(item.descontoReal) === null) {
     return true;
   }
 
@@ -96,7 +73,6 @@ function precoSuspeito(item) {
 function pontuar(item) {
   let score = 0;
   const motivos = [];
-
   const preco = n(item.precoAtual) || 0;
   const desconto = n(item.descontoReal);
   const avaliacao = n(item.avaliacao);
@@ -108,18 +84,8 @@ function pontuar(item) {
   }
 
   const gruposFortes = new Set([
-    "placa-video",
-    "monitor",
-    "processador",
-    "placa-mae",
-    "ssd",
-    "memoria",
-    "notebook",
-    "computador",
-    "teclado",
-    "mouse",
-    "console",
-    "apple",
+    "placa-video", "monitor", "processador", "placa-mae", "ssd", "memoria",
+    "notebook", "computador", "teclado", "mouse", "console", "apple",
   ]);
 
   if (gruposFortes.has(g)) {
@@ -143,11 +109,7 @@ function pontuar(item) {
     }
   }
 
-  // Preço alto não significa oferta melhor.
-  // Dá só um pequeno peso para produtos relevantes.
-  if (preco >= 300) {
-    score += 8;
-  }
+  if (preco >= 300) score += 8;
 
   if (avaliacao !== null) {
     if (avaliacao >= 4.8) {
@@ -164,17 +126,11 @@ function pontuar(item) {
     motivos.push("frete gratis");
   }
 
-  if (item.imagem) {
-    score += 5;
-  }
+  if (item.imagem) score += 5;
 
-  const adicionado =
-    Date.parse(item.adicionadoEm || "");
-
+  const adicionado = Date.parse(item.adicionadoEm || "");
   if (Number.isFinite(adicionado)) {
-    const horas =
-      (Date.now() - adicionado) / 3600000;
-
+    const horas = (Date.now() - adicionado) / 3600000;
     if (horas <= 6) {
       score += 18;
       motivos.push("muito recente");
@@ -184,36 +140,15 @@ function pontuar(item) {
     }
   }
 
-  // Promoção sem preço anterior:
-  // pode entrar, pois é promoção oficial Awin,
-  // mas não ganha pontos de desconto.
-  if (
-    desconto === null &&
-    !item.ehGpu
-  ) {
-    score -= 5;
-  }
+  if (desconto === null && !item.ehGpu) score -= 5;
 
-  return {
-    score,
-    motivos,
-  };
+  return { score, motivos };
 }
 
 function aindaValida(item) {
   const fim = Date.parse(item.validade || "");
-
-  if (!Number.isFinite(fim)) {
-    return true;
-  }
-
-  return (
-    fim >
-    Date.now() +
-      MARGEM_VALIDADE_MIN *
-        60 *
-        1000
-  );
+  if (!Number.isFinite(fim)) return true;
+  return fim > Date.now() + MARGEM_VALIDADE_MIN * 60 * 1000;
 }
 
 function elegivel(item) {
@@ -222,62 +157,20 @@ function elegivel(item) {
   const avaliacao = n(item.avaliacao);
   const g = grupo(item);
 
-  if (!item.linkAfiliado) return false;
-  if (!item.imagem) return false;
+  if (!item.linkAfiliado || !item.imagem) return false;
+  if (preco === null || preco <= 0) return false;
+  if (!aindaValida(item) || precoSuspeito(item)) return false;
 
-  if (
-    preco === null ||
-    preco <= 0
-  ) {
-    return false;
-  }
+  if (item.ehGpu) return true;
 
-  if (!aindaValida(item)) {
-    return false;
-  }
+  if (desconto !== null && desconto >= 10 && preco >= 50) return true;
 
-  if (precoSuspeito(item)) {
-    return false;
-  }
+  const gruposPermitidos = new Set([
+    "monitor", "processador", "placa-mae", "ssd", "memoria", "notebook",
+    "computador", "teclado", "mouse", "console", "apple",
+  ]);
 
-  // Placas reais entram porque são promoção oficial
-  // direta de produto na Awin.
-  if (item.ehGpu) {
-    return true;
-  }
-
-  // Desconto comprovado.
-  if (
-    desconto !== null &&
-    desconto >= 10 &&
-    preco >= 50
-  ) {
-    return true;
-  }
-
-  // Sem preço anterior, exige categoria relevante
-  // e avaliação forte.
-  const gruposPermitidos =
-    new Set([
-      "monitor",
-      "processador",
-      "placa-mae",
-      "ssd",
-      "memoria",
-      "notebook",
-      "computador",
-      "teclado",
-      "mouse",
-      "console",
-      "apple",
-    ]);
-
-  if (
-    gruposPermitidos.has(g) &&
-    avaliacao !== null &&
-    avaliacao >= 4.7 &&
-    preco >= 100
-  ) {
+  if (gruposPermitidos.has(g) && avaliacao !== null && avaliacao >= 4.7 && preco >= 100) {
     return true;
   }
 
@@ -285,224 +178,88 @@ function elegivel(item) {
 }
 
 function main() {
-  if (!fs.existsSync(entradaPath)) {
-    throw new Error(
-      "Arquivo enriquecido nao encontrado."
-    );
-  }
+  if (!fs.existsSync(entradaPath)) throw new Error("Arquivo enriquecido nao encontrado.");
 
-  const entrada = JSON.parse(
-    fs.readFileSync(
-      entradaPath,
-      "utf8"
-    )
-  );
+  const entrada = JSON.parse(fs.readFileSync(entradaPath, "utf8"));
 
-  const candidatos =
-    (entrada.promocoes || [])
-      .filter(elegivel)
-      .map(item => {
-        const ranking = pontuar(item);
-
-        return {
-          ...item,
-          grupo: grupo(item),
-          scorePublicacao:
-            ranking.score,
-          motivosPublicacao:
-            ranking.motivos,
-        };
-      })
-      .sort(
-        (a, b) =>
-          b.scorePublicacao -
-          a.scorePublicacao
-      );
+  const candidatos = (entrada.promocoes || [])
+    .filter(elegivel)
+    .map((item) => {
+      const ranking = pontuar(item);
+      return {
+        ...item,
+        grupo: grupo(item),
+        scorePublicacao: ranking.score,
+        motivosPublicacao: ranking.motivos,
+      };
+    })
+    .sort((a, b) => {
+      const descontoA = n(a.descontoReal) ?? -1;
+      const descontoB = n(b.descontoReal) ?? -1;
+      if (descontoA !== descontoB) return descontoB - descontoA;
+      return b.scorePublicacao - a.scorePublicacao;
+    });
 
   const selecionadas = [];
-  const contagemGrupo =
-    new Map();
+  const contagemGrupo = new Map();
 
-  // Garantimos as placas de vídeo reais.
   for (const item of candidatos) {
     if (!item.ehGpu) continue;
-
+    if (selecionadas.length >= MAX_PUBLICAR) break;
     selecionadas.push(item);
-
-    contagemGrupo.set(
-      item.grupo,
-      (contagemGrupo.get(item.grupo) || 0) + 1
-    );
+    contagemGrupo.set(item.grupo, (contagemGrupo.get(item.grupo) || 0) + 1);
   }
 
-  // Completa com diversidade.
   for (const item of candidatos) {
-    if (
-      selecionadas.length >=
-      MAX_PUBLICAR
-    ) {
-      break;
-    }
+    if (selecionadas.length >= MAX_PUBLICAR) break;
+    if (selecionadas.some((x) => x.promotionId === item.promotionId)) continue;
 
-    if (
-      selecionadas.some(
-        x =>
-          x.promotionId ===
-          item.promotionId
-      )
-    ) {
-      continue;
-    }
-
-    const quantidade =
-      contagemGrupo.get(item.grupo) || 0;
-
-    if (
-      quantidade >= MAX_POR_GRUPO
-    ) {
-      continue;
-    }
+    const quantidade = contagemGrupo.get(item.grupo) || 0;
+    if (quantidade >= MAX_POR_GRUPO) continue;
 
     selecionadas.push(item);
-
-    contagemGrupo.set(
-      item.grupo,
-      quantidade + 1
-    );
+    contagemGrupo.set(item.grupo, quantidade + 1);
   }
+
+  selecionadas.sort((a, b) => {
+    const descontoA = n(a.descontoReal) ?? -1;
+    const descontoB = n(b.descontoReal) ?? -1;
+    if (descontoA !== descontoB) return descontoB - descontoA;
+    return b.scorePublicacao - a.scorePublicacao;
+  });
 
   fs.writeFileSync(
     saidaPath,
     JSON.stringify(
       {
-        geradoEm:
-          new Date().toISOString(),
-
+        geradoEm: new Date().toISOString(),
         resumo: {
-          analisadas:
-            entrada.promocoes?.length || 0,
-
-          candidatas:
-            candidatos.length,
-
-          selecionadas:
-            selecionadas.length,
-
-          placasVideo:
-            selecionadas.filter(
-              x => x.ehGpu
-            ).length,
+          analisadas: entrada.promocoes?.length || 0,
+          candidatas: candidatos.length,
+          selecionadas: selecionadas.length,
+          maxPublicar: MAX_PUBLICAR,
+          maxPorGrupo: MAX_POR_GRUPO,
+          placasVideo: selecionadas.filter((x) => x.ehGpu).length,
         },
-
         selecionadas,
       },
       null,
-      2
+      2,
     ),
-    "utf8"
+    "utf8",
   );
 
-  console.log("");
-  console.log(
-    "=== SELECAO INTELIGENTE KABUM V2 ==="
-  );
-
-  console.log(
-    `Analisadas: ${
-      entrada.promocoes?.length || 0
-    }`
-  );
-
-  console.log(
-    `Candidatas: ${candidatos.length}`
-  );
-
-  console.log(
-    `Selecionadas: ${selecionadas.length}`
-  );
-
-  console.log(
-    `Placas de video: ${
-      selecionadas.filter(
-        x => x.ehGpu
-      ).length
-    }`
-  );
-
-  console.log("");
-  console.log(
-    "=== PROMOCOES PARA PUBLICAR ==="
-  );
-
-  for (const item of selecionadas) {
-    console.log("");
-    console.log(
-      `${item.scorePublicacao} pts | ${item.grupo}`
-    );
-
-    console.log(item.nome);
-
-    console.log(
-      `Preco: R$ ${item.precoAtual}`
-    );
-
-    console.log(
-      `Preco anterior: ${
-        item.precoAnterior ??
-        "nao identificado"
-      }`
-    );
-
-    console.log(
-      `Desconto real: ${
-        item.descontoReal !== null &&
-        item.descontoReal !== undefined
-          ? item.descontoReal + "%"
-          : "nao identificado"
-      }`
-    );
-
-    console.log(
-      `Avaliacao: ${
-        item.avaliacao ??
-        "nao identificada"
-      }`
-    );
-
-    console.log(
-      `Motivos: ${
-        item.motivosPublicacao.join(", ")
-      }`
-    );
-
-    console.log(
-      `Tracking Awin: ${
-        item.linkAfiliado
-          ? "OK"
-          : "NAO"
-      }`
-    );
-  }
-
-  console.log("");
-  console.log(
-    `JSON salvo em: ${saidaPath}`
-  );
+  console.log("\n=== SELECAO INTELIGENTE KABUM V2 ===");
+  console.log(`Analisadas: ${entrada.promocoes?.length || 0}`);
+  console.log(`Candidatas: ${candidatos.length}`);
+  console.log(`Selecionadas: ${selecionadas.length}`);
+  console.log(`Limite: ${MAX_PUBLICAR} | Por grupo: ${MAX_POR_GRUPO}`);
 }
 
 try {
   main();
 } catch (erro) {
-  console.error("");
-  console.error(
-    "ERRO SELECAO:"
-  );
-
-  console.error(
-    erro instanceof Error
-      ? erro.message
-      : erro
-  );
-
+  console.error("\nERRO SELECAO:");
+  console.error(erro instanceof Error ? erro.message : erro);
   process.exitCode = 1;
 }
