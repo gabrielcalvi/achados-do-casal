@@ -30,15 +30,19 @@ export default async function KabumPromosBuildPage() {
       if (download.exitCode !== 0) throw new Error(`Falha sincronizando ${arquivo}`);
     }
 
-    const env = `NEXT_PUBLIC_SUPABASE_URL=${JSON.stringify(supabaseUrl)}\nSUPABASE_SERVICE_ROLE_KEY=${JSON.stringify(serviceKey)}\n`;
     const gravarEnv = await sandbox.runCommand({
       cmd: "sh",
-      args: ["-c", "cat > /vercel/.env.local"],
+      args: [
+        "-c",
+        "printf 'NEXT_PUBLIC_SUPABASE_URL=%s\\nSUPABASE_SERVICE_ROLE_KEY=%s\\n' \"$SB_URL\" \"$SB_KEY\" > /vercel/.env.local && chmod 600 /vercel/.env.local",
+      ],
       cwd: "/vercel",
+      env: {
+        SB_URL: supabaseUrl,
+        SB_KEY: serviceKey,
+      },
     });
-    await gravarEnv.stdin.write(env);
-    await gravarEnv.stdin.end();
-    await gravarEnv.wait();
+    if (gravarEnv.exitCode !== 0) throw new Error("Falha criando env temporario no Sandbox.");
 
     const selecao = await sandbox.runCommand({
       cmd: "node",
