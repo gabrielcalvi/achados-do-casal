@@ -24,6 +24,15 @@ if (!codigo.includes(filtroLojas)) {
 
 codigo = codigo.replace(filtroLojas, filtroNike);
 
+const filtroMembership = `return !status || status.includes("joined") || status.includes("aprov");`;
+const filtroMembershipNike = `return !status || status.includes("joined") || status.includes("aprov") || status.includes("active") || status.includes("ativo");`;
+
+if (!codigo.includes(filtroMembership)) {
+  throw new Error("Nao foi possivel ajustar o status de parceria da Nike.");
+}
+
+codigo = codigo.replace(filtroMembership, filtroMembershipNike);
+
 codigo = codigo
   .replace(
     `const STATUS_FILE = "/vercel/tmp/awin-produtos-status.json";`,
