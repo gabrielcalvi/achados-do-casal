@@ -62,17 +62,27 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-5 py-2.5 text-center">
             <Link
               href="/nike"
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-black uppercase tracking-[0.16em] transition hover:bg-white hover:text-black"
+              className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-black uppercase tracking-[0.12em] transition hover:bg-white hover:text-black"
             >
-              <span aria-hidden="true">🔥</span>
-              Destaque Nike · Ver ofertas →
+              NIKE · VER OFERTAS
             </Link>
             <Link
               href="/kabum"
-              className="inline-flex items-center gap-2 rounded-full bg-[#ff6500] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#e65c00]"
+              className="inline-flex items-center rounded-full bg-[#ff6500] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#e65c00]"
             >
-              <span aria-hidden="true">⚡</span>
-              KaBuM · Ver ofertas →
+              KABUM · VER OFERTAS
+            </Link>
+            <Link
+              href="/cea"
+              className="inline-flex items-center rounded-full bg-[#e30613] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#c5000c]"
+            >
+              C&A · VER OFERTAS
+            </Link>
+            <Link
+              href="/renner"
+              className="inline-flex items-center rounded-full bg-[#8b1e2d] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#731824]"
+            >
+              RENNER · VER OFERTAS
             </Link>
           </div>
         </div>
