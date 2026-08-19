@@ -19,6 +19,8 @@ type Oferta = {
 
 type Resposta = { ofertas?: Oferta[]; total?: number; error?: string };
 
+const GRUPO_TECNOLOGIA = "https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir";
+
 function moeda(valor: number | null) {
   if (valor === null || !Number.isFinite(Number(valor))) return null;
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
@@ -68,7 +70,8 @@ export default function KabumPage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
           <Link href="/"><img src="/logo-achados-do-casal.png" alt="Achados do Casal" className="h-12 w-auto" /></Link>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="rounded-full bg-green-600 px-4 py-2 text-sm font-black text-white hover:bg-green-700">WhatsApp Tech</a>
             <Link href="/economize" className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-black">Economize</Link>
             <Link href="/" className="rounded-full bg-[#ff6500] px-4 py-2 text-sm font-black text-white">Início</Link>
           </div>
@@ -81,6 +84,7 @@ export default function KabumPage() {
             <p className="text-xs font-black uppercase tracking-[0.25em] text-[#ff8a3d]">Parceiro AWIN · seleção do Achados</p>
             <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">KaBuM!</h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-zinc-300">Tecnologia, gamer e casa tech ordenados pelas maiores oportunidades de desconto disponíveis agora.</p>
+            <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex rounded-xl bg-green-600 px-5 py-3 font-black text-white transition hover:bg-green-700">💬 Entrar no grupo de Informática e Tecnologia</a>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Ativas</p><p className="mt-2 text-3xl font-black">{ofertas.length}</p></div>
