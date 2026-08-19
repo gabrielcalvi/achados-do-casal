@@ -13,17 +13,17 @@ export default async function KabumStatusBuildPage() {
       args: ["/vercel/tmp/kabum-awin-status.json"],
       cwd: "/vercel",
     });
-    console.log("[KABUM PIPELINE STATUS]", (await status.stdout()).trim() || (await status.stderr()).trim() || `exit=${status.exitCode}`);
+    console.log("[KABUM PIPELINE STATUS FRESH]", (await status.stdout()).trim() || (await status.stderr()).trim() || `exit=${status.exitCode}`);
 
     const log = await sandbox.runCommand({
       cmd: "tail",
-      args: ["-n", "80", "/vercel/tmp/kabum-awin.log"],
+      args: ["-n", "120", "/vercel/tmp/kabum-awin.log"],
       cwd: "/vercel",
     });
-    console.log("[KABUM PIPELINE LOG]", (await log.stdout()).trim() || (await log.stderr()).trim() || `exit=${log.exitCode}`);
+    console.log("[KABUM PIPELINE LOG FRESH]", (await log.stdout()).trim() || (await log.stderr()).trim() || `exit=${log.exitCode}`);
   } catch (erro) {
     console.log("[KABUM STATUS BUILD ERRO]", erro instanceof Error ? erro.message : String(erro));
   }
 
-  return <main>Diagnóstico temporário KaBuM.</main>;
+  return <main>Diagnóstico temporário KaBuM · leitura atualizada.</main>;
 }
