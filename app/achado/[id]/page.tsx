@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "instagram", "admin"]);
+
 type Oferta = {
   id: string;
   titulo: string;
@@ -57,6 +59,12 @@ function moeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
 }
 
+function normalizarOrigem(valor: string | string[] | undefined) {
+  const origem = Array.isArray(valor) ? valor[0] : valor;
+  const normalizada = String(origem || "site").trim().toLowerCase();
+  return ORIGENS_PERMITIDAS.has(normalizada) ? normalizada : "site";
+}
+
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Metadata> {
@@ -97,9 +105,17 @@ export async function generateMetadata(
 }
 
 export default async function AchadoPage(
-  { params }: { params: Promise<{ id: string }> },
+  {
+    params,
+    searchParams,
+  }: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ origem?: string | string[] }>;
+  }
 ) {
   const { id } = await params;
+  const filtros = await searchParams;
+  const origem = normalizarOrigem(filtros.origem);
   const oferta = await carregarOferta(id);
   if (!oferta) notFound();
 
@@ -150,7 +166,7 @@ export default async function AchadoPage(
             ) : null}
 
             <div className="mt-auto pt-8">
-              <Link href={`/oferta/${oferta.id}?origem=site`} className="flex h-14 w-full items-center justify-center rounded-full bg-black px-6 text-lg font-black text-white transition hover:bg-zinc-800">
+              <Link href={`/oferta/${oferta.id}?origem=${origem}`} className="flex h-14 w-full items-center justify-center rounded-full bg-black px-6 text-lg font-black text-white transition hover:bg-zinc-800">
                 Ver oferta na {loja}
               </Link>
               <p className="mt-3 text-center text-[11px] leading-5 text-zinc-400">Link de afiliado do Achados do Casal. Preço e disponibilidade podem mudar na loja.</p>
