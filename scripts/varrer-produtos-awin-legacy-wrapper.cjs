@@ -45,6 +45,36 @@ codigo = codigo
     `["search_price", "store_price", "base_price", "price", "sale_price"]`,
   );
 
+const blocoDescontoOriginal = `  if (!precoOriginal || precoOriginal.moeda !== "BRL") return null;\n  if (precoAtual.valor >= precoOriginal.valor) return null;\n\n  const economia = precoOriginal.valor - precoAtual.valor;\n  const percentual = Math.round((economia / precoOriginal.valor) * 1000) / 10;\n  if (percentual < DESCONTO_MINIMO) return null;`;
+
+const blocoDescontoCatalogo = `  const catalogoSemDesconto = new Set(\n    String(process.env.AWIN_PRODUTOS_CATALOGO_LOJAS || \"\")\n      .split(\",\")\n      .map((slug) => slug.trim())\n      .filter(Boolean)\n  ).has(loja.slug);\n\n  let economia = 0;\n  let percentual = 0;\n  let precoOriginalFinal = null;\n\n  if (precoOriginal && precoOriginal.moeda === \"BRL\" && precoAtual.valor < precoOriginal.valor) {\n    economia = precoOriginal.valor - precoAtual.valor;\n    percentual = Math.round((economia / precoOriginal.valor) * 1000) / 10;\n    if (percentual < DESCONTO_MINIMO) return null;\n    precoOriginalFinal = precoOriginal;\n  } else if (!catalogoSemDesconto) {\n    return null;\n  }`;
+
+if (!codigo.includes(blocoDescontoOriginal)) {
+  throw new Error("Bloco de desconto do coletor Legacy não encontrado.");
+}
+codigo = codigo.replace(blocoDescontoOriginal, blocoDescontoCatalogo);
+codigo = codigo.replace(
+  `precoOriginal: Math.round(precoOriginal.valor * 100) / 100,`,
+  `precoOriginal: precoOriginalFinal ? Math.round(precoOriginalFinal.valor * 100) / 100 : null,`,
+);
+
+codigo = codigo.replace(
+  `descricao: produto.descricao || \`${"${produto.percentual}"}% OFF em produto selecionado na ${"${lojaConfig.nome}"}.\`,`,
+  `descricao: produto.descricao || (produto.percentual > 0 ? \`${"${produto.percentual}"}% OFF em produto selecionado na ${"${lojaConfig.nome}"}.\` : \`Produto selecionado no catálogo oficial da ${"${lojaConfig.nome}"}.\`),`,
+);
+codigo = codigo.replace(
+  `desconto_percentual: produto.percentual,`,
+  `desconto_percentual: produto.percentual > 0 ? produto.percentual : null,`,
+);
+codigo = codigo.replace(
+  `valor_desconto: produto.economia,`,
+  `valor_desconto: produto.economia > 0 ? produto.economia : null,`,
+);
+codigo = codigo.replace(
+  `selos: ["Oferta via Awin", \`${"${produto.percentual}"}% OFF\`],`,
+  `selos: produto.percentual > 0 ? ["Oferta via Awin", \`${"${produto.percentual}"}% OFF\`] : ["Produto via Awin"],`,
+);
+
 fs.writeFileSync(temporario, codigo, "utf8");
 
 try {
