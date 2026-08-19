@@ -17,6 +17,11 @@ codigo = codigo.replace(
 );
 
 codigo = codigo.replace(
+  `const lojas = lojasConfig.filter(\n  (loja) =>\n    !loja.monitorOnly &&\n    [\"cea\", \"renner\", \"calvin-klein\", \"stanley\", \"casas-bahia\"].includes(loja.slug)\n);`,
+  `const lojasPermitidas = new Set(\n  String(process.env.AWIN_PRODUTOS_LOJAS || \"cea,renner,calvin-klein,stanley,casas-bahia\")\n    .split(\",\")\n    .map((slug) => slug.trim())\n    .filter(Boolean)\n);\n\nconst lojas = lojasConfig.filter(\n  (loja) => !loja.monitorOnly && lojasPermitidas.has(loja.slug)\n);`,
+);
+
+codigo = codigo.replace(
   `.replace(/^\\uFEFF/, "")\n    .normalize("NFD")`,
   `.replace(/^\\uFEFF/, "")\n    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")\n    .normalize("NFD")`,
 );
