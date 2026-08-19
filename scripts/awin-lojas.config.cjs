@@ -32,6 +32,14 @@ const lojas = [
     logoUrl: null
   },
   {
+    slug: "nike",
+    dbSlug: "nike",
+    nome: "Nike",
+    advertiserId: "17652",
+    dominio: "nike.com.br",
+    logoUrl: null
+  },
+  {
     slug: "decolar",
     dbSlug: "decolar",
     nome: "Decolar",
