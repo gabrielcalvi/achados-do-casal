@@ -6,7 +6,8 @@ const SANDBOX_NAME = process.env.KABUM_AWIN_SANDBOX_NAME || "achados-cupons-ml-t
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const BASE_DIR = "/vercel/scripts";
 const LEGACY = `${BASE_DIR}/varrer-produtos-awin-legacy.cjs`;
-const NIKE = `${BASE_DIR}/varrer-produtos-awin-nike-seguro.cjs`;
+const NIKE_SAFE = `${BASE_DIR}/varrer-produtos-awin-nike-seguro.cjs`;
+const NIKE = `${BASE_DIR}/varrer-produtos-awin-nike-ampliado.cjs`;
 const CONFIG = `${BASE_DIR}/awin-lojas.config.cjs`;
 
 async function disparar() {
@@ -28,7 +29,8 @@ async function disparar() {
   const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
   for (const [url, destino] of [
     [`https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-legacy.cjs`, LEGACY],
-    [`https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-nike-seguro.cjs`, NIKE],
+    [`https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-nike-seguro.cjs`, NIKE_SAFE],
+    [`https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/varrer-produtos-awin-nike-ampliado.cjs`, NIKE],
     [`https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(commit)}/scripts/awin-lojas.config.cjs`, CONFIG],
   ]) {
     const r = await sandbox.runCommand({ cmd: "curl", args: ["-fsSL", "--max-time", "30", url, "-o", destino], cwd: "/vercel" });
@@ -45,14 +47,14 @@ async function disparar() {
       AWIN_PUBLISHER_ID: publisher,
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-      NIKE_AWIN_LIMITE_PRODUTOS: "30",
+      NIKE_AWIN_LIMITE_PRODUTOS: "40",
       NIKE_AWIN_DESCONTO_MINIMO: "10",
       NIKE_AWIN_OBSERVACAO_HORAS: "24",
     },
     detached: true,
   });
 
-  console.log("[NIKE 30] Scanner iniciado.");
+  console.log("[NIKE MIX 40] Scanner iniciado.");
   return "iniciado";
 }
 
