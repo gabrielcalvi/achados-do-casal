@@ -12,358 +12,173 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ContextoRota = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const NOME_COOKIE_SESSAO = "economize_session";
+const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram"]);
 
-const NOME_COOKIE_SESSAO =
-  "economize_session";
-
-function limitarTexto(
-  valor: string | null,
-  limite = 1000
-) {
-  if (!valor) {
-    return null;
-  }
-
+function limitarTexto(valor: string | null, limite = 1000) {
+  if (!valor) return null;
   return valor.slice(0, limite);
 }
 
 function obterIp(request: NextRequest) {
-  const encaminhado =
-    request.headers.get("x-forwarded-for");
-
-  if (encaminhado) {
-    return encaminhado
-      .split(",")[0]
-      ?.trim() || null;
-  }
-
-  return (
-    request.headers.get("x-real-ip") ||
-    request.headers.get("cf-connecting-ip") ||
-    null
-  );
+  const encaminhado = request.headers.get("x-forwarded-for");
+  if (encaminhado) return encaminhado.split(",")[0]?.trim() || null;
+  return request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || null;
 }
 
 function gerarHashIp(ip: string | null) {
-  const salt =
-    process.env.ECONOMIZE_IP_HASH_SALT;
-
-  if (!ip || !salt) {
-    return null;
-  }
-
-  return createHash("sha256")
-    .update(`${salt}:${ip}`)
-    .digest("hex");
+  const salt = process.env.ECONOMIZE_IP_HASH_SALT;
+  if (!ip || !salt) return null;
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
 }
 
 function urlEhSegura(valor: unknown) {
-  if (typeof valor !== "string") {
-    return false;
-  }
-
+  if (typeof valor !== "string") return false;
   try {
     const url = new URL(valor);
-
-    return (
-      url.protocol === "https:" ||
-      url.protocol === "http:"
-    );
+    return url.protocol === "https:" || url.protocol === "http:";
   } catch {
     return false;
   }
 }
 
-function voltarParaCentral(
-  request: NextRequest,
-  aviso: string
-) {
+function prepararDestinoAfiliado(destino: string, request: NextRequest) {
+  try {
+    const url = new URL(destino);
+    const host = url.hostname.toLowerCase();
+
+    if (host === "www.awin1.com" || host === "awin1.com") {
+      for (let indice = 1; indice <= 6; indice += 1) {
+        const chave = indice === 1 ? "clickref" : `clickref${indice}`;
+        if (!url.searchParams.get(chave)?.trim()) url.searchParams.delete(chave);
+      }
+
+      const origemRecebida = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "";
+      if (ORIGENS_PERMITIDAS.has(origemRecebida)) {
+        url.searchParams.set("clickref", origemRecebida);
+      }
+    }
+
+    return url.toString();
+  } catch {
+    return destino;
+  }
+}
+
+function voltarParaCentral(request: NextRequest, aviso: string) {
   const url = new URL("/economize", request.url);
-
   url.searchParams.set("aviso", aviso);
-
   return NextResponse.redirect(url, 307);
 }
 
-async function ofertaTemCupomAtivo(
-  ofertaId: string,
-  agora: string
-) {
-  const {
-    data: vinculos,
-    error: erroVinculos,
-  } = await supabaseAdmin
+async function ofertaTemCupomAtivo(ofertaId: string, agora: string) {
+  const { data: vinculos, error: erroVinculos } = await supabaseAdmin
     .from("economize_cupons_ofertas")
     .select("cupom_id")
     .eq("oferta_id", ofertaId)
     .limit(50);
 
-  if (erroVinculos) {
-    throw new Error(
-      `Falha ao validar vinculo de cupom: ${erroVinculos.message}`
-    );
-  }
+  if (erroVinculos) throw new Error(`Falha ao validar vinculo de cupom: ${erroVinculos.message}`);
 
-  const idsCupons = Array.from(
-    new Set(
-      (vinculos ?? [])
-        .map((vinculo) => vinculo.cupom_id)
-        .filter(
-          (cupomId): cupomId is string =>
-            typeof cupomId === "string" &&
-            UUID_REGEX.test(cupomId)
-        )
-    )
-  );
+  const idsCupons = Array.from(new Set((vinculos ?? []).map((v) => v.cupom_id).filter((id): id is string => typeof id === "string" && UUID_REGEX.test(id))));
+  if (idsCupons.length === 0) return false;
 
-  if (idsCupons.length === 0) {
-    return false;
-  }
-
-  const {
-    data: cuponsAtivos,
-    error: erroCupons,
-  } = await supabaseAdmin
+  const { data: cuponsAtivos, error: erroCupons } = await supabaseAdmin
     .from("economize_cupons")
     .select("id")
     .in("id", idsCupons)
     .eq("status", "ativo")
-    .or(
-      `data_inicio.is.null,data_inicio.lte.${agora}`
-    )
-    .or(
-      `validade.is.null,validade.gt.${agora}`
-    )
+    .or(`data_inicio.is.null,data_inicio.lte.${agora}`)
+    .or(`validade.is.null,validade.gt.${agora}`)
     .limit(1);
 
-  if (erroCupons) {
-    throw new Error(
-      `Falha ao validar cupom ativo: ${erroCupons.message}`
-    );
-  }
-
+  if (erroCupons) throw new Error(`Falha ao validar cupom ativo: ${erroCupons.message}`);
   return (cuponsAtivos?.length ?? 0) > 0;
 }
 
-export async function GET(
-  request: NextRequest,
-  contexto: ContextoRota
-) {
+export async function GET(request: NextRequest, contexto: ContextoRota) {
   try {
     const { id } = await contexto.params;
+    if (!UUID_REGEX.test(id)) return voltarParaCentral(request, "oferta-invalida");
 
-    if (!UUID_REGEX.test(id)) {
-      return voltarParaCentral(
-        request,
-        "oferta-invalida"
-      );
-    }
-
-    const { data: oferta, error } =
-      await supabaseAdmin
-        .from("economize_ofertas")
-        .select(`
-          id,
-          loja_id,
-          status,
-          link_destino,
-          link_afiliado,
-          data_inicio,
-          validade,
-          loja:economize_lojas!inner (
-            id,
-            ativa
-          )
-        `)
-        .eq("id", id)
-        .eq("status", "ativo")
-        .eq("economize_lojas.ativa", true)
-        .maybeSingle();
+    const { data: oferta, error } = await supabaseAdmin
+      .from("economize_ofertas")
+      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,loja:economize_lojas!inner (id,ativa)`)
+      .eq("id", id)
+      .eq("status", "ativo")
+      .eq("economize_lojas.ativa", true)
+      .maybeSingle();
 
     if (error) {
-      console.error(
-        "Erro ao localizar oportunidade para redirecionamento:",
-        error
-      );
-
-      return voltarParaCentral(
-        request,
-        "erro-ao-localizar"
-      );
+      console.error("Erro ao localizar oportunidade para redirecionamento:", error);
+      return voltarParaCentral(request, "erro-ao-localizar");
     }
+    if (!oferta) return voltarParaCentral(request, "oferta-indisponivel");
 
-    if (!oferta) {
-      return voltarParaCentral(
-        request,
-        "oferta-indisponivel"
-      );
-    }
-
-    const lojaRelacionada = Array.isArray(
-      oferta.loja
-    )
-      ? oferta.loja[0]
-      : oferta.loja;
-
-    if (!lojaRelacionada?.ativa) {
-      return voltarParaCentral(
-        request,
-        "loja-indisponivel"
-      );
-    }
+    const lojaRelacionada = Array.isArray(oferta.loja) ? oferta.loja[0] : oferta.loja;
+    if (!lojaRelacionada?.ativa) return voltarParaCentral(request, "loja-indisponivel");
 
     const agora = Date.now();
     const agoraIso = new Date(agora).toISOString();
 
     if (oferta.data_inicio) {
-      const inicio = new Date(
-        oferta.data_inicio
-      ).getTime();
-
-      if (
-        Number.isNaN(inicio) ||
-        inicio > agora
-      ) {
-        return voltarParaCentral(
-          request,
-          "oferta-ainda-nao-iniciada"
-        );
-      }
+      const inicio = new Date(oferta.data_inicio).getTime();
+      if (Number.isNaN(inicio) || inicio > agora) return voltarParaCentral(request, "oferta-ainda-nao-iniciada");
     }
 
     if (oferta.validade) {
-      const validade = new Date(
-        oferta.validade
-      ).getTime();
-
-      if (
-        Number.isNaN(validade) ||
-        validade <= agora
-      ) {
-        return voltarParaCentral(
-          request,
-          "oferta-expirada"
-        );
-      }
+      const validade = new Date(oferta.validade).getTime();
+      if (Number.isNaN(validade) || validade <= agora) return voltarParaCentral(request, "oferta-expirada");
     }
 
-    const linkAfiliado =
-      typeof oferta.link_afiliado === "string"
-        ? oferta.link_afiliado.trim()
-        : "";
+    const linkAfiliado = typeof oferta.link_afiliado === "string" ? oferta.link_afiliado.trim() : "";
+    const linkDestino = typeof oferta.link_destino === "string" ? oferta.link_destino.trim() : "";
+    const temCupomAtivo = await ofertaTemCupomAtivo(oferta.id, agoraIso);
 
-    const linkDestino =
-      typeof oferta.link_destino === "string"
-        ? oferta.link_destino.trim()
-        : "";
-
-    const temCupomAtivo =
-      await ofertaTemCupomAtivo(
-        oferta.id,
-        agoraIso
-      );
-
-    if (
-      temCupomAtivo &&
-      !urlEhSegura(linkAfiliado)
-    ) {
-      console.error(
-        "Oferta com cupom ativo sem link de afiliado valido:",
-        oferta.id
-      );
-
-      return voltarParaCentral(
-        request,
-        "afiliado-indisponivel"
-      );
+    if (temCupomAtivo && !urlEhSegura(linkAfiliado)) {
+      console.error("Oferta com cupom ativo sem link de afiliado valido:", oferta.id);
+      return voltarParaCentral(request, "afiliado-indisponivel");
     }
 
-    const destino = temCupomAtivo
-      ? linkAfiliado
-      : linkAfiliado || linkDestino;
-
-    if (!urlEhSegura(destino)) {
-      console.error(
-        "Oferta sem URL segura para redirecionamento:",
-        oferta.id
-      );
-
-      return voltarParaCentral(
-        request,
-        "destino-indisponivel"
-      );
+    const destinoBruto = temCupomAtivo ? linkAfiliado : linkAfiliado || linkDestino;
+    if (!urlEhSegura(destinoBruto)) {
+      console.error("Oferta sem URL segura para redirecionamento:", oferta.id);
+      return voltarParaCentral(request, "destino-indisponivel");
     }
 
-    const sessaoRecebida =
-      request.cookies.get(
-        NOME_COOKIE_SESSAO
-      )?.value;
+    const destino = prepararDestinoAfiliado(destinoBruto, request);
+    const sessaoRecebida = request.cookies.get(NOME_COOKIE_SESSAO)?.value;
+    const possuiSessaoValida = typeof sessaoRecebida === "string" && UUID_REGEX.test(sessaoRecebida);
+    const sessaoId = possuiSessaoValida ? sessaoRecebida : randomUUID();
+    const ipHash = gerarHashIp(obterIp(request));
+    const origemClique = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "central_economize";
 
-    const possuiSessaoValida =
-      typeof sessaoRecebida === "string" &&
-      UUID_REGEX.test(sessaoRecebida);
+    const { error: erroClique } = await supabaseAdmin.from("economize_cliques").insert({
+      oferta_id: oferta.id,
+      loja_id: oferta.loja_id,
+      origem: ORIGENS_PERMITIDAS.has(origemClique) ? origemClique : "central_economize",
+      rota: request.nextUrl.pathname,
+      referer: limitarTexto(request.headers.get("referer")),
+      user_agent: limitarTexto(request.headers.get("user-agent")),
+      session_id: sessaoId,
+      ip_hash: ipHash,
+    });
 
-    const sessaoId = possuiSessaoValida
-      ? sessaoRecebida
-      : randomUUID();
+    if (erroClique) console.error("Erro ao registrar clique da Central Economize:", erroClique);
 
-    const ip = obterIp(request);
-    const ipHash = gerarHashIp(ip);
-
-    const { error: erroClique } =
-      await supabaseAdmin
-        .from("economize_cliques")
-        .insert({
-          oferta_id: oferta.id,
-          loja_id: oferta.loja_id,
-          origem: "central_economize",
-          rota: request.nextUrl.pathname,
-          referer: limitarTexto(
-            request.headers.get("referer")
-          ),
-          user_agent: limitarTexto(
-            request.headers.get("user-agent")
-          ),
-          session_id: sessaoId,
-          ip_hash: ipHash,
-        });
-
-    if (erroClique) {
-      console.error(
-        "Erro ao registrar clique da Central Economize:",
-        erroClique
-      );
-
-      // O erro de estatística não impede
-      // o visitante de acessar a oferta.
-    }
-
-    const resposta =
-      NextResponse.redirect(
-        new URL(destino),
-        307
-      );
-
-    resposta.headers.set(
-      "Cache-Control",
-      "no-store"
-    );
+    const resposta = NextResponse.redirect(new URL(destino), 307);
+    resposta.headers.set("Cache-Control", "no-store");
 
     if (!possuiSessaoValida) {
       resposta.cookies.set({
         name: NOME_COOKIE_SESSAO,
         value: sessaoId,
         httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 365,
@@ -372,14 +187,7 @@ export async function GET(
 
     return resposta;
   } catch (error) {
-    console.error(
-      "Erro inesperado no redirecionamento da Central Economize:",
-      error
-    );
-
-    return voltarParaCentral(
-      request,
-      "erro-interno"
-    );
+    console.error("Erro inesperado no redirecionamento da Central Economize:", error);
+    return voltarParaCentral(request, "erro-interno");
   }
 }
