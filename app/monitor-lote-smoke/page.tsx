@@ -1,0 +1,18 @@
+import { monitorarProdutosAutomaticamente } from "@/lib/services/automaticPriceMonitor";
+
+export const dynamic = "force-static";
+
+export default async function MonitorLoteSmokePage() {
+  const ambiente = process.env.VERCEL_ENV ?? "";
+  const branch = process.env.VERCEL_GIT_COMMIT_REF ?? "";
+
+  if (ambiente !== "preview" || branch !== "feature/monitor-precos-automatico") {
+    return <pre>teste ignorado</pre>;
+  }
+
+  console.log("[MONITOR LOTE SMOKE] Iniciando teste de 4 produtos...");
+  const resultado = await monitorarProdutosAutomaticamente(4);
+  console.log("[MONITOR LOTE SMOKE] Resultado:", JSON.stringify(resultado));
+
+  return <pre>{JSON.stringify(resultado, null, 2)}</pre>;
+}
