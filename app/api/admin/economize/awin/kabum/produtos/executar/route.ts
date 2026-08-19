@@ -11,6 +11,8 @@ const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const SCRIPT_PATH = "/vercel/scripts/varrer-produtos-awin-kabum.cjs";
 const BASE_PATH = "/vercel/scripts/varrer-produtos-awin-legacy.cjs";
 const CONFIG_PATH = "/vercel/scripts/awin-lojas.config.cjs";
+const STATUS_PATH = "/vercel/tmp/awin-kabum-produtos-status.json";
+const RESULT_PATH = "/vercel/tmp/awin-kabum-produtos-resultado.json";
 
 async function usuarioAutenticado() {
   try {
@@ -29,6 +31,27 @@ function autorizadoComoCron(request: NextRequest) {
 
 async function autorizado(request: NextRequest) {
   return autorizadoComoCron(request) || usuarioAutenticado();
+}
+
+async function lerJson(sandbox: Awaited<ReturnType<typeof Sandbox.get>>, caminho: string) {
+  const resultado = await sandbox.runCommand({ cmd: "cat", args: [caminho], cwd: "/vercel" });
+  if (resultado.exitCode !== 0) return null;
+  const texto = (await resultado.stdout()).trim();
+  if (!texto) return null;
+  try { return JSON.parse(texto); } catch { return null; }
+}
+
+async function status(request: NextRequest) {
+  if (!(await autorizado(request))) {
+    return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
+  }
+  try {
+    const sandbox = await Sandbox.get({ name: SANDBOX_NAME });
+    const dados = (await lerJson(sandbox, STATUS_PATH)) || (await lerJson(sandbox, RESULT_PATH));
+    return NextResponse.json({ sucesso: true, sandbox: SANDBOX_NAME, status: dados || { executando: false, mensagem: "Sem execucao registrada." } });
+  } catch (erro) {
+    return NextResponse.json({ sucesso: false, erro: erro instanceof Error ? erro.message : String(erro) }, { status: 500 });
+  }
 }
 
 async function executar(request: NextRequest) {
@@ -67,9 +90,7 @@ async function executar(request: NextRequest) {
         args: ["-fsSL", "--max-time", "30", url, "-o", destino],
         cwd: "/vercel",
       });
-      if (resultado.exitCode !== 0) {
-        throw new Error(`Falha sincronizando ${arquivo}.`);
-      }
+      if (resultado.exitCode !== 0) throw new Error(`Falha sincronizando ${arquivo}.`);
     }
 
     await sandbox.runCommand({
@@ -111,6 +132,7 @@ async function executar(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("status") === "1") return status(request);
   return executar(request);
 }
 
