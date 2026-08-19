@@ -27,12 +27,12 @@ const helperMix = `function produtoEhCalcadoNike(produto) {
 }
 
 function selecionarMixNike(top) {
-  const minimoCalcados = Math.min(15, LIMITE_POR_LOJA);
+  const reservaCalcados = Math.min(18, LIMITE_POR_LOJA);
   const calcados = top.filter(produtoEhCalcadoNike);
   const variados = top.filter((produto) => !produtoEhCalcadoNike(produto));
   const selecionados = [];
 
-  selecionados.push(...calcados.slice(0, minimoCalcados));
+  selecionados.push(...calcados.slice(0, reservaCalcados));
   selecionados.push(...variados.slice(0, Math.max(0, LIMITE_POR_LOJA - selecionados.length)));
 
   if (selecionados.length < LIMITE_POR_LOJA) {
