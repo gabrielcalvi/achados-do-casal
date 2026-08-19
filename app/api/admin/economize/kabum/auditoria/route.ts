@@ -10,16 +10,12 @@ const PUBLISHER_ID = "2922231";
 
 async function obterUsuarioAutenticado() {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
   return error || !user ? null : user;
 }
 
 function auditarLink(link: string | null) {
   if (!link) return { afiliadoOk: false, advertiserId: null, publisherId: null, destino: null };
-
   try {
     const url = new URL(link);
     const advertiserId = url.searchParams.get("awinmid");
@@ -48,24 +44,15 @@ export async function GET() {
       .maybeSingle();
 
     if (erroLoja) throw erroLoja;
-    if (!loja) {
-      return NextResponse.json({
-        advertiserId: ADVERTISER_ID,
-        publisherId: PUBLISHER_ID,
-        ofertas: [],
-        resumo: { total: 0, ativos: 0, afiliadoOk: 0, cliques: 0 },
-      });
-    }
+    if (!loja) return NextResponse.json({ advertiserId: ADVERTISER_ID, publisherId: PUBLISHER_ID, ofertas: [], resumo: { total: 0, ativos: 0, afiliadoOk: 0, cliques: 0 } });
 
+    const agora = new Date().toISOString();
     const { data: ofertas, error: erroOfertas } = await supabaseAdmin
       .from("economize_ofertas")
-      .select(`
-        id,status,tipo,titulo,categoria,imagem_url,link_destino,link_afiliado,
-        preco_original,preco_oferta,desconto_percentual,origem,validade,
-        verificado_em,updated_at,dados_brutos
-      `)
+      .select("id,status,tipo,titulo,categoria,imagem_url,link_destino,link_afiliado,preco_original,preco_oferta,desconto_percentual,origem,validade,verificado_em,updated_at,dados_brutos")
       .eq("loja_id", loja.id)
       .neq("status", "expirado")
+      .or(`validade.is.null,validade.gt.${agora}`)
       .order("desconto_percentual", { ascending: false, nullsFirst: false })
       .limit(250);
 
@@ -81,7 +68,6 @@ export async function GET() {
         .in("oferta_id", ids)
         .order("clicado_em", { ascending: false })
         .limit(10000);
-
       if (erroCliques) throw erroCliques;
 
       for (const clique of cliques ?? []) {
@@ -97,17 +83,16 @@ export async function GET() {
     }
 
     const auditadas = (ofertas ?? []).map((oferta) => {
-      const auditoria = auditarLink(oferta.link_afiliado);
-      const cliques = cliquesPorOferta.get(oferta.id) || { total: 0, ultimo: null, origens: {} };
-      const base = `https://achadosdocasal.com.br/achado/${oferta.id}`;
-
+      const publicavel = oferta.status === "ativo" && (!oferta.validade || new Date(oferta.validade).getTime() > Date.now());
+      const base = publicavel ? `https://achadosdocasal.com.br/achado/${oferta.id}` : null;
       return {
         ...oferta,
-        auditoria,
-        cliques,
+        publicavel,
+        auditoria: auditarLink(oferta.link_afiliado),
+        cliques: cliquesPorOferta.get(oferta.id) || { total: 0, ultimo: null, origens: {} },
         compartilhavel: base,
-        whatsapp: `${base}?origem=whatsapp`,
-        telegram: `${base}?origem=telegram`,
+        whatsapp: base ? `${base}?origem=whatsapp` : null,
+        telegram: base ? `${base}?origem=telegram` : null,
       };
     });
 
@@ -118,7 +103,7 @@ export async function GET() {
       ofertas: auditadas,
       resumo: {
         total: auditadas.length,
-        ativos: auditadas.filter((oferta) => oferta.status === "ativo").length,
+        ativos: auditadas.filter((oferta) => oferta.publicavel).length,
         afiliadoOk: auditadas.filter((oferta) => oferta.auditoria.afiliadoOk).length,
         cliques: auditadas.reduce((soma, oferta) => soma + oferta.cliques.total, 0),
       },
