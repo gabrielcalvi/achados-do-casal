@@ -48,13 +48,13 @@ async function disparar() {
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       SUPABASE_SERVICE_ROLE_KEY: serviceKey,
       NIKE_AWIN_LIMITE_PRODUTOS: "40",
-      NIKE_AWIN_DESCONTO_MINIMO: "10",
+      NIKE_AWIN_DESCONTO_MINIMO: "5",
       NIKE_AWIN_OBSERVACAO_HORAS: "24",
     },
     detached: true,
   });
 
-  console.log("[NIKE MIX TENIS] Scanner iniciado.");
+  console.log("[NIKE MIX TENIS 5] Scanner iniciado.");
   return "iniciado";
 }
 
