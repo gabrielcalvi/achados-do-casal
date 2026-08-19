@@ -69,12 +69,14 @@ export async function generateMetadata(
 
   const preco = moeda(oferta.preco_oferta);
   const desconto = Number(oferta.desconto_percentual) || 0;
-  const titulo = `${oferta.titulo} | Achados do Casal`;
   const descricao = `${preco ? `${preco}` : "Oferta"}${desconto > 0 ? ` · ${Math.round(desconto)}% OFF` : ""} na ${oferta.loja?.nome || "loja"}. Confira preço e disponibilidade.`;
   const url = `https://achadosdocasal.com.br/achado/${id}`;
+  const imagemSocial = oferta.imagem_url
+    ? [{ url: oferta.imagem_url, width: 1500, height: 1500, alt: oferta.titulo }]
+    : undefined;
 
   return {
-    title: titulo,
+    title: { absolute: `${oferta.titulo} | Achados do Casal` },
     description: descricao,
     alternates: { canonical: url },
     openGraph: {
@@ -83,7 +85,7 @@ export async function generateMetadata(
       url,
       siteName: "Achados do Casal",
       type: "website",
-      images: oferta.imagem_url ? [{ url: oferta.imagem_url, alt: oferta.titulo }] : undefined,
+      images: imagemSocial,
     },
     twitter: {
       card: "summary_large_image",
