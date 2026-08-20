@@ -1,1019 +1,343 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type Oferta = {
-  ida: string;
-  volta: string;
-  permanenciaDias: number;
-  moeda: string;
+type Resultado = {
+  radarId: string;
+  slug: string;
+  destinoCodigo: string;
+  destino: string;
   precoPorPessoa: number;
-  faixa: string;
-  tituloFaixa: string;
-  emojiFaixa: string;
-  companhia: string | null;
-  observadoEm: string;
+  totalPassagens: number;
+  sobra: number;
+  cabeNoOrcamento: boolean;
+  percentualOrcamento: number;
+  classificacao: string;
+  ida: string | null;
+  volta: string | null;
+  permanenciaDias: number | null;
+  ciaAerea: string | null;
+  escalasIda: number | null;
+  escalasVolta: number | null;
+  score: number | null;
+  link: string | null;
+  observadoEm: string | null;
 };
 
-type DadosRadar = {
+type DestinoEmColeta = { codigo: string; nome: string };
+
+type RespostaRadar = {
   sucesso: boolean;
-
-  radar: {
-    slug: string;
-    nome: string;
-    origem: string;
-    destino: string;
-
-    regua: {
-      achadoAbsurdoAte: number;
-      precoBomAte: number;
-      interessanteAte: number;
-      precoComumAte: number;
-    };
-  };
-
-  observacoes: number;
-
-  ultimaAtualizacao:
-    string | null;
-
-  melhor:
-    Oferta | null;
-
-  melhores:
-    Oferta[];
+  resultados: Resultado[];
+  totalDestinosMonitorados: number;
+  destinosComDados: number;
+  destinosEmColeta: DestinoEmColeta[];
+  erro?: string;
 };
 
 const ORIGENS = [
-  {
-    codigo: "POA",
-    label: "Porto Alegre",
-  },
-  {
-    codigo: "GRU",
-    label: "S\u00e3o Paulo",
-  },
-  {
-    codigo: "GIG",
-    label: "Rio de Janeiro",
-  },
+  { codigo: "POA", nome: "Porto Alegre" },
+  { codigo: "GRU", nome: "São Paulo" },
+  { codigo: "GIG", nome: "Rio de Janeiro" },
+  { codigo: "FLN", nome: "Florianópolis" },
+  { codigo: "BSB", nome: "Brasília" },
+  { codigo: "CNF", nome: "Belo Horizonte" },
+  { codigo: "SSA", nome: "Salvador" },
+  { codigo: "REC", nome: "Recife" },
 ] as const;
 
-const RADARES = [
-  {
-    origem: "POA",
-    slug: "poa-orlando",
-    label: "Orlando",
-    emoji: "\u2708\ufe0f",
-  },
-  {
-    origem: "POA",
-    slug: "poa-new-york",
-    label: "Nova York",
-    emoji: "\ud83d\uddfd",
-  },
-  {
-    origem: "POA",
-    slug: "poa-miami",
-    label: "Miami",
-    emoji: "\ud83c\udf34",
-  },
-  {
-    origem: "POA",
-    slug: "poa-los-angeles",
-    label: "Los Angeles",
-    emoji: "\ud83c\udfac",
-  },
-  {
-    origem: "POA",
-    slug: "poa-lisboa",
-    label: "Lisboa",
-    emoji: "\ud83c\uddf5\ud83c\uddf9",
-  },
-
-  {
-    origem: "GRU",
-    slug: "gru-orlando",
-    label: "Orlando",
-    emoji: "\u2708\ufe0f",
-  },
-  {
-    origem: "GRU",
-    slug: "gru-new-york",
-    label: "Nova York",
-    emoji: "\ud83d\uddfd",
-  },
-  {
-    origem: "GRU",
-    slug: "gru-miami",
-    label: "Miami",
-    emoji: "\ud83c\udf34",
-  },
-  {
-    origem: "GRU",
-    slug: "gru-los-angeles",
-    label: "Los Angeles",
-    emoji: "\ud83c\udfac",
-  },
-  {
-    origem: "GRU",
-    slug: "gru-lisboa",
-    label: "Lisboa",
-    emoji: "\ud83c\uddf5\ud83c\uddf9",
-  },
-  {
-    origem: "GRU",
-    slug: "gru-madrid",
-    label: "Madrid",
-    emoji: "\ud83c\uddea\ud83c\uddf8",
-  },
-
-  {
-    origem: "GIG",
-    slug: "gig-orlando",
-    label: "Orlando",
-    emoji: "\u2708\ufe0f",
-  },
-  {
-    origem: "GIG",
-    slug: "gig-new-york",
-    label: "Nova York",
-    emoji: "\ud83d\uddfd",
-  },
-  {
-    origem: "GIG",
-    slug: "gig-miami",
-    label: "Miami",
-    emoji: "\ud83c\udf34",
-  },
-  {
-    origem: "GIG",
-    slug: "gig-los-angeles",
-    label: "Los Angeles",
-    emoji: "\ud83c\udfac",
-  },
-  {
-    origem: "GIG",
-    slug: "gig-lisboa",
-    label: "Lisboa",
-    emoji: "\ud83c\uddf5\ud83c\uddf9",
-  },
-] as const;
-
-function rotuloFaixaRota(
-  faixa: string,
-  slug: string,
-  padrao: string
-) {
-  if (
-    faixa === "achado_absurdo" &&
-    (
-      slug === "poa-new-york" ||
-      slug === "poa-los-angeles"
-    )
-  ) {
-    return "Muito bom";
-  }
-
-  if (
-    faixa === "achado_absurdo" &&
-    slug === "poa-lisboa"
-  ) {
-    return "Achado";
-  }
-
-  if (
-    faixa === "preco_comum" &&
-    (
-      slug === "poa-new-york" ||
-      slug === "poa-los-angeles" ||
-      slug === "poa-lisboa"
-    )
-  ) {
-    return "Preço normal";
-  }
-
-  if (
-    faixa === "nao_promocao" &&
-    (
-      slug === "poa-new-york" ||
-      slug === "poa-los-angeles" ||
-      slug === "poa-lisboa"
-    )
-  ) {
-    return "Caro";
-  }
-
-  return padrao;
+function moeda(valor: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(valor);
 }
 
-function dinheiro(
-  valor: number
-) {
-  return new Intl.NumberFormat(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL",
-      maximumFractionDigits: 0,
-    }
-  ).format(valor);
+function dataCurta(valor: string | null) {
+  if (!valor) return null;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${valor}T12:00:00Z`));
 }
 
-function dataCurta(
-  valor: string
-) {
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      timeZone: "UTC",
-    }
-  ).format(
-    new Date(
-      `${valor}T12:00:00Z`
-    )
-  );
+function prioridadeClassificacao(classificacao: string) {
+  const texto = classificacao.toLowerCase();
+  if (texto.includes("absurdo")) return 5;
+  if (texto.includes("muito bom") || texto.includes("preço bom")) return 4;
+  if (texto.includes("interessante")) return 3;
+  if (texto.includes("comum")) return 2;
+  return 1;
 }
 
-function formatarAtualizacao(
-  valor: string | null
-) {
-  if (!valor) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone:
-        "America/Sao_Paulo",
-    }
-  ).format(
-    new Date(valor)
-  );
-}
-
-function estiloFaixa(
-  faixa: string
-) {
-  switch (faixa) {
-    case "achado_absurdo":
-      return "border-orange-200 bg-orange-50 text-orange-800";
-
-    case "preco_bom":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
-
-    case "interessante":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-
-    case "nao_promocao":
-      return "border-red-200 bg-red-50 text-red-700";
-
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
-  }
-}
-
-function leituraRadar(
-  faixa: string
-) {
-  switch (faixa) {
-    case "achado_absurdo":
-      return "Tarifa dentro da faixa mais rara do nosso Radar.";
-
-    case "preco_bom":
-      return "Valor dentro da faixa que consideramos boa para esta rota.";
-
-    case "interessante":
-      return "Pode ficar interessante conforme datas e flexibilidade.";
-
-    case "preco_comum":
-      return "Ainda acima da faixa que classificamos como promocional.";
-
-    case "nao_promocao":
-      return "Valor acima da régua que tratamos como oportunidade.";
-
-    default:
-      return "O Radar continua acompanhando esta rota.";
-  }
+function estiloClassificacao(classificacao: string) {
+  const texto = classificacao.toLowerCase();
+  if (texto.includes("absurdo")) return "border-emerald-300 bg-emerald-500 text-white";
+  if (texto.includes("muito bom") || texto.includes("preço bom")) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (texto.includes("interessante")) return "border-cyan-200 bg-cyan-50 text-cyan-800";
+  if (texto.includes("comum")) return "border-slate-200 bg-slate-100 text-slate-700";
+  return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
 export default function RadarPublico() {
-  const [
-    radarSlug,
-    setRadarSlug,
-  ] =
-    useState(
-      "poa-orlando"
-    );
+  const [origem, setOrigem] = useState("POA");
+  const [resultados, setResultados] = useState<Resultado[]>([]);
+  const [destinosEmColeta, setDestinosEmColeta] = useState<DestinoEmColeta[]>([]);
+  const [totalDestinos, setTotalDestinos] = useState(20);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
 
-  const [
-    dados,
-    setDados,
-  ] =
-    useState<DadosRadar | null>(
-      null
-    );
+  useEffect(() => {
+    let ativo = true;
 
-  const [
-    erro,
-    setErro,
-  ] =
-    useState<string | null>(
-      null
-    );
+    async function carregar() {
+      setCarregando(true);
+      setErro("");
 
-  useEffect(
-    () => {
-      let ativo = true;
+      try {
+        const params = new URLSearchParams({
+          origem,
+          orcamento: "999999",
+          viajantes: "1",
+        });
+        const resposta = await fetch(`/api/viagens/orcamento?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const dados = (await resposta.json()) as RespostaRadar;
 
-      setDados(null);
-      setErro(null);
-
-      async function carregar() {
-        try {
-          const resposta =
-            await fetch(
-              `/api/viagens/radar/destaque?slug=${encodeURIComponent(
-                radarSlug
-              )}`,
-              {
-                cache: "no-store",
-              }
-            );
-
-          const json =
-            await resposta.json();
-
-          if (
-            !resposta.ok ||
-            !json.sucesso
-          ) {
-            throw new Error(
-              json.erro ||
-              "Radar indisponivel."
-            );
-          }
-
-          if (!ativo) {
-            return;
-          }
-
-          setDados(
-            json as DadosRadar
-          );
+        if (!resposta.ok || !dados?.sucesso) {
+          throw new Error(dados?.erro || "Não foi possível consultar o Radar.");
         }
-        catch (erroCarregamento) {
 
-          if (!ativo) {
-            return;
-          }
+        if (!ativo) return;
 
-          setErro(
-            erroCarregamento instanceof Error
-              ? erroCarregamento.message
-              : "Nao foi possivel carregar o Radar."
-          );
-        }
+        const ordenados = [...(dados.resultados || [])].sort((a, b) => {
+          const prioridade = prioridadeClassificacao(b.classificacao) - prioridadeClassificacao(a.classificacao);
+          if (prioridade !== 0) return prioridade;
+          return a.precoPorPessoa - b.precoPorPessoa;
+        });
+
+        setResultados(ordenados);
+        setDestinosEmColeta(dados.destinosEmColeta || []);
+        setTotalDestinos(Number(dados.totalDestinosMonitorados || 20));
+      } catch (error) {
+        if (!ativo) return;
+        setErro(error instanceof Error ? error.message : "Radar indisponível.");
+      } finally {
+        if (ativo) setCarregando(false);
       }
+    }
 
-      carregar();
+    carregar();
 
-      return () => {
-        ativo = false;
-      };
-    },
-    [
-      radarSlug,
-    ]
+    return () => {
+      ativo = false;
+    };
+  }, [origem]);
+
+  const origemNome = useMemo(
+    () => ORIGENS.find((item) => item.codigo === origem)?.nome || origem,
+    [origem]
   );
 
-  const origemAtiva =
-    radarSlug.startsWith(
-      "gru-"
-    )
-      ? "GRU"
-      : radarSlug.startsWith(
-          "gig-"
-        )
-        ? "GIG"
-        : "POA";
-
-  const radaresVisiveis =
-    RADARES.filter(
-      (radar) =>
-        radar.origem ===
-        origemAtiva
-    );
-
-  function selecionarOrigem(
-    codigo: string
-  ) {
-    const primeiro =
-      RADARES.find(
-        (radar) =>
-          radar.origem ===
-          codigo
-      );
-
-    if (primeiro) {
-      setRadarSlug(
-        primeiro.slug
-      );
-    }
-  }
-
-  if (erro) {
-    return (
-      <section
-        id="radar-real"
-        className="mx-auto max-w-7xl px-5 py-10"
-      >
-        <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-          <p className="font-black text-slate-900">
-            ✈️ Radar de passagens
-          </p>
-
-          <p className="mt-2 text-sm text-slate-600">
-            O Radar está atualizando os dados. Tente novamente em alguns instantes.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  if (!dados) {
-    return (
-      <section
-        id="radar-real"
-        className="mx-auto max-w-7xl px-5 py-10"
-      >
-        <div className="animate-pulse rounded-3xl border border-slate-200 bg-white p-8">
-          <div className="h-6 w-48 rounded bg-slate-200" />
-          <div className="mt-5 h-12 w-72 rounded bg-slate-200" />
-          <div className="mt-5 h-32 rounded-2xl bg-slate-100" />
-        </div>
-      </section>
-    );
-  }
-
-  const melhor =
-    dados.melhor;
-
-  const metaAbsurdo =
-    dados.radar.regua
-      .achadoAbsurdoAte;
-
-  const distanciaAbsurdo =
-    melhor
-      ? Math.max(
-          0,
-          melhor.precoPorPessoa -
-            metaAbsurdo
-        )
-      : 0;
-
-  const percentualAcima =
-    melhor &&
-    metaAbsurdo > 0
-      ? (
-          distanciaAbsurdo /
-          metaAbsurdo
-        ) * 100
-      : 0;
-
-  const mostrarPrecoBom =
-    dados.radar.regua
-      .precoBomAte >
-    dados.radar.regua
-      .achadoAbsurdoAte;
-
-  const mostrarInteressante =
-    dados.radar.regua
-      .interessanteAte >
-    dados.radar.regua
-      .precoBomAte;
-
-  const limiteComumAberto =
-    dados.radar.regua
-      .precoComumAte >=
-    900000;
+  const topResultados = resultados.slice(0, 6);
+  const melhor = topResultados[0] || null;
 
   return (
-    <section
-      id="radar-real"
-      className="mx-auto max-w-7xl px-5 py-10"
-    >
-      <div className="mb-5 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
-          Saindo de
-        </p>
+    <section id="radar-real" className="border-y border-slate-200 bg-slate-50">
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:py-16 lg:py-20">
+        <div className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-900/10">
+          <div className="relative overflow-hidden px-5 py-8 text-white sm:px-8 lg:px-10 lg:py-10">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.22),transparent_30%),radial-gradient(circle_at_0%_100%,rgba(14,165,233,0.18),transparent_30%)]" />
 
-        <div className="flex flex-wrap gap-2">
-          {ORIGENS.map(
-            (origem) => (
-              <button
-                key={origem.codigo}
-                type="button"
-                onClick={() =>
-                  selecionarOrigem(
-                    origem.codigo
-                  )
-                }
-                className={
-                  "rounded-full border px-4 py-2 text-sm font-black transition " +
-                  (
-                    origemAtiva ===
-                    origem.codigo
-                      ? "border-slate-950 bg-slate-950 text-white shadow-sm"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:text-blue-700"
-                  )
-                }
-              >
-                {origem.label}
-              </button>
-            )
-          )}
-        </div>
-
-        <div className="my-4 border-t border-slate-100" />
-
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
-          Destino
-        </p>
-
-        <div className="flex flex-wrap gap-2">
-          {radaresVisiveis.map(
-            (radar) => (
-              <button
-                key={radar.slug}
-                type="button"
-                onClick={() =>
-                  setRadarSlug(
-                    radar.slug
-                  )
-                }
-                className={
-                  "rounded-full border px-4 py-2 text-sm font-black transition " +
-                  (
-                    radarSlug ===
-                    radar.slug
-                      ? "border-blue-700 bg-blue-700 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
-                  )
-                }
-              >
-                {radar.emoji}{" "}
-                {radar.label}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-xl shadow-slate-900/5">
-
-        <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-cyan-800 px-6 py-7 text-white sm:px-8">
-
-          <div className="flex flex-wrap items-center justify-between gap-5">
-
-            <div>
-              <div className="flex flex-wrap gap-2">
-
-                <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-cyan-100">
-                  🔴 Radar ativo
-                </span>
-
-                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
-                  {"Atualiza\u00e7\u00e3o autom\u00e1tica 4x/dia"}
-                </span>
-
-              </div>
-
-              <h2 className="mt-4 text-3xl font-black sm:text-4xl">
-                {dados.radar.nome}
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">
-                Preços reais monitorados pelo Achados do Casal para identificar quando esta rota realmente entra em promoção.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-center">
-                <p className="text-2xl font-black">
-                  {dados.observacoes}
-                </p>
-                <p className="text-xs font-bold text-blue-100">
-                  observações reais
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-2">
-
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-
-            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Melhor preço encontrado
-            </p>
-
-            {melhor ? (
-              <>
-                <div className="mt-2 flex flex-wrap items-end gap-2">
-
-                  <span className="text-5xl font-black tracking-tight text-slate-950">
-                    {dinheiro(
-                      melhor.precoPorPessoa
-                    )}
+            <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
+              <div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">
+                    Radar inteligente
                   </span>
-
-                  <span className="pb-1 text-sm font-bold text-slate-500">
-                    por pessoa
+                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">
+                    Atualização automática 4x/dia
                   </span>
-
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">
+                  Onde existe uma oportunidade
+                  <span className="block text-cyan-300">saindo da sua cidade agora?</span>
+                </h2>
 
-                  <span
-                    className={
-                      "inline-flex rounded-full border px-4 py-2 text-sm font-black " +
-                      estiloFaixa(
-                        melhor.faixa
-                      )
-                    }
+                <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
+                  O Radar acompanha preços reais, classifica cada rota pela própria régua e destaca primeiro o que merece atenção de verdade.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Origens</p>
+                  <p className="mt-1 text-2xl font-black">8</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Destinos</p>
+                  <p className="mt-1 text-2xl font-black text-cyan-300">{totalDestinos}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Com dados</p>
+                  <p className="mt-1 text-2xl font-black text-emerald-300">{resultados.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-8 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Saindo de</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ORIGENS.map((item) => (
+                  <button
+                    key={item.codigo}
+                    type="button"
+                    onClick={() => setOrigem(item.codigo)}
+                    className={`rounded-full border px-4 py-2.5 text-sm font-black transition ${
+                      origem === item.codigo
+                        ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20"
+                        : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10"
+                    }`}
                   >
-                    {melhor.emojiFaixa}{" "}
-                    {rotuloFaixaRota(melhor.faixa, radarSlug, melhor.tituloFaixa)}
-                  </span>
-
-                  {melhor.companhia && (
-                    <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-800">
-                      ✈️ {melhor.companhia}
-                    </span>
-                  )}
-
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold uppercase text-slate-400">
-                      Ida
-                    </p>
-                    <p className="mt-1 font-black text-slate-900">
-                      {dataCurta(
-                        melhor.ida
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold uppercase text-slate-400">
-                      Volta
-                    </p>
-                    <p className="mt-1 font-black text-slate-900">
-                      {dataCurta(
-                        melhor.volta
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold uppercase text-slate-400">
-                      Permanência
-                    </p>
-                    <p className="mt-1 font-black text-slate-900">
-                      {melhor.permanenciaDias} dias
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-bold uppercase text-slate-400">
-                      Atualizado
-                    </p>
-                    <p className="mt-1 font-black text-slate-900">
-                      {formatarAtualizacao(
-                        dados.ultimaAtualizacao
-                      )}
-                    </p>
-                  </div>
-
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-
-                  <p className="text-xs font-black uppercase tracking-wider text-blue-700">
-                    Leitura do Radar
-                  </p>
-
-                  <p className="mt-2 font-black text-slate-950">
-                    {leituraRadar(
-                      melhor.faixa
-                    )}
-                  </p>
-
-                  {distanciaAbsurdo > 0 && (
-                    <p className="mt-2 text-sm font-semibold text-slate-600">
-                      Hoje faltam{" "}
-                      <strong className="text-slate-900">
-                        {dinheiro(
-                          distanciaAbsurdo
-                        )}
-                      </strong>{" "}
-                      para entrar na faixa
-                      🔥 {rotuloFaixaRota(
-                        "achado_absurdo",
-                        radarSlug,
-                        "Achado Absurdo"
-                      )}
-                      {" "}
-                      (
-                      {percentualAcima.toFixed(
-                        0
-                      )}
-                      % acima do gatilho).
-                    </p>
-                  )}
-
-                </div>
-
-              </>
-            ) : (
-              <p className="mt-4 text-slate-600">
-                O Radar ainda está construindo o histórico desta rota.
-              </p>
-            )}
-
+                    {item.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6">
-
-            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Régua de preço {dados.radar.origem} → {dados.radar.destino}
-            </p>
-
-            <h3 className="mt-2 text-2xl font-black text-slate-950">
-              Quando consideramos promoção?
-            </h3>
-
-            <div className="mt-5 space-y-3">
-
-              <div className="flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                <div>
-                  <p className="font-black text-orange-900">
-                    🔥 {rotuloFaixaRota(
-                      "achado_absurdo",
-                      radarSlug,
-                      "Achado absurdo"
-                    )}
-                  </p>
-                  <p className="text-xs text-orange-700">
-                    Valor que merece atenção imediata
-                  </p>
-                </div>
-                <strong className="text-orange-900">
-                  até{" "}
-                  {dinheiro(
-                    dados.radar.regua
-                      .achadoAbsurdoAte
-                  )}
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  display:
-                    mostrarPrecoBom
-                      ? undefined
-                      : "none",
-                }}
-                className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
-              >
-                <div>
-                  <p className="font-black text-emerald-900">
-                    🟢 Preço bom
-                  </p>
-                </div>
-                <strong className="text-emerald-900">
-                  até{" "}
-                  {dinheiro(
-                    dados.radar.regua
-                      .precoBomAte
-                  )}
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  display:
-                    mostrarInteressante
-                      ? undefined
-                      : "none",
-                }}
-                className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 p-4"
-              >
-                <div>
-                  <p className="font-black text-amber-900">
-                    🟡 Interessante
-                  </p>
-                </div>
-                <strong className="text-amber-900">
-                  até{" "}
-                  {dinheiro(
-                    dados.radar.regua
-                      .interessanteAte
-                  )}
-                </strong>
-              </div>
-
-              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div>
-                  <p className="font-black text-slate-800">
-                    ⚪ {rotuloFaixaRota(
-                      "preco_comum",
-                      radarSlug,
-                      "Preço comum"
-                    )}
-                  </p>
-                </div>
-                <strong className="text-slate-800">
-{limiteComumAberto ? (
-                    <>
-                      acima de{" "}
-                      {dinheiro(
-                        dados.radar.regua
-                          .interessanteAte
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      até{" "}
-                      {dinheiro(
-                        dados.radar.regua
-                          .precoComumAte
-                      )}
-                    </>
-                  )}
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  display:
-                    limiteComumAberto
-                      ? "none"
-                      : undefined,
-                }}
-                className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4"
-              >
-                <p className="font-black text-red-800">
-                  ❌ {rotuloFaixaRota(
-                    "nao_promocao",
-                    radarSlug,
-                    "Não é promoção"
-                  )}
+          <div className="bg-white p-5 sm:p-7 lg:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Top oportunidades agora</p>
+                <h3 className="mt-2 text-3xl font-black text-slate-950">Saindo de {origemNome}</h3>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Promoções primeiro; dentro da mesma faixa, menor preço primeiro.
                 </p>
-                <strong className="text-red-800">
-                  acima de{" "}
-                  {dinheiro(
-                    dados.radar.regua
-                      .precoComumAte
-                  )}
-                </strong>
               </div>
 
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="border-t border-slate-100 px-6 py-7 sm:px-8">
-
-          <div className="flex flex-wrap items-end justify-between gap-3">
-
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-blue-700">
-                Flexibilidade faz diferença
-              </p>
-
-              <h3 className="mt-1 text-2xl font-black text-slate-950">
-                5 melhores datas encontradas
-              </h3>
-            </div>
-
-            <p className="text-xs font-semibold text-slate-500">
-              Quanto mais flexível, maior a chance de economizar.
-            </p>
-
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-
-            {dados.melhores.map(
-              (
-                oferta,
-                indice
-              ) => (
-                <div
-                  key={
-                    `${oferta.ida}-${oferta.volta}`
-                  }
-                  className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-300 hover:shadow-md"
-                >
-
-                  <div className="flex items-center justify-between gap-3">
-
-                    <span
-                      className="flex shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white"
-                      style={{
-                        width: 30,
-                        height: 30,
-                        minWidth: 30,
-                      }}
-                    >
-                      {indice + 1}
-                    </span>
-
-                    <span
-                      className={
-                        "rounded-full border px-3 py-1 text-xs font-black " +
-                        estiloFaixa(
-                          oferta.faixa
-                        )
-                      }
-                    >
-                      {oferta.emojiFaixa}{" "}
-                      {rotuloFaixaRota(oferta.faixa, radarSlug, oferta.tituloFaixa)}
-                    </span>
-
-                  </div>
-
-                  <p className="mt-4 font-black text-slate-950">
-                    {dataCurta(
-                      oferta.ida
-                    )}
-                    {" → "}
-                    {dataCurta(
-                      oferta.volta
-                    )}
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
-                    {oferta.permanenciaDias} dias
-                    {oferta.companhia
-                      ? ` • ${oferta.companhia}`
-                      : ""}
-                  </p>
-
-                  <p className="mt-4 text-2xl font-black text-slate-950">
-                    {dinheiro(
-                      oferta.precoPorPessoa
-                    )}
-                  </p>
-
-                  <p className="text-xs font-semibold text-slate-500">
-                    por pessoa
-                  </p>
-
+              {melhor ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right">
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Melhor leitura do Radar</p>
+                  <p className="mt-1 text-xl font-black text-emerald-950">{melhor.destino}</p>
                 </div>
-              )
+              ) : null}
+            </div>
+
+            {carregando ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-64 animate-pulse rounded-3xl bg-slate-100" />
+                ))}
+              </div>
+            ) : erro ? (
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 font-bold text-red-700">
+                {erro}
+              </div>
+            ) : topResultados.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6">
+                <p className="font-black text-amber-950">Esta origem já está cadastrada no Radar.</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
+                  Os 20 destinos estão recebendo as primeiras coletas reais. Assim que a primeira tarifa chegar, as oportunidades aparecem aqui automaticamente.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {topResultados.map((item, index) => {
+                  const ida = dataCurta(item.ida);
+                  const volta = dataCurta(item.volta);
+
+                  return (
+                    <article
+                      key={item.radarId}
+                      className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl"
+                    >
+                      {index === 0 ? (
+                        <span className="absolute right-0 top-0 rounded-bl-2xl bg-slate-950 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white">
+                          Destaque do Radar
+                        </span>
+                      ) : null}
+
+                      <div className="flex items-start justify-between gap-3 pr-20">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{origem} → {item.destinoCodigo}</p>
+                          <h4 className="mt-1 text-2xl font-black text-slate-950">{item.destino}</h4>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Melhor tarifa recente</p>
+                          <p className="mt-1 text-3xl font-black text-slate-950">{moeda(item.precoPorPessoa)}</p>
+                          <p className="text-xs font-bold text-slate-400">por pessoa</p>
+                        </div>
+                        <span className={`rounded-full border px-3 py-2 text-xs font-black ${estiloClassificacao(item.classificacao)}`}>
+                          {item.classificacao}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 gap-2 text-sm font-bold text-slate-600">
+                        {ida && volta ? (
+                          <div className="rounded-2xl bg-slate-50 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Datas</p>
+                            <p className="mt-1">{ida} → {volta}</p>
+                          </div>
+                        ) : null}
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Permanência</p>
+                          <p className="mt-1">{item.permanenciaDias ? `${item.permanenciaDias} dias` : "Flexível"}</p>
+                        </div>
+                      </div>
+
+                      {item.ciaAerea ? (
+                        <p className="mt-4 text-sm font-bold text-slate-500">Companhia: <span className="text-slate-800">{item.ciaAerea}</span></p>
+                      ) : null}
+
+                      <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
+                        {item.link ? (
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
+                          >
+                            Ver passagem
+                          </a>
+                        ) : null}
+                        <a
+                          href="#viajar-com-orcamento"
+                          className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-100"
+                        >
+                          Simular orçamento
+                        </a>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             )}
 
+            {destinosEmColeta.length > 0 ? (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-black text-slate-800">Ainda recebendo a primeira tarifa real</p>
+                  <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-500">{destinosEmColeta.length} destinos</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {destinosEmColeta.map((destino) => (
+                    <span key={destino.codigo} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+                      {destino.nome}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-5 py-4 text-xs leading-5 text-slate-500">
-
-            <p>
-              Os valores são observações reais e podem mudar conforme disponibilidade e tarifa.
-            </p>
-
-            <p className="font-bold text-slate-700">
-              🤖 Visitar esta página não gera uma nova consulta externa.
-            </p>
-
-          </div>
-
         </div>
-
       </div>
     </section>
   );
