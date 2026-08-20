@@ -6,6 +6,17 @@ export const dynamic = "force-dynamic";
 
 const GRUPO_VIAGENS = "https://chat.whatsapp.com/LaeDJXjVTnhIpRf8FfR8Xx";
 
+const ORIGENS_MONITORADAS = [
+  "Porto Alegre",
+  "São Paulo",
+  "Rio de Janeiro",
+  "Florianópolis",
+  "Brasília",
+  "Belo Horizonte",
+  "Salvador",
+  "Recife",
+];
+
 export default function ViagensPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -98,23 +109,34 @@ export default function ViagensPage() {
           </div>
 
           <div className="rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur sm:p-7">
-            <p className="text-sm font-black uppercase tracking-widest text-cyan-200">
-              Nosso radar de oportunidades
-            </p>
-            <h2 className="mt-3 text-3xl font-black">
-              O robô procura.
-              <br />
-              A gente ajuda você a decidir.
-            </h2>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-black uppercase tracking-widest text-cyan-200">
+                  Nosso radar de oportunidades
+                </p>
+                <h2 className="mt-3 text-3xl font-black">
+                  O robô procura.
+                  <br />
+                  A gente ajuda você a decidir.
+                </h2>
+              </div>
+              <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-xs font-black text-cyan-100">
+                8 origens · 160 rotas
+              </span>
+            </div>
 
-            <div className="mt-7 grid gap-3">
-              {["Porto Alegre", "São Paulo", "Rio de Janeiro"].map((origem) => (
-                <div key={origem} className="rounded-2xl bg-white/10 p-4">
-                  <strong>📍 {origem}</strong>
-                  <p className="mt-1 text-sm text-sky-100">
-                    Monitoramento de rotas e oportunidades saindo desta origem.
-                  </p>
-                </div>
+            <p className="mt-5 text-sm leading-6 text-sky-100">
+              Já monitoramos 20 destinos turísticos por origem. Novas rotas entram no ranking assim que recebem a primeira tarifa real.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {ORIGENS_MONITORADAS.map((origem) => (
+                <span
+                  key={origem}
+                  className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white"
+                >
+                  📍 {origem}
+                </span>
               ))}
             </div>
           </div>
