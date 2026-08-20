@@ -103,13 +103,14 @@ export default function PainelMlV2() {
   const [executando, setExecutando] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [atualizandoComissoes, setAtualizandoComissoes] = useState(false);
+  const [descartandoLote, setDescartandoLote] = useState(false);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [resultado, setResultado] = useState<ResultadoMlV2 | null>(null);
-  const [resultadoComissoes, setResultadoComissoes] =
-    useState<ResultadoComissoes | null>(null);
-  const [progressoComissoes, setProgressoComissoes] =
-    useState<ProgressoComissoes | null>(null);
+  const [resultadoComissoes, setResultadoComissoes] = useState<ResultadoComissoes | null>(null);
+  const [progressoComissoes, setProgressoComissoes] = useState<ProgressoComissoes | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatoMlV2[]>([]);
   const [erro, setErro] = useState("");
+  const [mensagemLote, setMensagemLote] = useState("");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function carregarCandidatos() {
@@ -128,12 +129,17 @@ export default function PainelMlV2() {
       };
 
       if (!resposta.ok || !dados.sucesso) {
-        throw new Error(
-          dados.erro || "Não foi possível carregar os candidatos ML V2."
-        );
+        throw new Error(dados.erro || "Não foi possível carregar os candidatos ML V2.");
       }
 
       setCandidatos(dados.candidatos || []);
+      setSelecionados((atuais) =>
+        atuais.filter((id) =>
+          (dados.candidatos || []).some(
+            (item) => item.candidato_id === id && item.status !== "publicado" && item.status !== "descartado"
+          )
+        )
+      );
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro inesperado.");
     } finally {
@@ -182,9 +188,7 @@ export default function PainelMlV2() {
       );
       const dados = (await resposta.json()) as ProgressoComissoes;
 
-      if (resposta.ok && dados.sucesso) {
-        setProgressoComissoes(dados);
-      }
+      if (resposta.ok && dados.sucesso) setProgressoComissoes(dados);
     } catch {
       // O POST principal continua sendo a fonte de verdade.
     }
@@ -209,18 +213,12 @@ export default function PainelMlV2() {
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/comissoes/executar",
-        {
-          method: "POST",
-          cache: "no-store",
-          credentials: "include",
-        }
+        { method: "POST", cache: "no-store", credentials: "include" }
       );
       const dados = (await resposta.json()) as ResultadoComissoes;
 
       if (!resposta.ok || !dados.sucesso) {
-        throw new Error(
-          dados.erro || "Não foi possível verificar as comissões do ML V2."
-        );
+        throw new Error(dados.erro || "Não foi possível verificar as comissões do ML V2.");
       }
 
       setResultadoComissoes(dados);
@@ -237,22 +235,77 @@ export default function PainelMlV2() {
       }));
       await carregarCandidatos();
     } catch (error) {
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Erro inesperado ao verificar comissões."
-      );
-      setProgressoComissoes((atual) => ({
-        ...(atual || {}),
-        sucesso: false,
-        status: "erro",
-      }));
+      setErro(error instanceof Error ? error.message : "Erro inesperado ao verificar comissões.");
+      setProgressoComissoes((atual) => ({ ...(atual || {}), sucesso: false, status: "erro" }));
     } finally {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
       }
       setAtualizandoComissoes(false);
+    }
+  }
+
+  function alternarSelecionado(id: string) {
+    setMensagemLote("");
+    setSelecionados((atuais) =>
+      atuais.includes(id) ? atuais.filter((item) => item !== id) : [...atuais, id]
+    );
+  }
+
+  const selecionaveis = candidatos
+    .filter((item) => Boolean(item.candidato_id) && item.status !== "publicado" && item.status !== "descartado")
+    .map((item) => item.candidato_id as string);
+
+  const todosSelecionados =
+    selecionaveis.length > 0 && selecionaveis.every((id) => selecionados.includes(id));
+
+  function alternarTodos() {
+    setMensagemLote("");
+    setSelecionados(todosSelecionados ? [] : selecionaveis);
+  }
+
+  async function descartarSelecionados() {
+    if (selecionados.length === 0 || descartandoLote) return;
+
+    const confirmar = window.confirm(
+      `Descartar ${selecionados.length} candidato${selecionados.length === 1 ? "" : "s"} selecionado${selecionados.length === 1 ? "" : "s"}?`
+    );
+    if (!confirmar) return;
+
+    try {
+      setDescartandoLote(true);
+      setErro("");
+      setMensagemLote("");
+
+      const resposta = await fetch(
+        "/api/admin/economize/cupons/ml-v2/candidatos/lote",
+        {
+          method: "PATCH",
+          cache: "no-store",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ids: selecionados, acao: "descartar" }),
+        }
+      );
+      const dados = (await resposta.json()) as {
+        sucesso?: boolean;
+        erro?: string;
+        descartados?: number;
+        mensagem?: string;
+      };
+
+      if (!resposta.ok || !dados.sucesso) {
+        throw new Error(dados.erro || "Não foi possível descartar os selecionados.");
+      }
+
+      setMensagemLote(dados.mensagem || `${dados.descartados || 0} candidatos descartados.`);
+      setSelecionados([]);
+      await carregarCandidatos();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao descartar em lote.");
+    } finally {
+      setDescartandoLote(false);
     }
   }
 
@@ -269,271 +322,84 @@ export default function PainelMlV2() {
     <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-wider text-blue-600">
-            Mercado Livre V2
-          </p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">
-            Candidatos oficiais de cupom
-          </h2>
+          <p className="text-sm font-black uppercase tracking-wider text-blue-600">Mercado Livre V2</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Candidatos oficiais de cupom</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            Os candidatos abaixo vêm do banco, já com o ID persistido. Os atalhos de
-            produto abrem diretamente os itens participantes. A comissão estimada é
-            lida da barra de Afiliados do Mercado Livre no primeiro item participante,
-            para você identificar rapidamente os itens com 0% antes de aprovar.
+            Os candidatos abaixo vêm do banco, já com o ID persistido. Os atalhos de produto abrem diretamente os itens participantes. A comissão estimada é lida da barra de Afiliados do Mercado Livre no primeiro item participante, para você identificar rapidamente os itens com 0% antes de aprovar.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={carregarCandidatos}
-            disabled={carregando || executando || atualizandoComissoes}
-            className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Atualizar lista
-          </button>
-          <button
-            type="button"
-            onClick={atualizarComissoes}
-            disabled={carregando || executando || atualizandoComissoes}
-            className="cursor-pointer rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-black text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {atualizandoComissoes
-              ? "Verificando comissões..."
-              : "Atualizar comissões"}
-          </button>
-          <button
-            type="button"
-            onClick={executar}
-            disabled={executando || atualizandoComissoes}
-            className="cursor-pointer rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {executando ? "Executando ML V2..." : "Executar coleta ML V2"}
-          </button>
+          <button type="button" onClick={carregarCandidatos} disabled={carregando || executando || atualizandoComissoes || descartandoLote} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Atualizar lista</button>
+          <button type="button" onClick={atualizarComissoes} disabled={carregando || executando || atualizandoComissoes || descartandoLote} className="cursor-pointer rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-black text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">{atualizandoComissoes ? "Verificando comissões..." : "Atualizar comissões"}</button>
+          <button type="button" onClick={executar} disabled={executando || atualizandoComissoes || descartandoLote} className="cursor-pointer rounded-xl bg-blue-600 px-5 py-3 font-black text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">{executando ? "Executando ML V2..." : "Executar coleta ML V2"}</button>
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-blue-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-            Publicação automática
-          </p>
-          <p className="mt-2 font-black text-slate-950">🔒 Bloqueada</p>
-        </div>
-        <div className="rounded-2xl bg-emerald-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-            Link de afiliado
-          </p>
-          <p className="mt-2 font-black text-slate-950">
-            ✅ Obrigatório antes de publicar
-          </p>
-        </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-600">
-            Candidatos carregados
-          </p>
-          <p className="mt-2 text-3xl font-black text-slate-950">
-            {candidatos.length}
-          </p>
-        </div>
+        <div className="rounded-2xl bg-blue-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-blue-700">Publicação automática</p><p className="mt-2 font-black text-slate-950">🔒 Bloqueada</p></div>
+        <div className="rounded-2xl bg-emerald-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">Link de afiliado</p><p className="mt-2 font-black text-slate-950">✅ Obrigatório antes de publicar</p></div>
+        <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-600">Candidatos carregados</p><p className="mt-2 text-3xl font-black text-slate-950">{candidatos.length}</p></div>
       </div>
 
       {(atualizandoComissoes || progressoComissoes?.status === "concluido" || progressoComissoes?.status === "erro") && (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black text-amber-950">
-            <span>{rotuloProgresso(progressoComissoes?.status)}</span>
-            <span>
-              {processadosProgresso}/{totalProgresso || "?"} · {porcentagemProgresso}%
-            </span>
-          </div>
-          <div className="mt-3 h-3 overflow-hidden rounded-full bg-amber-100">
-            <div
-              className="h-full rounded-full bg-amber-500 transition-all duration-500"
-              style={{ width: `${porcentagemProgresso}%` }}
-            />
-          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black text-amber-950"><span>{rotuloProgresso(progressoComissoes?.status)}</span><span>{processadosProgresso}/{totalProgresso || "?"} · {porcentagemProgresso}%</span></div>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-amber-500 transition-all duration-500" style={{ width: `${porcentagemProgresso}%` }} /></div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-amber-900/80">
-            <span>Com comissão: {progressoComissoes?.com_comissao ?? 0}</span>
-            <span>0%: {progressoComissoes?.comissao_zero ?? 0}</span>
-            <span>Não identificados: {progressoComissoes?.nao_identificados ?? 0}</span>
-            <span>Erros: {progressoComissoes?.erros ?? 0}</span>
-            {progressoComissoes?.ultimo_item && (
-              <span>Último: {progressoComissoes.ultimo_item}</span>
-            )}
+            <span>Com comissão: {progressoComissoes?.com_comissao ?? 0}</span><span>0%: {progressoComissoes?.comissao_zero ?? 0}</span><span>Não identificados: {progressoComissoes?.nao_identificados ?? 0}</span><span>Erros: {progressoComissoes?.erros ?? 0}</span>{progressoComissoes?.ultimo_item && <span>Último: {progressoComissoes.ultimo_item}</span>}
           </div>
         </div>
       )}
 
-      {resultado && (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
-          Coleta concluída: {resultado.total_encontrados ?? 0} candidatos em{" "}
-          {resultado.total_paginas_lidas ?? 0} páginas.
-        </div>
-      )}
+      {resultado && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">Coleta concluída: {resultado.total_encontrados ?? 0} candidatos em {resultado.total_paginas_lidas ?? 0} páginas.</div>}
+      {resultadoComissoes && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">Comissões verificadas: {resultadoComissoes.total_consultados ?? 0} itens — {resultadoComissoes.com_comissao ?? 0} com comissão, {resultadoComissoes.comissao_zero ?? 0} com 0% e {resultadoComissoes.nao_identificados ?? 0} não identificados.</div>}
+      {mensagemLote && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{mensagemLote}</div>}
+      {erro && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-700">{erro}</div>}
 
-      {resultadoComissoes && (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">
-          Comissões verificadas: {resultadoComissoes.total_consultados ?? 0} itens —{" "}
-          {resultadoComissoes.com_comissao ?? 0} com comissão, {" "}
-          {resultadoComissoes.comissao_zero ?? 0} com 0% e {" "}
-          {resultadoComissoes.nao_identificados ?? 0} não identificados.
-        </div>
-      )}
-
-      {erro && (
-        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-700">
-          {erro}
+      {!carregando && candidatos.length > 0 && (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-slate-700">
+              <input type="checkbox" checked={todosSelecionados} onChange={alternarTodos} className="h-4 w-4" /> Selecionar todos disponíveis
+            </label>
+            <span className="text-sm font-bold text-slate-500">{selecionados.length} selecionado{selecionados.length === 1 ? "" : "s"}</span>
+          </div>
+          <button type="button" onClick={descartarSelecionados} disabled={selecionados.length === 0 || descartandoLote} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40">{descartandoLote ? "Descartando..." : `Descartar selecionados (${selecionados.length})`}</button>
         </div>
       )}
 
       {carregando ? (
         <p className="mt-5 font-bold text-slate-500">Carregando candidatos...</p>
       ) : candidatos.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600">
-          Nenhum candidato ML V2 encontrado no banco.
-        </p>
+        <p className="mt-5 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600">Nenhum candidato ML V2 encontrado no banco.</p>
       ) : (
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="px-4 py-3 font-black">Candidato</th>
-                <th className="px-4 py-3 font-black">Desconto</th>
-                <th className="px-4 py-3 font-black">Compra mínima</th>
-                <th className="px-4 py-3 font-black">Escopo</th>
-                <th className="px-4 py-3 font-black">Produtos</th>
-                <th className="px-4 py-3 font-black">Comissão estimada</th>
-                <th className="px-4 py-3 font-black">Status</th>
-                <th className="px-4 py-3 font-black">Validação</th>
-                <th className="px-4 py-3 font-black">Validade</th>
-              </tr>
-            </thead>
+            <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-3 font-black">✓</th><th className="px-4 py-3 font-black">Candidato</th><th className="px-4 py-3 font-black">Desconto</th><th className="px-4 py-3 font-black">Compra mínima</th><th className="px-4 py-3 font-black">Escopo</th><th className="px-4 py-3 font-black">Produtos</th><th className="px-4 py-3 font-black">Comissão estimada</th><th className="px-4 py-3 font-black">Status</th><th className="px-4 py-3 font-black">Validação</th><th className="px-4 py-3 font-black">Validade</th></tr></thead>
             <tbody>
               {candidatos.map((cupom) => {
                 const candidatoId = cupom.candidato_id || "";
-                const podeAlterar =
-                  Boolean(candidatoId) && cupom.status !== "publicado";
-                const podeAprovar =
-                  podeAlterar && cupom.status !== "aprovado";
+                const podeAlterar = Boolean(candidatoId) && cupom.status !== "publicado";
+                const podeSelecionar = podeAlterar && cupom.status !== "descartado";
+                const podeAprovar = podeAlterar && cupom.status !== "aprovado";
                 const produtos = cupom.produtos || [];
                 const action = `/api/admin/economize/cupons/ml-v2/candidatos/${candidatoId}`;
                 const comissao = cupom.comissao_estimada_percentual;
-                const comissaoConhecida =
-                  typeof comissao === "number" && Number.isFinite(comissao);
+                const comissaoConhecida = typeof comissao === "number" && Number.isFinite(comissao);
 
                 return (
-                  <tr
-                    key={
-                      candidatoId || cupom.campanha_id || cupom.titulo || "cupom"
-                    }
-                    className="border-t border-slate-100 align-top"
-                  >
-                    <td className="px-4 py-3 font-bold text-slate-900">
-                      {cupom.titulo || cupom.campanha_id || "Cupom oficial"}
-                      <p className="mt-1 text-xs font-normal text-slate-400">
-                        Campanha {cupom.campanha_id || "—"}
-                      </p>
-                    </td>
+                  <tr key={candidatoId || cupom.campanha_id || cupom.titulo || "cupom"} className={`border-t border-slate-100 align-top ${selecionados.includes(candidatoId) ? "bg-red-50/40" : ""}`}>
+                    <td className="px-3 py-3"><input type="checkbox" aria-label={`Selecionar ${cupom.titulo || cupom.campanha_id || "candidato"}`} checked={selecionados.includes(candidatoId)} disabled={!podeSelecionar} onChange={() => alternarSelecionado(candidatoId)} className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30" /></td>
+                    <td className="px-4 py-3 font-bold text-slate-900">{cupom.titulo || cupom.campanha_id || "Cupom oficial"}<p className="mt-1 text-xs font-normal text-slate-400">Campanha {cupom.campanha_id || "—"}</p></td>
                     <td className="px-4 py-3">{moeda(cupom.valor_desconto)}</td>
                     <td className="px-4 py-3">{moeda(cupom.compra_minima)}</td>
                     <td className="px-4 py-3">{rotuloEscopo(cupom.escopo)}</td>
-                    <td className="px-4 py-3">
-                      {produtos.length > 0 ? (
-                        <div className="flex min-w-52 flex-wrap gap-2">
-                          {produtos.slice(0, 4).map((produto, indice) =>
-                            produto.url ? (
-                              <a
-                                key={`${produto.item_id}-${indice}`}
-                                href={produto.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={produto.nome || produto.item_id}
-                                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100"
-                              >
-                                Produto {indice + 1}
-                              </a>
-                            ) : null
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500">
-                          Sem item específico
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {comissaoConhecida ? (
-                        <div className="min-w-32">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                              comissao === 0
-                                ? "bg-red-100 text-red-700"
-                                : "bg-emerald-100 text-emerald-700"
-                            }`}
-                          >
-                            {percentual(comissao)}%
-                          </span>
-                          <p
-                            className={`mt-1 text-xs font-bold ${
-                              comissao === 0 ? "text-red-600" : "text-slate-500"
-                            }`}
-                          >
-                            {comissao === 0
-                              ? "Sem comissão — descartar"
-                              : "Estimativa pelo Produto 1"}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="min-w-32">
-                          <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                            Não verificada
-                          </span>
-                          <p className="mt-1 text-xs text-slate-400">
-                            Use Atualizar comissões
-                          </p>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-bold">
-                      {rotuloStatus(cupom.status)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex min-w-48 flex-wrap gap-2">
-                        <form method="post" action={action}>
-                          <input type="hidden" name="acao" value="aprovar" />
-                          <button
-                            type="submit"
-                            disabled={!podeAprovar}
-                            className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}
-                          </button>
-                        </form>
-                        <form method="post" action={action}>
-                          <input type="hidden" name="acao" value="rejeitar" />
-                          <button
-                            type="submit"
-                            disabled={!podeAlterar}
-                            className="cursor-pointer rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Descartar
-                          </button>
-                        </form>
-                        {cupom.status === "aprovado" && candidatoId && (
-                          <a
-                            href={`#afiliado-${candidatoId}`}
-                            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 shadow-sm transition hover:bg-emerald-100 active:scale-95"
-                          >
-                            🔗 Vincular afiliado
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {cupom.validade
-                        ? new Date(cupom.validade).toLocaleString("pt-BR")
-                        : "—"}
-                    </td>
+                    <td className="px-4 py-3">{produtos.length > 0 ? <div className="flex min-w-52 flex-wrap gap-2">{produtos.slice(0, 4).map((produto, indice) => produto.url ? <a key={`${produto.item_id}-${indice}`} href={produto.url} target="_blank" rel="noreferrer" title={produto.nome || produto.item_id} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100">Produto {indice + 1}</a> : null)}</div> : <span className="text-xs text-slate-500">Sem item específico</span>}</td>
+                    <td className="px-4 py-3">{comissaoConhecida ? <div className="min-w-32"><span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${comissao === 0 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>{percentual(comissao)}%</span><p className={`mt-1 text-xs font-bold ${comissao === 0 ? "text-red-600" : "text-slate-500"}`}>{comissao === 0 ? "Sem comissão — descartar" : "Estimativa pelo Produto 1"}</p></div> : <div className="min-w-32"><span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">Não verificada</span><p className="mt-1 text-xs text-slate-400">Use Atualizar comissões</p></div>}</td>
+                    <td className="px-4 py-3 font-bold">{rotuloStatus(cupom.status)}</td>
+                    <td className="px-4 py-3"><div className="flex min-w-48 flex-wrap gap-2"><form method="post" action={action}><input type="hidden" name="acao" value="aprovar" /><button type="submit" disabled={!podeAprovar} className="cursor-pointer rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">{cupom.status === "aprovado" ? "Aprovado" : "Aprovar"}</button></form><form method="post" action={action}><input type="hidden" name="acao" value="rejeitar" /><button type="submit" disabled={!podeAlterar} className="cursor-pointer rounded-lg bg-slate-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">Descartar</button></form>{cupom.status === "aprovado" && candidatoId && <a href={`#afiliado-${candidatoId}`} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 shadow-sm transition hover:bg-emerald-100 active:scale-95">🔗 Vincular afiliado</a>}</div></td>
+                    <td className="px-4 py-3">{cupom.validade ? new Date(cupom.validade).toLocaleString("pt-BR") : "—"}</td>
                   </tr>
                 );
               })}
