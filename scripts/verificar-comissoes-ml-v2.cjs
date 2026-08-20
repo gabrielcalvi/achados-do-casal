@@ -10,10 +10,48 @@ const RESULT_PATH =
   process.env.ML_V2_COMISSOES_RESULT_PATH?.trim() ||
   path.join(process.cwd(), "tmp", "ml-v2-comissoes.json");
 
+const PROGRESS_PATH =
+  process.env.ML_V2_COMISSOES_PROGRESS_PATH?.trim() ||
+  path.join(process.cwd(), "tmp", "ml-v2-comissoes-progresso.json");
+
+const EXECUTION_ID =
+  process.env.ML_V2_COMISSOES_EXECUTION_ID?.trim() ||
+  `exec-${Date.now()}`;
+
 const CONCORRENCIA = Math.max(
   1,
   Math.min(4, Number(process.env.ML_V2_COMISSOES_CONCURRENCY || 3) || 3)
 );
+
+let estadoProgresso = {
+  sucesso: true,
+  execucao_id: EXECUTION_ID,
+  status: "preparando",
+  total: 0,
+  processados: 0,
+  com_comissao: 0,
+  comissao_zero: 0,
+  nao_identificados: 0,
+  erros: 0,
+  ultimo_item: null,
+  erro: null,
+  atualizado_em: new Date().toISOString(),
+};
+
+function salvarProgresso(atualizacao = {}) {
+  estadoProgresso = {
+    ...estadoProgresso,
+    ...atualizacao,
+    atualizado_em: new Date().toISOString(),
+  };
+
+  fs.mkdirSync(path.dirname(PROGRESS_PATH), { recursive: true });
+  fs.writeFileSync(
+    PROGRESS_PATH,
+    JSON.stringify(estadoProgresso, null, 2),
+    "utf8"
+  );
+}
 
 function normalizarItemId(valor) {
   const itemId = String(valor || "").trim().toUpperCase();
@@ -90,6 +128,8 @@ async function verificarItem(context, itemId) {
 }
 
 (async () => {
+  salvarProgresso({ status: "validando_sessao" });
+
   if (!fs.existsSync(AUTH_FILE)) {
     throw new Error(`Sessao afiliada nao encontrada: ${AUTH_FILE}`);
   }
@@ -109,6 +149,12 @@ async function verificarItem(context, itemId) {
         .filter(Boolean)
     ),
   ];
+
+  salvarProgresso({
+    status: itemIds.length > 0 ? "iniciando_navegador" : "concluido",
+    total: itemIds.length,
+    processados: 0,
+  });
 
   if (itemIds.length === 0) {
     fs.mkdirSync(path.dirname(RESULT_PATH), { recursive: true });
@@ -130,6 +176,9 @@ async function verificarItem(context, itemId) {
   try {
     const resultados = new Array(itemIds.length);
     let indice = 0;
+    let processados = 0;
+
+    salvarProgresso({ status: "verificando" });
 
     async function consumidor() {
       while (true) {
@@ -138,7 +187,32 @@ async function verificarItem(context, itemId) {
 
         if (atual >= itemIds.length) return;
 
-        resultados[atual] = await verificarItem(context, itemIds[atual]);
+        const itemId = itemIds[atual];
+        const resultado = await verificarItem(context, itemId);
+        resultados[atual] = resultado;
+        processados += 1;
+
+        const prontos = resultados.filter(Boolean);
+        const comissaoZero = prontos.filter(
+          (item) => item.percentual === 0
+        ).length;
+        const comComissao = prontos.filter(
+          (item) => typeof item.percentual === "number" && item.percentual > 0
+        ).length;
+        const erros = prontos.filter((item) => item.status === "erro").length;
+        const naoIdentificados =
+          prontos.length - comissaoZero - comComissao;
+
+        salvarProgresso({
+          status: "verificando",
+          total: itemIds.length,
+          processados,
+          com_comissao: comComissao,
+          comissao_zero: comissaoZero,
+          nao_identificados: naoIdentificados,
+          erros,
+          ultimo_item: itemId,
+        });
       }
     }
 
@@ -165,11 +239,25 @@ async function verificarItem(context, itemId) {
       ),
       "utf8"
     );
+
+    salvarProgresso({
+      status: "concluido",
+      processados: itemIds.length,
+      ultimo_item: null,
+    });
   } finally {
     await context.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
   }
 })().catch((erro) => {
-  console.error("ERRO:", erro instanceof Error ? erro.message : erro);
+  const mensagem = erro instanceof Error ? erro.message : String(erro);
+
+  salvarProgresso({
+    sucesso: false,
+    status: "erro",
+    erro: mensagem,
+  });
+
+  console.error("ERRO:", mensagem);
   process.exitCode = 1;
 });
