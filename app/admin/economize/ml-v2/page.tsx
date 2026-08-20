@@ -2,6 +2,7 @@ import Link from "next/link";
 import PainelMlV2 from "../PainelMlV2";
 import RenovarSessaoMlV2 from "./RenovarSessaoMlV2";
 import PublicacaoSeguraMlV2 from "./PublicacaoSeguraMlV2";
+import "./ml-v2.css";
 
 export default function AdminMlV2Page() {
   return (
