@@ -12,6 +12,7 @@ const STATUS_FILE = path.join(TMP, "kabum-awin-status.json");
 
 const ORIGEM_CUPOM = "agente_cupons_awin_kabum";
 const ORIGEM_PROMO = "agente_promocoes_awin_kabum";
+const ORIGEM_PRODUTO = "agente_produtos_awin_kabum";
 
 const LOCK_TTL = 2 * 60 * 60 * 1000;
 
@@ -34,6 +35,13 @@ function obrigatoria(nome, alternativa) {
   const valor = process.env[nome] || (alternativa ? process.env[alternativa] : "");
   if (!valor) throw new Error(`Variavel ausente: ${nome}`);
   return valor;
+}
+function criarSupabase() {
+  return createClient(
+    obrigatoria("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"),
+    obrigatoria("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY"),
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 }
 function criarEnvTemporario() {
   const vars = {
@@ -65,6 +73,10 @@ function validadeOk(valor, margemMinutos) {
   if (!Number.isFinite(fim)) return true;
   return fim > Date.now() + margemMinutos * 60 * 1000;
 }
+function codigoProduto(url) {
+  const match = String(url || "").match(/\/produto\/(\d+)/i);
+  return match ? match[1] : null;
+}
 async function expirarIds(supabase, tabela, ids) {
   if (!ids.length) return 0;
   const instante = agora();
@@ -72,13 +84,91 @@ async function expirarIds(supabase, tabela, ids) {
   if (error) throw error;
   return ids.length;
 }
+async function enriquecerPublicacoesComCatalogo() {
+  log("INICIO enriquecimento das publicacoes KaBuM com catalogo");
+  const supabase = criarSupabase();
+  const { data: loja, error: erroLoja } = await supabase
+    .from("economize_lojas")
+    .select("id")
+    .eq("slug", "kabum")
+    .eq("ativa", true)
+    .single();
+  if (erroLoja || !loja) throw new Error("Loja KaBuM ativa nao encontrada para enriquecimento.");
+
+  const { data: catalogo, error: erroCatalogo } = await supabase
+    .from("economize_ofertas")
+    .select("id,titulo,categoria,imagem_url,preco_oferta,preco_original,link_destino,origem_url,updated_at")
+    .eq("loja_id", loja.id)
+    .eq("origem", ORIGEM_PRODUTO)
+    .eq("status", "ativo")
+    .not("imagem_url", "is", null);
+  if (erroCatalogo) throw erroCatalogo;
+
+  const porProduto = new Map();
+  for (const produto of catalogo || []) {
+    const codigo = codigoProduto(produto.link_destino || produto.origem_url);
+    if (!codigo) continue;
+    const atual = porProduto.get(codigo);
+    if (!atual || String(produto.updated_at || "") > String(atual.updated_at || "")) {
+      porProduto.set(codigo, produto);
+    }
+  }
+
+  const { data: publicacoes, error: erroPublicacoes } = await supabase
+    .from("economize_ofertas")
+    .select("id,titulo,categoria,imagem_url,preco_oferta,preco_original,link_destino,origem_url,dados_brutos,origem")
+    .eq("loja_id", loja.id)
+    .eq("status", "ativo")
+    .in("origem", [ORIGEM_CUPOM, ORIGEM_PROMO]);
+  if (erroPublicacoes) throw erroPublicacoes;
+
+  let atualizadas = 0;
+  for (const item of publicacoes || []) {
+    const codigo = codigoProduto(item.link_destino || item.origem_url);
+    if (!codigo) continue;
+    const produto = porProduto.get(codigo);
+    if (!produto) continue;
+
+    const precisaImagem = !String(item.imagem_url || "").trim() && String(produto.imagem_url || "").trim();
+    const precisaCategoria = !String(item.categoria || "").trim() && String(produto.categoria || "").trim();
+    const precisaPreco = item.preco_oferta == null && produto.preco_oferta != null;
+    const precisaOriginal = item.preco_original == null && produto.preco_original != null;
+    if (!precisaImagem && !precisaCategoria && !precisaPreco && !precisaOriginal) continue;
+
+    const dadosBrutos = {
+      ...(item.dados_brutos || {}),
+      enriquecimento_catalogo_kabum: {
+        fonte: ORIGEM_PRODUTO,
+        produto_id: codigo,
+        em: agora(),
+      },
+    };
+
+    const { error } = await supabase
+      .from("economize_ofertas")
+      .update({
+        imagem_url: precisaImagem ? produto.imagem_url : item.imagem_url,
+        categoria: precisaCategoria ? produto.categoria : item.categoria,
+        preco_oferta: precisaPreco ? produto.preco_oferta : item.preco_oferta,
+        preco_original: precisaOriginal ? produto.preco_original : item.preco_original,
+        dados_brutos: dadosBrutos,
+        updated_at: agora(),
+      })
+      .eq("id", item.id);
+    if (error) throw error;
+    atualizadas += 1;
+  }
+
+  log(`ENRIQUECIMENTO CATALOGO OK | publicacoes atualizadas=${atualizadas}`);
+  return atualizadas;
+}
 async function sincronizarPublicacoes() {
   log("INICIO sincronizacao de publicacoes");
   const validados = carregarJson("cupons-kabum-awin-validados.json");
   const selecao = carregarJson("promocoes-kabum-awin-selecionadas.json");
   const codigosAtivos = new Set((validados.cupons || []).filter((item) => item.validacao?.elegibilidadeAutomatica === true && validadeOk(item.validade, 30)).map((item) => String(item.codigo || "").trim().toUpperCase()).filter(Boolean));
   const promocoesAtivas = new Set((selecao.selecionadas || []).filter((item) => validadeOk(item.validade, 60)).map((item) => `awin:kabum:promotion:${item.promotionId}`));
-  const supabase = createClient(obrigatoria("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"), obrigatoria("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY"), { auth: { autoRefreshToken: false, persistSession: false } });
+  const supabase = criarSupabase();
   const { data: loja, error: erroLoja } = await supabase.from("economize_lojas").select("id").eq("slug", "kabum").eq("ativa", true).single();
   if (erroLoja || !loja) throw new Error("Loja KaBuM ativa nao encontrada.");
   const { data: cupons, error: erroCupons } = await supabase.from("economize_cupons").select("id,codigo").eq("loja_id", loja.id).eq("origem", ORIGEM_CUPOM).eq("status", "ativo");
@@ -114,8 +204,9 @@ async function main() {
     executar("ranking promocoes", "selecionar-promocoes-kabum-awin.cjs");
     executar("publicacao promocoes", "publicar-promocoes-kabum-awin.cjs", ["CONFIRMAR"]);
     executar("catalogo produtos", "varrer-produtos-awin-kabum.cjs", ["CONFIRMAR"]);
+    const publicacoesEnriquecidas = await enriquecerPublicacoesComCatalogo();
     await sincronizarPublicacoes();
-    salvarStatus({ sucesso: true, executando: false, fim: agora(), catalogoProdutos: true, limiteProdutos: Number(process.env.KABUM_AWIN_LIMITE_PRODUTOS || 80), descontoMinimoProdutos: Number(process.env.KABUM_AWIN_DESCONTO_MINIMO || 10) });
+    salvarStatus({ sucesso: true, executando: false, fim: agora(), catalogoProdutos: true, publicacoesEnriquecidas, limiteProdutos: Number(process.env.KABUM_AWIN_LIMITE_PRODUTOS || 80), descontoMinimoProdutos: Number(process.env.KABUM_AWIN_DESCONTO_MINIMO || 10) });
     log("PIPELINE KABUM/AWIN CONCLUIDO COM SUCESSO");
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);
