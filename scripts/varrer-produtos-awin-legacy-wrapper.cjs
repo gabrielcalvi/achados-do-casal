@@ -76,6 +76,14 @@ codigo = codigo.replace(
   `selecionados: loja.slug === "cea" ? selecionarMixCea(top) : top.slice(0, LIMITE_POR_LOJA),`,
 );
 
+const marcadorLinks = "async function gerarLinksAfiliados(loja, produtos) {";
+const helperLinksCea = `function linkAfiliadoCeaDireto(loja, destino) {\n  const params = new URLSearchParams({\n    awinmid: String(loja.advertiserId),\n    awinaffid: PUBLISHER_ID,\n    campaign: \"achados-economize-produtos\",\n    ued: destino,\n    platform: \"pl\",\n  });\n  return \`https://www.awin1.com/cread.php?${"${params.toString()}"}\`;\n}\n\nasync function gerarLinksAfiliados(loja, produtos) {\n  if (loja.slug === \"cea\") {\n    const prontosCea = produtos.map((produto) => ({\n      ...produto,\n      linkAfiliado: linkAfiliadoCeaDireto(loja, produto.link),\n    }));\n    return {\n      produtos: selecionarMixCea(prontosCea),\n      falhas: 0,\n      nativos: prontosCea.length,\n    };\n  }`;
+
+if (!codigo.includes(marcadorLinks)) {
+  throw new Error("Gerador de links afiliados não encontrado.");
+}
+codigo = codigo.replace(marcadorLinks, helperLinksCea);
+
 codigo = codigo.replace(
   `return { produtos: prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };`,
   `return { produtos: loja.slug === "cea" ? selecionarMixCea(prontos) : prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };`,
