@@ -1,7 +1,7 @@
 import RadarPublico from "./RadarPublico";
 import PacotesPublicos from "./PacotesPublicos";
 import ViagemPorOrcamento from "./ViagemPorOrcamento";
-import ExperienciaViagens from "./ExperienciaViagens";
+import ExperienciaViagens from "./ExperienciaViagensV2";
 
 export const dynamic = "force-dynamic";
 
