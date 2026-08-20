@@ -15,6 +15,18 @@ const ESTATISTICAS = [
   ["1", "hobby que virou paixão"],
 ] as const;
 
+const BRASIL = [
+  ["4x", "Florianópolis", "Santa Catarina"],
+  ["2x", "Rio de Janeiro", "Rio de Janeiro"],
+  ["2x", "São Paulo", "São Paulo"],
+  ["✓", "Curitiba", "Paraná"],
+  ["✓", "Cascavel", "Paraná"],
+  ["✓", "Toledo", "Paraná"],
+  ["✓", "Bonito", "Mato Grosso do Sul"],
+  ["✓", "Recife", "Pernambuco"],
+  ["✓", "Manaus", "Amazonas"],
+] as const;
+
 export default function ExperienciaViagens() {
   return (
     <section id="nossas-viagens" className="border-y border-slate-200 bg-white">
@@ -35,47 +47,28 @@ export default function ExperienciaViagens() {
             </div>
           </div>
 
-          <figure className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-2xl shadow-slate-900/15">
-            <div className="relative aspect-square overflow-hidden bg-slate-900 sm:aspect-[4/3] lg:h-[560px] lg:aspect-auto">
-              <img src="/viagens/familia-times-square.jpg" alt="Família em uma viagem para Nova York" className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.015]" fetchPriority="high" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/5 to-transparent" />
-              <figcaption className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Nova York · viagem em família</p>
-                <p className="mt-2 max-w-xl text-2xl font-black sm:text-3xl">Viajar mudou de fase com a família — e ficou ainda mais importante para nós.</p>
-              </figcaption>
-            </div>
-          </figure>
-        </div>
-
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <figure className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-            <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
-              <img src="/viagens/casal-europa.jpg" alt="Casal em uma viagem pela Europa" className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.015]" loading="lazy" />
-            </div>
-            <figcaption className="border-t border-slate-100 p-5 sm:p-6">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-600">Europa</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">De casal, descobrindo cidades e culturas.</p>
-              <p className="mt-2 leading-7 text-slate-600">Cidades históricas, caminhadas sem pressa e aquelas descobertas que só aparecem quando a gente vive o destino de verdade.</p>
-            </figcaption>
-          </figure>
-
-          <figure className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-            <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
-              <img src="/viagens/familia-europa.jpg" alt="Família em uma viagem pela Europa" className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.015]" loading="lazy" />
-            </div>
-            <figcaption className="border-t border-slate-100 p-5 sm:p-6">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Viagem em família</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">Estradas, cidades menores e experiências locais.</p>
-              <p className="mt-2 leading-7 text-slate-600">Nosso jeito preferido é explorar: atravessar regiões, parar em cidades menores e aproveitar o caminho tanto quanto o destino.</p>
-            </figcaption>
-          </figure>
-        </div>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <article className="rounded-3xl border border-sky-200 bg-sky-50 p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Estados Unidos</p><p className="mt-2 text-3xl font-black">14x Orlando</p><p className="mt-3 leading-7 text-slate-600">Miami 3x, Nova York 2x e viagens marcantes por Los Angeles, Las Vegas, Chicago, Boston, Washington DC, Filadélfia, Cleveland, Atlanta, Tampa, Panama City Beach, Daytona Beach, Kennedy Space Center/NASA, Indianapolis e outras cidades.</p></article>
-          <article className="rounded-3xl border border-red-200 bg-red-50 p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-red-700">Canadá</p><p className="mt-2 text-3xl font-black">Toronto · Montreal · Ottawa</p><p className="mt-3 leading-7 text-slate-600">Experimentamos cidades muito diferentes entre si e aprendemos bastante sobre deslocamentos, clima, ritmo e planejamento em viagens pelo Canadá.</p></article>
-          <article className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">Cruzeiros</p><p className="mt-2 text-3xl font-black">Lua de mel a bordo</p><p className="mt-3 leading-7 text-slate-600">Nossa lua de mel apresentou um modelo de viagem que até então era desconhecido para nós. Gostamos tanto da experiência que o cruzeiro virou mais uma forma de viajar que entendemos na prática.</p></article>
-          <article className="rounded-3xl border border-amber-200 bg-amber-50 p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Europa e além</p><p className="mt-2 text-3xl font-black">Estradas, cidades e família</p><p className="mt-3 leading-7 text-slate-600">Vieram a Europa, cidades históricas, novas culturas e viagens em família. Hoje nossa experiência atravessa América do Sul, América do Norte, Caribe e Europa — e continua crescendo.</p></article>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <article className="rounded-3xl border border-sky-200 bg-sky-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Estados Unidos</p>
+              <p className="mt-2 text-3xl font-black">14x Orlando</p>
+              <p className="mt-3 leading-7 text-slate-600">Miami 3x, Nova York 2x e viagens marcantes por Los Angeles, Las Vegas, Chicago, Boston, Washington DC, Filadélfia, Cleveland, Atlanta, Tampa, Panama City Beach, Daytona Beach, Kennedy Space Center/NASA, Indianapolis e outras cidades.</p>
+            </article>
+            <article className="rounded-3xl border border-red-200 bg-red-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-red-700">Canadá</p>
+              <p className="mt-2 text-3xl font-black">Toronto · Montreal · Ottawa</p>
+              <p className="mt-3 leading-7 text-slate-600">Experimentamos cidades muito diferentes entre si e aprendemos bastante sobre deslocamentos, clima, ritmo e planejamento em viagens pelo Canadá.</p>
+            </article>
+            <article className="rounded-3xl border border-cyan-200 bg-cyan-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">Cruzeiros</p>
+              <p className="mt-2 text-3xl font-black">Lua de mel a bordo</p>
+              <p className="mt-3 leading-7 text-slate-600">Nossa lua de mel apresentou um modelo de viagem que até então era desconhecido para nós. Gostamos tanto da experiência que o cruzeiro virou mais uma forma de viajar que entendemos na prática.</p>
+            </article>
+            <article className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Europa e além</p>
+              <p className="mt-2 text-3xl font-black">Estradas, cidades e família</p>
+              <p className="mt-3 leading-7 text-slate-600">Vieram a Europa, cidades históricas, novas culturas e viagens em família. Hoje nossa experiência atravessa América do Sul, América do Norte, Caribe e Europa — e continua crescendo.</p>
+            </article>
+          </div>
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -85,6 +78,28 @@ export default function ExperienciaViagens() {
               <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">{legenda}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-6 shadow-sm sm:p-8 lg:p-10">
+          <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+            <div>
+              <span className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">Explorando o Brasil</span>
+              <h3 className="mt-3 text-4xl font-black leading-tight text-slate-950">Viajar para a gente também é conhecer o próprio país.</h3>
+              <p className="mt-4 leading-7 text-slate-600">Do Sul à Amazônia, nossas experiências não ficam só no exterior. Já viajamos por capitais, cidades menores e destinos de natureza, sempre com o mesmo jeito de explorar: entender a região, circular bastante e aproveitar o caminho.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {BRASIL.map(([vezes, cidade, estado]) => (
+                <div key={cidade} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-2xl font-black text-emerald-700">{vezes}</span>
+                    <span className="text-xl" aria-hidden>🇧🇷</span>
+                  </div>
+                  <p className="mt-2 font-black text-slate-950">{cidade}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-400">{estado}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-10 overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-950 text-white shadow-2xl shadow-slate-900/10">
