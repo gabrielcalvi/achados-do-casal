@@ -1,9 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
-import {
-  criarSessaoMonitorMercadoLivre,
-  type SessaoMonitorMercadoLivre,
-} from "@/lib/services/mercadoLivreSandboxMonitor";
+import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
 
 type DadosAtuaisMonitor = {
   nome?: string;
@@ -149,19 +146,17 @@ async function obterDadosAtuais(
     try {
       return await extrairMercadoLivreApi(produto.link, produto.categoria);
     } catch (erroApi) {
-      console.warn(
-        "[MONITOR ML] API pública falhou; usando Sandbox como fallback:",
-        erroApi instanceof Error ? erroApi.message : erroApi
-      );
+      const mensagemApi = erroApi instanceof Error ? erroApi.message : String(erroApi);
 
+      // O fluxo automático não abre Sandbox preventivamente. Isso evita que o
+      // monitor inteiro fique dependente de sessão/browser e das verificações
+      // de segurança do Mercado Livre. O fallback só existe para chamadas que
+      // explicitamente entregarem uma sessão já aberta.
       if (!sessaoMl) {
-        throw new Error(
-          `API pública do Mercado Livre falhou e a sessão remota não foi inicializada: ${
-            erroApi instanceof Error ? erroApi.message : String(erroApi)
-          }`
-        );
+        throw new Error(`Mercado Livre API: ${mensagemApi}`);
       }
 
+      console.warn("[MONITOR ML] API pública falhou; usando sessão já disponível:", mensagemApi);
       const dados = await sessaoMl.extrair(produto.link);
       return {
         nome: dados.nome,
@@ -264,97 +259,85 @@ export async function consultarPrecoProduto(
   const link = String(produto.link || "").trim();
   if (!link) throw new Error("Produto sem link original para monitoramento.");
 
-  let sessaoCriadaAqui: SessaoMonitorMercadoLivre | null = null;
-  let sessaoEfetiva = sessaoMl ?? null;
+  const dadosAtuais = await obterDadosAtuais(
+    { loja: produto.loja, link, categoria: produto.categoria },
+    sessaoMl ?? null,
+    modoLocal
+  );
 
-  if (!modoLocal && ehMercadoLivre(produto) && !sessaoEfetiva) {
-    sessaoCriadaAqui = await criarSessaoMonitorMercadoLivre();
-    sessaoEfetiva = sessaoCriadaAqui;
-  }
+  const precoBanco = Number(produto.preco_atual);
+  const precoNovo = Number(dadosAtuais.precoAtual);
+  const agora = new Date().toISOString();
 
-  try {
-    const dadosAtuais = await obterDadosAtuais(
-      { loja: produto.loja, link, categoria: produto.categoria },
-      sessaoEfetiva,
-      modoLocal
-    );
-
-    const precoBanco = Number(produto.preco_atual);
-    const precoNovo = Number(dadosAtuais.precoAtual);
-    const agora = new Date().toISOString();
-
-    if (Number.isFinite(precoNovo) && precoNovo === 0) {
-      await desativarProdutoIndisponivel(produto.id, agora);
-      return {
-        produtoId: produto.id,
-        produto: produto.nome,
-        precoBanco,
-        precoNovo,
-        precoMudou: false,
-        indisponivel: true,
-        ultimaVerificacao: agora,
-        dadosAtuais,
-      };
-    }
-
-    validarPrecoSuspeito(precoBanco, precoNovo);
-    if (precoNovo <= 0) throw new Error("A consulta retornou um preço inválido.");
-
-    const precoMudou = precoBanco !== precoNovo;
-    await limparPendenciasAntigas(produto.id, agora);
-
-    const atualizacao: Record<string, unknown> = {
-      ultima_verificacao: agora,
-      preco_monitorado: precoNovo,
-      preco_alterado: false,
-      monitor_erro: null,
-      monitor_erro_em: null,
-      monitor_falhas_consecutivas: 0,
-    };
-
-    if (precoMudou) {
-      atualizacao.preco_atual = precoNovo;
-      atualizacao.updated_at = agora;
-
-      const { error: monitorError } = await supabaseAdmin
-        .from("monitor_alteracoes")
-        .insert({
-          produto_id: produto.id,
-          tipo: "preco",
-          valor_antigo: String(precoBanco),
-          valor_novo: String(precoNovo),
-          status: "aprovado",
-          atualizado_em: agora,
-          aprovado_em: agora,
-        });
-
-      if (monitorError) console.error("Erro monitor_alteracoes:", monitorError);
-
-      if (dadosAtuais.nome) atualizacao.nome = dadosAtuais.nome;
-      if (dadosAtuais.imagem) atualizacao.imagem = dadosAtuais.imagem;
-      if (dadosAtuais.urlFinal) atualizacao.link = dadosAtuais.urlFinal;
-    }
-
-    const { error: updateError } = await supabaseAdmin
-      .from("produtos")
-      .update(atualizacao)
-      .eq("id", id);
-
-    if (updateError) throw new Error(`Erro ao atualizar o produto: ${updateError.message}`);
-
+  if (Number.isFinite(precoNovo) && precoNovo === 0) {
+    await desativarProdutoIndisponivel(produto.id, agora);
     return {
       produtoId: produto.id,
       produto: produto.nome,
       precoBanco,
       precoNovo,
-      precoMudou,
-      indisponivel: false,
+      precoMudou: false,
+      indisponivel: true,
       ultimaVerificacao: agora,
       dadosAtuais,
     };
-  } finally {
-    if (sessaoCriadaAqui) await sessaoCriadaAqui.fechar();
   }
+
+  validarPrecoSuspeito(precoBanco, precoNovo);
+  if (precoNovo <= 0) throw new Error("A consulta retornou um preço inválido.");
+
+  const precoMudou = precoBanco !== precoNovo;
+  await limparPendenciasAntigas(produto.id, agora);
+
+  const atualizacao: Record<string, unknown> = {
+    ultima_verificacao: agora,
+    preco_monitorado: precoNovo,
+    preco_alterado: false,
+    monitor_erro: null,
+    monitor_erro_em: null,
+    monitor_falhas_consecutivas: 0,
+  };
+
+  if (precoMudou) {
+    atualizacao.preco_atual = precoNovo;
+    atualizacao.updated_at = agora;
+
+    const { error: monitorError } = await supabaseAdmin
+      .from("monitor_alteracoes")
+      .insert({
+        produto_id: produto.id,
+        tipo: "preco",
+        valor_antigo: String(precoBanco),
+        valor_novo: String(precoNovo),
+        status: "aprovado",
+        atualizado_em: agora,
+        aprovado_em: agora,
+      });
+
+    if (monitorError) console.error("Erro monitor_alteracoes:", monitorError);
+
+    if (dadosAtuais.nome) atualizacao.nome = dadosAtuais.nome;
+    if (dadosAtuais.imagem) atualizacao.imagem = dadosAtuais.imagem;
+    if (dadosAtuais.urlFinal) atualizacao.link = dadosAtuais.urlFinal;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("produtos")
+    .update(atualizacao)
+    .eq("id", id);
+
+  if (updateError) throw new Error(`Erro ao atualizar o produto: ${updateError.message}`);
+
+  return {
+    produtoId: produto.id,
+    produto: produto.nome,
+    precoBanco,
+    precoNovo,
+    precoMudou,
+    indisponivel: false,
+    ultimaVerificacao: agora,
+    dadosAtuais,
+  };
 }
 
 export async function monitorarTodosProdutos(modoLocal = false) {
@@ -374,55 +357,45 @@ export async function monitorarTodosProdutos(modoLocal = false) {
   let indisponiveis = 0;
 
   const produtosAtivos = produtos ?? [];
-  const possuiMercadoLivre = produtosAtivos.some((produto) => ehMercadoLivre(produto));
-  let sessaoMl: SessaoMonitorMercadoLivre | null = null;
+  const LIMITE_CONCORRENCIA = 5;
 
-  try {
-    if (!modoLocal && possuiMercadoLivre) {
-      sessaoMl = await criarSessaoMonitorMercadoLivre();
-    }
+  for (let indice = 0; indice < produtosAtivos.length; indice += LIMITE_CONCORRENCIA) {
+    const lote = produtosAtivos.slice(indice, indice + LIMITE_CONCORRENCIA);
 
-    const LIMITE_CONCORRENCIA = 4;
-
-    for (let indice = 0; indice < produtosAtivos.length; indice += LIMITE_CONCORRENCIA) {
-      const lote = produtosAtivos.slice(indice, indice + LIMITE_CONCORRENCIA);
-
-      const resultadosLote = await Promise.all(
-        lote.map(async (produto) => {
-          try {
-            const resultado = await consultarPrecoProduto(produto.id, sessaoMl, modoLocal);
-            return {
-              id: produto.id,
-              nome: produto.nome,
-              sucesso: true as const,
-              precoMudou: resultado.precoMudou,
-              indisponivel: Boolean(resultado.indisponivel),
-            };
-          } catch (erro) {
-            const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido";
-            await registrarErroMonitor(produto, mensagem);
-            return {
-              id: produto.id,
-              nome: produto.nome,
-              sucesso: false as const,
-              erro: mensagem,
-            };
-          }
-        })
-      );
-
-      for (const resultado of resultadosLote) {
-        if (resultado.sucesso) {
-          if (resultado.precoMudou) alterados++;
-          if (resultado.indisponivel) indisponiveis++;
-        } else {
-          erros++;
+    const resultadosLote = await Promise.all(
+      lote.map(async (produto) => {
+        try {
+          const resultado = await consultarPrecoProduto(produto.id, null, modoLocal);
+          return {
+            id: produto.id,
+            nome: produto.nome,
+            sucesso: true as const,
+            precoMudou: resultado.precoMudou,
+            indisponivel: Boolean(resultado.indisponivel),
+            fonte: resultado.dadosAtuais?.fonte || null,
+          };
+        } catch (erro) {
+          const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido";
+          await registrarErroMonitor(produto, mensagem);
+          return {
+            id: produto.id,
+            nome: produto.nome,
+            sucesso: false as const,
+            erro: mensagem,
+          };
         }
-        resultados.push(resultado);
+      })
+    );
+
+    for (const resultado of resultadosLote) {
+      if (resultado.sucesso) {
+        if (resultado.precoMudou) alterados++;
+        if (resultado.indisponivel) indisponiveis++;
+      } else {
+        erros++;
       }
+      resultados.push(resultado);
     }
-  } finally {
-    if (sessaoMl) await sessaoMl.fechar();
   }
 
   await limparTodasPendenciasPreco();
