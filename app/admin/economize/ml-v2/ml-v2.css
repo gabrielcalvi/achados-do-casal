@@ -1,0 +1,23 @@
+#publicacao-segura-ml-v2 article .grid.gap-4 {
+  row-gap: 1.75rem;
+  column-gap: 1.25rem;
+  align-items: start;
+}
+
+#publicacao-segura-ml-v2 article label {
+  min-width: 0;
+  align-self: start;
+}
+
+#publicacao-segura-ml-v2 article label > input,
+#publicacao-segura-ml-v2 article label > select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#publicacao-segura-ml-v2 article label > span {
+  display: block;
+  margin-top: 0.125rem;
+  line-height: 1.25rem;
+}
