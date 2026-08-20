@@ -48,6 +48,14 @@ const lojas = [
     logoUrl: null
   },
   {
+    slug: "casas-bahia",
+    dbSlug: "casas-bahia",
+    nome: "Casas Bahia",
+    advertiserId: String(process.env.CASAS_BAHIA_AWIN_ADVERTISER_ID || "17629").trim(),
+    dominio: "casasbahia.com.br",
+    logoUrl: null
+  },
+  {
     slug: "decolar",
     dbSlug: "decolar",
     nome: "Decolar",
@@ -57,20 +65,5 @@ const lojas = [
     monitorOnly: true
   }
 ];
-
-const casasBahiaAdvertiserId = String(
-  process.env.CASAS_BAHIA_AWIN_ADVERTISER_ID || ""
-).trim();
-
-if (casasBahiaAdvertiserId) {
-  lojas.push({
-    slug: "casas-bahia",
-    dbSlug: "casas-bahia",
-    nome: "Casas Bahia",
-    advertiserId: casasBahiaAdvertiserId,
-    dominio: "casasbahia.com.br",
-    logoUrl: null
-  });
-}
 
 module.exports = lojas;
