@@ -49,6 +49,7 @@ export async function GET() {
       "id,campanha_externa_id,titulo,valor_desconto,validade,status,dados_brutos,top_produtos,ultima_coleta_em"
     )
     .eq("origem", "mercado_livre_v2")
+    .neq("status", "descartado")
     .order("ultima_coleta_em", { ascending: false })
     .limit(100);
 
