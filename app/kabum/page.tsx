@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import TechGroupBrand from "@/components/TechGroupBrand";
 
+type Ordenacao = "relevancia" | "menor-preco" | "maior-preco" | "maior-desconto";
 type Oferta = {
   id: string;
   titulo: string;
@@ -17,7 +18,6 @@ type Oferta = {
   validade: string | null;
   tipo: string;
 };
-
 type Resposta = { ofertas?: Oferta[]; total?: number; error?: string };
 
 const GRUPO_TECNOLOGIA = "https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir";
@@ -27,9 +27,27 @@ function moeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
 }
 
+function precoValido(oferta: Oferta) {
+  const preco = Number(oferta.preco_oferta);
+  return Number.isFinite(preco) && preco > 0 ? preco : null;
+}
+
+function ordenar(lista: Oferta[], ordenacao: Ordenacao) {
+  if (ordenacao === "relevancia") return lista;
+  return [...lista].sort((a, b) => {
+    if (ordenacao === "maior-desconto") return (Number(b.desconto_percentual) || 0) - (Number(a.desconto_percentual) || 0);
+    const pa = precoValido(a);
+    const pb = precoValido(b);
+    if (pa === null) return 1;
+    if (pb === null) return -1;
+    return ordenacao === "menor-preco" ? pa - pb : pb - pa;
+  });
+}
+
 export default function KabumPage() {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>("relevancia");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
@@ -53,34 +71,31 @@ export default function KabumPage() {
     return () => { ativo = false; };
   }, []);
 
+  const exibiveis = useMemo(
+    () => ofertas.filter((oferta) => Boolean(oferta.imagem_url) || Boolean(oferta.codigo)),
+    [ofertas],
+  );
+
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return ofertas;
-    return ofertas.filter((oferta) =>
-      [oferta.titulo, oferta.categoria, oferta.descricao, oferta.codigo]
-        .filter(Boolean)
-        .some((texto) => String(texto).toLowerCase().includes(termo)),
-    );
-  }, [busca, ofertas]);
+    const base = termo
+      ? exibiveis.filter((oferta) =>
+          [oferta.titulo, oferta.categoria, oferta.descricao, oferta.codigo]
+            .filter(Boolean)
+            .some((texto) => String(texto).toLowerCase().includes(termo)),
+        )
+      : [...exibiveis];
+    return ordenar(base, ordenacao);
+  }, [busca, exibiveis, ordenacao]);
 
-  const produtos = useMemo(
-    () => filtradas.filter((oferta) => Boolean(oferta.imagem_url)),
-    [filtradas],
-  );
-
-  const cuponsGerais = useMemo(
-    () => filtradas.filter((oferta) => !oferta.imagem_url && Boolean(oferta.codigo)),
-    [filtradas],
-  );
-
-  const melhor = ofertas.reduce((maior, oferta) => Math.max(maior, Number(oferta.desconto_percentual) || 0), 0);
-  const comCupom = ofertas.filter((oferta) => Boolean(oferta.codigo)).length;
+  const produtos = useMemo(() => filtradas.filter((oferta) => Boolean(oferta.imagem_url)), [filtradas]);
+  const cuponsGerais = useMemo(() => filtradas.filter((oferta) => !oferta.imagem_url && Boolean(oferta.codigo)), [filtradas]);
+  const melhor = exibiveis.reduce((maior, oferta) => Math.max(maior, Number(oferta.desconto_percentual) || 0), 0);
+  const comCupom = exibiveis.filter((oferta) => Boolean(oferta.codigo)).length;
 
   async function usarCupom(oferta: Oferta) {
     if (oferta.codigo) {
-      try {
-        await navigator.clipboard.writeText(oferta.codigo);
-      } catch {}
+      try { await navigator.clipboard.writeText(oferta.codigo); } catch {}
     }
     window.location.href = `/oferta/${oferta.id}?origem=site`;
   }
@@ -103,15 +118,13 @@ export default function KabumPage() {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-[#ff8a3d]">Parceiro AWIN · seleção do Achados</p>
             <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">KaBuM!</h1>
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-zinc-300">Tecnologia, gamer e casa tech ordenados pelas maiores oportunidades de desconto disponíveis agora.</p>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-zinc-300">Tecnologia, gamer e casa tech com seleção por relevância, preço e desconto.</p>
             <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex rounded-xl bg-green-600 px-5 py-3 font-black text-white transition hover:bg-green-700">💬 Entrar no grupo de Informática e Tecnologia</a>
           </div>
           <div className="space-y-3">
-            <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="block transition hover:-translate-y-0.5">
-              <TechGroupBrand compact />
-            </a>
+            <a href={GRUPO_TECNOLOGIA} target="_blank" rel="noopener noreferrer" className="block transition hover:-translate-y-0.5"><TechGroupBrand compact /></a>
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Ativas</p><p className="mt-2 text-3xl font-black">{ofertas.length}</p></div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Ativas</p><p className="mt-2 text-3xl font-black">{exibiveis.length}</p></div>
               <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Com cupom</p><p className="mt-2 text-3xl font-black">{comCupom}</p></div>
               <div className="rounded-2xl border border-white/15 bg-white/5 p-4"><p className="text-xs font-bold text-zinc-400">Até</p><p className="mt-2 text-3xl font-black">{melhor > 0 ? `${Math.round(melhor)}%` : "—"}</p></div>
             </div>
@@ -120,9 +133,12 @@ export default function KabumPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#d95100]">Achados KaBuM</p><h2 className="mt-1 text-2xl font-black">Maiores descontos primeiro</h2></div>
-          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notebook, monitor, gamer..." className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-5 outline-none focus:border-[#ff6500] sm:max-w-md" />
+        <div className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+          <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#d95100]">Achados KaBuM</p><h2 className="mt-1 text-2xl font-black">Produtos e cupons selecionados</h2></div>
+          <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_220px] lg:max-w-2xl">
+            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notebook, monitor, gamer..." className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-5 outline-none focus:border-[#ff6500]" />
+            <select value={ordenacao} onChange={(e) => setOrdenacao(e.target.value as Ordenacao)} aria-label="Ordenar ofertas" className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-4 font-bold outline-none"><option value="relevancia">Relevância</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option><option value="maior-desconto">Maior desconto</option></select>
+          </div>
         </div>
 
         {carregando ? (
@@ -162,35 +178,17 @@ export default function KabumPage() {
 
             {cuponsGerais.length > 0 ? (
               <section className="mt-10">
-                <div className="mb-4">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#d95100]">Cupons gerais KaBuM</p>
-                  <h2 className="mt-1 text-2xl font-black">Descontos sem produto específico</h2>
-                  <p className="mt-2 text-sm text-zinc-500">Esses cupons são válidos para linhas ou seleções de produtos. Por isso não exibimos uma foto aleatória.</p>
-                </div>
+                <div className="mb-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#d95100]">Cupons gerais KaBuM</p><h2 className="mt-1 text-2xl font-black">Descontos sem produto específico</h2><p className="mt-2 text-sm text-zinc-500">Esses cupons são válidos para linhas ou seleções de produtos. Por isso não exibimos uma foto aleatória.</p></div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {cuponsGerais.map((oferta) => {
                     const desconto = Number(oferta.desconto_percentual) || 0;
-                    return (
-                      <article key={oferta.id} className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-black uppercase text-[#d95100]">KaBuM · Cupom</p>
-                            <h3 className="mt-2 text-lg font-black leading-6">{oferta.titulo}</h3>
-                          </div>
-                          {desconto > 0 ? <span className="shrink-0 rounded-full bg-[#ff6500] px-3 py-2 text-xs font-black text-white">-{Math.round(desconto)}%</span> : null}
-                        </div>
-                        {oferta.codigo ? <div className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-center font-black text-[#d95100]">{oferta.codigo}</div> : null}
-                        <button type="button" onClick={() => usarCupom(oferta)} className="mt-4 h-12 w-full rounded-full bg-[#ff6500] px-5 font-black text-white transition hover:bg-[#e65c00]">USAR CUPOM</button>
-                      </article>
-                    );
+                    return <article key={oferta.id} className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-[#d95100]">KaBuM · Cupom</p><h3 className="mt-2 text-lg font-black leading-6">{oferta.titulo}</h3></div>{desconto > 0 ? <span className="shrink-0 rounded-full bg-[#ff6500] px-3 py-2 text-xs font-black text-white">-{Math.round(desconto)}%</span> : null}</div>{oferta.codigo ? <div className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-center font-black text-[#d95100]">{oferta.codigo}</div> : null}<button type="button" onClick={() => usarCupom(oferta)} className="mt-4 h-12 w-full rounded-full bg-[#ff6500] px-5 font-black text-white transition hover:bg-[#e65c00]">USAR CUPOM</button></article>;
                   })}
                 </div>
               </section>
             ) : null}
 
-            {produtos.length === 0 && cuponsGerais.length === 0 ? (
-              <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-sm"><p className="text-xl font-black">Nenhuma oferta encontrada.</p></div>
-            ) : null}
+            {produtos.length === 0 && cuponsGerais.length === 0 ? <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-sm"><p className="text-xl font-black">Nenhuma oferta encontrada.</p></div> : null}
           </>
         )}
       </section>
