@@ -13,6 +13,8 @@ const WRAPPER_PATH = "/vercel/scripts/varrer-produtos-awin-legacy-wrapper.cjs";
 const CONFIG_PATH = "/vercel/scripts/awin-lojas.config.cjs";
 const STATUS_PATH = "/vercel/tmp/awin-produtos-status.json";
 const RESULT_PATH = "/vercel/tmp/awin-produtos-resultado.json";
+const LOG_PATH = "/vercel/tmp/awin-produtos.log";
+const EXIT_PATH = "/vercel/tmp/awin-produtos-exit.txt";
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
@@ -106,21 +108,25 @@ async function executar(request: NextRequest) {
       return NextResponse.json({ sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior }, { status: 202 });
     }
 
+    await comando(sandbox, "rm", ["-f", LOG_PATH, EXIT_PATH]);
+
+    const env = {
+      AWIN_API_TOKEN: awinToken,
+      AWIN_DATAFEED_API_KEY: datafeedKey,
+      AWIN_PUBLISHER_ID: publisher,
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+      AWIN_PRODUTOS_LOJAS: "cea",
+      AWIN_PRODUTOS_LIMITE_POR_LOJA: "120",
+      AWIN_PRODUTOS_DESCONTO_MINIMO: "10",
+      AWIN_PRODUTOS_CATALOGO_LOJAS: "cea",
+    };
+
     await sandbox.runCommand({
-      cmd: "node",
-      args: [WRAPPER_PATH, "CONFIRMAR"],
+      cmd: "sh",
+      args: ["-lc", `node ${WRAPPER_PATH} CONFIRMAR > ${LOG_PATH} 2>&1; echo $? > ${EXIT_PATH}`],
       cwd: "/vercel",
-      env: {
-        AWIN_API_TOKEN: awinToken,
-        AWIN_DATAFEED_API_KEY: datafeedKey,
-        AWIN_PUBLISHER_ID: publisher,
-        NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
-        SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-        AWIN_PRODUTOS_LOJAS: "cea",
-        AWIN_PRODUTOS_LIMITE_POR_LOJA: "120",
-        AWIN_PRODUTOS_DESCONTO_MINIMO: "10",
-        AWIN_PRODUTOS_CATALOGO_LOJAS: "cea",
-      },
+      env,
       detached: true,
     });
 
