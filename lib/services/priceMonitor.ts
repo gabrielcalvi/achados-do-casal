@@ -11,6 +11,7 @@ type DadosAtuaisMonitor = {
   precoAtual: string | number;
   imagem?: string;
   urlFinal?: string;
+  fonte?: string;
 };
 
 function ehMercadoLivre(produto: { loja?: string | null; link?: string | null }) {
@@ -23,6 +24,120 @@ function ehMercadoLivre(produto: { loja?: string | null; link?: string | null })
   );
 }
 
+function extrairItemIdMercadoLivre(link: string) {
+  try {
+    const url = new URL(link);
+    const candidatos = [
+      url.searchParams.get("wid") || "",
+      url.searchParams.get("item_id") || "",
+      url.searchParams.get("pdp_filters") || "",
+      url.pathname,
+      link,
+    ];
+
+    for (const candidato of candidatos) {
+      const match = candidato.match(/MLB[-:]?(\d{8,})/i);
+      if (match?.[1]) return `MLB${match[1]}`;
+    }
+  } catch {
+    const match = link.match(/MLB[-:]?(\d{8,})/i);
+    if (match?.[1]) return `MLB${match[1]}`;
+  }
+
+  return null;
+}
+
+async function resolverItemIdMercadoLivre(link: string) {
+  const direto = extrairItemIdMercadoLivre(link);
+  if (direto) return direto;
+
+  if (!link.toLowerCase().includes("meli.la")) return null;
+
+  try {
+    const resposta = await fetch(link, {
+      method: "HEAD",
+      redirect: "follow",
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+    const resolvido = extrairItemIdMercadoLivre(resposta.url);
+    if (resolvido) return resolvido;
+  } catch {
+    // Tenta GET abaixo.
+  }
+
+  try {
+    const resposta = await fetch(link, {
+      redirect: "follow",
+      cache: "no-store",
+      headers: {
+        accept: "text/html,application/xhtml+xml",
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    return extrairItemIdMercadoLivre(resposta.url);
+  } catch {
+    return null;
+  }
+}
+
+async function extrairMercadoLivreApi(
+  link: string,
+  categoriaAtual?: string | null
+): Promise<DadosAtuaisMonitor> {
+  const itemId = await resolverItemIdMercadoLivre(link);
+
+  if (!itemId) {
+    throw new Error("Não foi possível identificar o item do Mercado Livre pela URL.");
+  }
+
+  const resposta = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
+    },
+    signal: AbortSignal.timeout(20000),
+  });
+
+  const texto = await resposta.text();
+  let json: Record<string, any> | null = null;
+
+  try {
+    json = JSON.parse(texto) as Record<string, any>;
+  } catch {
+    json = null;
+  }
+
+  if (!resposta.ok || !json) {
+    const detalhe = json?.message || json?.error || texto.slice(0, 160);
+    throw new Error(
+      `API pública do Mercado Livre respondeu ${resposta.status}${detalhe ? `: ${detalhe}` : ""}`
+    );
+  }
+
+  const preco = Number(json.price);
+  if (!Number.isFinite(preco) || preco <= 0) {
+    throw new Error("API pública do Mercado Livre não retornou preço válido.");
+  }
+
+  const imagem =
+    String(json.secure_thumbnail || json.thumbnail || "").trim() ||
+    (Array.isArray(json.pictures)
+      ? String(json.pictures[0]?.secure_url || json.pictures[0]?.url || "").trim()
+      : "");
+
+  return {
+    nome: String(json.title || "").trim() || undefined,
+    categoria: categoriaAtual || undefined,
+    precoAtual: preco,
+    imagem: imagem || undefined,
+    urlFinal: link,
+    fonte: "mercado_livre_api_publica",
+  };
+}
+
 async function obterDadosAtuais(
   produto: { loja?: string | null; link: string; categoria?: string | null },
   sessaoMl?: SessaoMonitorMercadoLivre | null,
@@ -31,15 +146,32 @@ async function obterDadosAtuais(
   if (modoLocal) return extrairProduto(produto.link);
 
   if (ehMercadoLivre(produto)) {
-    if (!sessaoMl) throw new Error("Sessão remota do Mercado Livre não foi inicializada.");
-    const dados = await sessaoMl.extrair(produto.link);
-    return {
-      nome: dados.nome,
-      categoria: produto.categoria || dados.categoria,
-      precoAtual: dados.precoAtual,
-      imagem: dados.imagem,
-      urlFinal: produto.link,
-    };
+    try {
+      return await extrairMercadoLivreApi(produto.link, produto.categoria);
+    } catch (erroApi) {
+      console.warn(
+        "[MONITOR ML] API pública falhou; usando Sandbox como fallback:",
+        erroApi instanceof Error ? erroApi.message : erroApi
+      );
+
+      if (!sessaoMl) {
+        throw new Error(
+          `API pública do Mercado Livre falhou e a sessão remota não foi inicializada: ${
+            erroApi instanceof Error ? erroApi.message : String(erroApi)
+          }`
+        );
+      }
+
+      const dados = await sessaoMl.extrair(produto.link);
+      return {
+        nome: dados.nome,
+        categoria: produto.categoria || dados.categoria,
+        precoAtual: dados.precoAtual,
+        imagem: dados.imagem,
+        urlFinal: produto.link,
+        fonte: "mercado_livre_sandbox_fallback",
+      };
+    }
   }
 
   return extrairProduto(produto.link);
