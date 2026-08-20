@@ -30,6 +30,11 @@ const ORIGENS = [
   { codigo: "POA", nome: "Porto Alegre" },
   { codigo: "GRU", nome: "São Paulo" },
   { codigo: "GIG", nome: "Rio de Janeiro" },
+  { codigo: "FLN", nome: "Florianópolis" },
+  { codigo: "BSB", nome: "Brasília" },
+  { codigo: "CNF", nome: "Belo Horizonte" },
+  { codigo: "SSA", nome: "Salvador" },
+  { codigo: "REC", nome: "Recife" },
 ];
 
 const ORCAMENTOS_RAPIDOS = [5000, 8000, 10000, 15000, 20000];
