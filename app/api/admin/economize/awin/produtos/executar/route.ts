@@ -103,6 +103,15 @@ async function executar(request: NextRequest) {
       if (download.resultado.exitCode !== 0) throw new Error(download.stderr || `Falha sincronizando ${destino}.`);
     }
 
+    const timeoutPatch = await comando(sandbox, "sed", [
+      "-i",
+      "s/AbortSignal.timeout(240000)/AbortSignal.timeout(900000)/g",
+      SCRIPT_PATH,
+    ]);
+    if (timeoutPatch.resultado.exitCode !== 0) {
+      throw new Error(timeoutPatch.stderr || "Falha ao ampliar timeout do feed C&A.");
+    }
+
     const anterior = await lerJson(sandbox, STATUS_PATH);
     if (anterior?.executando === true && await processoVarreduraAtivo(sandbox)) {
       return NextResponse.json({ sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior }, { status: 202 });
@@ -139,6 +148,7 @@ async function executar(request: NextRequest) {
       desconto_minimo_percentual: 10,
       catalogo_sem_desconto_inventado: ["cea"],
       afiliado_obrigatorio: true,
+      timeout_feed_ms: 900000,
       sandbox: SANDBOX_NAME,
       commit_script: commit,
       iniciadoEm: new Date().toISOString(),
