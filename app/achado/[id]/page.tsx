@@ -59,6 +59,12 @@ function moeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
 }
 
+function tituloCurto(valor: string) {
+  const limpo = String(valor || "").replace(/\s+/g, " ").trim();
+  if (limpo.length <= 72) return limpo;
+  return `${limpo.slice(0, 69).trimEnd()}...`;
+}
+
 function normalizarOrigem(valor: string | string[] | undefined) {
   const origem = Array.isArray(valor) ? valor[0] : valor;
   const normalizada = String(origem || "site").trim().toLowerCase();
@@ -83,25 +89,27 @@ export async function generateMetadata(
 
   const preco = moeda(oferta.preco_oferta);
   const desconto = Number(oferta.desconto_percentual) || 0;
-  const descricao = `${preco ? `${preco}` : "Oferta"}${desconto > 0 ? ` · ${Math.round(desconto)}% OFF` : ""} na ${oferta.loja?.nome || "loja"}. Confira preço e disponibilidade.`;
+  const loja = oferta.loja?.nome || "Loja parceira";
+  const tituloPreview = `${tituloCurto(oferta.titulo)} · ${loja}`;
+  const descricao = `${preco ? `${preco}` : "Confira a oferta"}${desconto > 0 ? ` · ${Math.round(desconto)}% OFF` : ""} · Achados do Casal`;
   const url = `https://achadosdocasal.com.br/achado/${id}`;
-  const imagemSocial = `https://achadosdocasal.com.br/api/social/achado/${id}`;
+  const imagemSocial = `https://achadosdocasal.com.br/api/social/achado/${id}?v=2`;
 
   return {
     title: { absolute: `${oferta.titulo} | Achados do Casal` },
     description: descricao,
     alternates: { canonical: url },
     openGraph: {
-      title: oferta.titulo,
+      title: tituloPreview,
       description: descricao,
       url,
       siteName: "Achados do Casal",
       type: "website",
-      images: [{ url: imagemSocial, width: 1200, height: 630, alt: oferta.titulo }],
+      images: [{ url: imagemSocial, width: 1200, height: 630, alt: tituloPreview }],
     },
     twitter: {
       card: "summary_large_image",
-      title: oferta.titulo,
+      title: tituloPreview,
       description: descricao,
       images: [imagemSocial],
     },
