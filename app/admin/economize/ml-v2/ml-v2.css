@@ -9,11 +9,26 @@
   align-self: start;
 }
 
-#publicacao-segura-ml-v2 article label > input,
+#publicacao-segura-ml-v2 article label > input:not([type="checkbox"]),
 #publicacao-segura-ml-v2 article label > select {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+#publicacao-segura-ml-v2 article label > input[type="checkbox"] {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  margin: 0.15rem 0 0;
+  flex: 0 0 auto;
+}
+
+#publicacao-segura-ml-v2 article label.flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.65rem;
 }
 
 #publicacao-segura-ml-v2 article label > span {
