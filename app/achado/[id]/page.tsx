@@ -85,9 +85,7 @@ export async function generateMetadata(
   const desconto = Number(oferta.desconto_percentual) || 0;
   const descricao = `${preco ? `${preco}` : "Oferta"}${desconto > 0 ? ` · ${Math.round(desconto)}% OFF` : ""} na ${oferta.loja?.nome || "loja"}. Confira preço e disponibilidade.`;
   const url = `https://achadosdocasal.com.br/achado/${id}`;
-  const imagemSocial = oferta.imagem_url
-    ? [{ url: oferta.imagem_url, width: 1500, height: 1500, alt: oferta.titulo }]
-    : undefined;
+  const imagemSocial = `https://achadosdocasal.com.br/api/social/achado/${id}`;
 
   return {
     title: { absolute: `${oferta.titulo} | Achados do Casal` },
@@ -99,13 +97,13 @@ export async function generateMetadata(
       url,
       siteName: "Achados do Casal",
       type: "website",
-      images: imagemSocial,
+      images: [{ url: imagemSocial, width: 1200, height: 630, alt: oferta.titulo }],
     },
     twitter: {
       card: "summary_large_image",
       title: oferta.titulo,
       description: descricao,
-      images: oferta.imagem_url ? [oferta.imagem_url] : undefined,
+      images: [imagemSocial],
     },
   };
 }
@@ -129,6 +127,10 @@ export default async function AchadoPage(
   const precoOriginal = moeda(oferta.preco_original);
   const desconto = Number(oferta.desconto_percentual) || 0;
   const loja = oferta.loja?.nome || "Loja parceira";
+  const linkPublico = `https://achadosdocasal.com.br/achado/${oferta.id}?origem=whatsapp`;
+  const mensagemWhatsapp = encodeURIComponent(
+    `🔥 ${oferta.titulo}\n${precoAtual ? `💰 ${precoAtual}\n` : ""}${desconto > 0 ? `🏷️ ${Math.round(desconto)}% OFF\n` : ""}Confira no Achados do Casal:\n${linkPublico}`
+  );
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-black">
@@ -175,14 +177,22 @@ export default async function AchadoPage(
               <Link href={`/oferta/${oferta.id}?origem=${origem}`} className="flex h-14 w-full items-center justify-center rounded-full bg-black px-6 text-lg font-black text-white transition hover:bg-zinc-800">
                 Ver oferta na {loja}
               </Link>
+              <a
+                href={`https://wa.me/?text=${mensagemWhatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 flex h-12 w-full items-center justify-center rounded-full bg-emerald-600 px-6 font-black text-white transition hover:bg-emerald-700"
+              >
+                Compartilhar no WhatsApp
+              </a>
               <p className="mt-3 text-center text-[11px] leading-5 text-zinc-400">Link de afiliado do Achados do Casal. Preço e disponibilidade podem mudar na loja.</p>
             </div>
           </div>
         </div>
 
         <div className="mt-6 rounded-3xl bg-black p-6 text-white sm:p-8">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Pode compartilhar</p>
-          <p className="mt-2 max-w-3xl leading-7 text-zinc-300">Este é o link individual deste achado. Ao enviar esta página no WhatsApp ou Telegram, o destino continua sendo o Achados do Casal e o botão de compra preserva o rastreamento do afiliado.</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Pronto para compartilhar</p>
+          <p className="mt-2 max-w-3xl leading-7 text-zinc-300">O link individual agora usa um card social próprio do Achados do Casal, com produto, preço, desconto e loja. Ao enviar a página no WhatsApp ou Telegram, o destino continua sendo o site e o botão de compra preserva o rastreamento do afiliado.</p>
         </div>
       </section>
     </main>
