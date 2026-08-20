@@ -4,11 +4,13 @@ import RenovarSessaoMlV2 from "./RenovarSessaoMlV2";
 import PublicacaoSeguraMlV2 from "./PublicacaoSeguraMlV2";
 import MlV2AplicarSemCodigo from "./MlV2AplicarSemCodigo";
 import ComissaoManualMlV2 from "./ComissaoManualMlV2";
+import DescarteLoteGuardMlV2 from "./DescarteLoteGuardMlV2";
 import "./ml-v2.css";
 
 export default function AdminMlV2Page() {
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-950 sm:px-8">
+      <DescarteLoteGuardMlV2 />
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
