@@ -10,6 +10,20 @@ const NOMES_DESTINOS: Record<string, string> = {
   LAX: "Los Angeles",
   LIS: "Lisboa",
   MAD: "Madrid",
+  CDG: "Paris",
+  LHR: "Londres",
+  FCO: "Roma",
+  BCN: "Barcelona",
+  AMS: "Amsterdam",
+  MXP: "Milão",
+  LAS: "Las Vegas",
+  SFO: "San Francisco",
+  CUN: "Cancún",
+  PUJ: "Punta Cana",
+  EZE: "Buenos Aires",
+  SCL: "Santiago",
+  NRT: "Tóquio",
+  DXB: "Dubai",
 };
 
 function classificar(preco: number, radar: Record<string, any>) {
@@ -44,7 +58,8 @@ export async function GET(request: Request) {
     )
     .eq("ativo", true)
     .eq("publico", true)
-    .eq("origem_codigo", origem);
+    .eq("origem_codigo", origem)
+    .order("destino_cidade", { ascending: true });
 
   if (erroRadares) {
     return NextResponse.json({ sucesso: false, erro: erroRadares.message }, { status: 500 });
@@ -52,7 +67,16 @@ export async function GET(request: Request) {
 
   const ids = (radares || []).map((radar) => radar.id);
   if (ids.length === 0) {
-    return NextResponse.json({ sucesso: true, origem, orcamento, viajantes, resultados: [] });
+    return NextResponse.json({
+      sucesso: true,
+      origem,
+      orcamento,
+      viajantes,
+      resultados: [],
+      totalDestinosMonitorados: 0,
+      destinosComDados: 0,
+      destinosEmColeta: [],
+    });
   }
 
   const { data: precos, error: erroPrecos } = await supabaseAdmin
@@ -64,7 +88,7 @@ export async function GET(request: Request) {
     .gte("observado_em", desde)
     .gt("preco_por_pessoa", 0)
     .order("preco_por_pessoa", { ascending: true })
-    .limit(600);
+    .limit(1200);
 
   if (erroPrecos) {
     return NextResponse.json({ sucesso: false, erro: erroPrecos.message }, { status: 500 });
@@ -113,12 +137,22 @@ export async function GET(request: Request) {
       return b!.sobra - a!.sobra;
     });
 
+  const destinosEmColeta = (radares || [])
+    .filter((radar) => !melhorPorRadar.has(radar.id))
+    .map((radar) => ({
+      codigo: radar.destino_codigo,
+      nome: radar.destino_cidade || NOMES_DESTINOS[radar.destino_codigo] || radar.destino_codigo,
+    }));
+
   return NextResponse.json({
     sucesso: true,
     origem,
     orcamento,
     viajantes,
     resultados,
-    aviso: "Esta primeira versão compara o orçamento com as passagens encontradas pelo Radar. Hospedagem e demais custos serão adicionados na próxima camada.",
+    totalDestinosMonitorados: (radares || []).length,
+    destinosComDados: resultados.length,
+    destinosEmColeta,
+    aviso: "O Radar agora monitora 20 destinos por origem. Resultados aparecem assim que cada rota recebe sua primeira coleta real. Nesta etapa, o orçamento considera as passagens; hospedagem e demais custos entram na próxima camada.",
   });
 }
