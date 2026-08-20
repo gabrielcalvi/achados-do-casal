@@ -1,14 +1,9 @@
-import { Sandbox } from "@vercel/sandbox";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SANDBOX_NAME = "achados-cupons-ml-test";
-const PROGRESS_PATH = "/vercel/tmp/ml-v2-comissoes-progresso.json";
-
-type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
 async function usuarioAutenticado() {
   try {
@@ -24,14 +19,11 @@ async function usuarioAutenticado() {
   }
 }
 
-async function rodarComando(
-  sandbox: SandboxInstancia,
-  cmd: string,
-  args: string[]
-) {
-  const resultado = await sandbox.runCommand({ cmd, args });
-  const stdout = (await resultado.stdout()).trim();
-  return { resultado, stdout };
+function primeiroItemId(dadosBrutos: unknown) {
+  const bruto = (dadosBrutos || {}) as Record<string, unknown>;
+  const itemIds = Array.isArray(bruto.item_ids) ? bruto.item_ids : [];
+  const primeiro = String(itemIds[0] || "").trim().toUpperCase();
+  return /^MLB\d+$/.test(primeiro) ? primeiro : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -42,52 +34,76 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const execucaoId = request.nextUrl.searchParams.get("execucao_id")?.trim() || null;
-  let sandbox: SandboxInstancia | null = null;
+  const { data, error } = await supabaseAdmin
+    .from("economize_cupons_candidatos")
+    .select("id,status,dados_brutos,ultima_coleta_em")
+    .eq("origem", "mercado_livre_v2")
+    .neq("status", "descartado")
+    .order("ultima_coleta_em", { ascending: false })
+    .limit(100);
 
-  try {
-    sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-
-    const arquivo = await rodarComando(sandbox, "cat", [PROGRESS_PATH]);
-
-    if (arquivo.resultado.exitCode !== 0 || !arquivo.stdout) {
-      return NextResponse.json({
-        sucesso: true,
-        disponivel: false,
-        status: "preparando",
-        total: 0,
-        processados: 0,
-      });
-    }
-
-    const progresso = JSON.parse(arquivo.stdout) as Record<string, unknown>;
-
-    if (
-      execucaoId &&
-      progresso.execucao_id &&
-      String(progresso.execucao_id) !== execucaoId
-    ) {
-      return NextResponse.json({
-        sucesso: true,
-        disponivel: false,
-        status: "preparando",
-        total: 0,
-        processados: 0,
-      });
-    }
-
-    return NextResponse.json({
-      sucesso: true,
-      disponivel: true,
-      ...progresso,
-    });
-  } catch (erro) {
+  if (error) {
     return NextResponse.json(
-      {
-        sucesso: false,
-        erro: erro instanceof Error ? erro.message : "Erro lendo progresso.",
-      },
+      { sucesso: false, erro: error.message },
       { status: 500 }
     );
   }
+
+  const candidatos = (data || []).filter((item) => primeiroItemId(item.dados_brutos));
+  let processados = 0;
+  let comComissao = 0;
+  let comissaoZero = 0;
+  let naoIdentificados = 0;
+  let erros = 0;
+  let ultimoItem: string | null = null;
+  let atualizadoEm: string | null = null;
+
+  for (const candidato of candidatos) {
+    const bruto = (candidato.dados_brutos || {}) as Record<string, any>;
+    const comissao =
+      bruto.comissao_afiliado && typeof bruto.comissao_afiliado === "object"
+        ? bruto.comissao_afiliado
+        : null;
+
+    if (!comissao?.verificada_em) continue;
+
+    processados += 1;
+    const percentual = Number(comissao.percentual);
+    const status = String(comissao.status || "");
+
+    if (Number.isFinite(percentual) && percentual > 0) {
+      comComissao += 1;
+    } else if (Number.isFinite(percentual) && percentual === 0) {
+      comissaoZero += 1;
+    } else if (status === "erro") {
+      erros += 1;
+    } else {
+      naoIdentificados += 1;
+    }
+
+    const itemId = String(comissao.item_id || "").trim();
+    const verificadaEm = String(comissao.verificada_em || "").trim();
+
+    if (!atualizadoEm || verificadaEm > atualizadoEm) {
+      atualizadoEm = verificadaEm;
+      ultimoItem = itemId || null;
+    }
+  }
+
+  return NextResponse.json({
+    sucesso: true,
+    disponivel: true,
+    status:
+      candidatos.length > 0 && processados >= candidatos.length
+        ? "concluido"
+        : "verificando",
+    total: candidatos.length,
+    processados,
+    com_comissao: comComissao,
+    comissao_zero: comissaoZero,
+    nao_identificados: naoIdentificados,
+    erros,
+    ultimo_item: ultimoItem,
+    atualizado_em: atualizadoEm,
+  });
 }
