@@ -32,7 +32,7 @@ export default function CorrigirLinkProduto({ produtoId, linkAtual }: Props) {
     }
 
     setSalvando(true);
-    setMensagem("");
+    setMensagem("Salvando e validando...");
 
     const { error } = await supabase
       .from("produtos")
@@ -51,9 +51,27 @@ export default function CorrigirLinkProduto({ produtoId, linkAtual }: Props) {
       return;
     }
 
-    setMensagem("Link salvo. Produto liberado para o monitor.");
-    setSalvando(false);
-    router.refresh();
+    try {
+      const resposta = await fetch(`/api/monitor/run?id=${produtoId}`, {
+        cache: "no-store",
+      });
+      const dados = await resposta.json().catch(() => null);
+
+      if (!resposta.ok || !dados?.sucesso) {
+        throw new Error(dados?.erro || "Link salvo, mas a validação falhou.");
+      }
+
+      setMensagem("Link salvo e monitor validado.");
+    } catch (erroValidacao) {
+      setMensagem(
+        erroValidacao instanceof Error
+          ? erroValidacao.message
+          : "Link salvo, mas não foi possível validar agora."
+      );
+    } finally {
+      setSalvando(false);
+      router.refresh();
+    }
   }
 
   return (
@@ -63,7 +81,7 @@ export default function CorrigirLinkProduto({ produtoId, linkAtual }: Props) {
         value={link}
         onChange={(e) => setLink(e.target.value)}
         placeholder="Cole aqui o link original do produto"
-        className="min-w-0 flex-1 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-red-400"
+        className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-400"
       />
       <button
         type="button"
@@ -71,10 +89,10 @@ export default function CorrigirLinkProduto({ produtoId, linkAtual }: Props) {
         disabled={salvando}
         className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
       >
-        {salvando ? "Salvando..." : "Salvar link"}
+        {salvando ? "Validando..." : "Salvar e validar"}
       </button>
       {mensagem ? (
-        <span className="text-xs font-bold text-slate-600 sm:max-w-56">{mensagem}</span>
+        <span className="text-xs font-bold text-slate-600 sm:max-w-64">{mensagem}</span>
       ) : null}
     </div>
   );
