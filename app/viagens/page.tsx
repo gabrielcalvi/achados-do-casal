@@ -1,5 +1,6 @@
 import RadarPublico from "./RadarPublico";
 import PacotesPublicos from "./PacotesPublicos";
+import ViagemPorOrcamento from "./ViagemPorOrcamento";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,12 @@ export default function ViagensPage() {
                 🔥 Ver Radar inteligente
               </a>
               <a
+                href="#viajar-com-orcamento"
+                className="rounded-xl bg-emerald-400 px-6 py-4 font-black text-emerald-950 transition hover:bg-emerald-300"
+              >
+                💸 Tenho um orçamento
+              </a>
+              <a
                 href={GRUPO_VIAGENS}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -115,6 +122,7 @@ export default function ViagensPage() {
       </section>
 
       <RadarPublico />
+      <ViagemPorOrcamento />
       <PacotesPublicos />
 
       <section id="nossas-viagens" className="border-y border-slate-200 bg-white">
