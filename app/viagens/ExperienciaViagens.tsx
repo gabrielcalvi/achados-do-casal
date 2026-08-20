@@ -15,16 +15,39 @@ const ESTATISTICAS = [
   ["1", "hobby que virou paixão"],
 ] as const;
 
-const BRASIL = [
-  ["4x", "Florianópolis", "Santa Catarina"],
-  ["2x", "Rio de Janeiro", "Rio de Janeiro"],
-  ["2x", "São Paulo", "São Paulo"],
-  ["✓", "Curitiba", "Paraná"],
-  ["✓", "Cascavel", "Paraná"],
-  ["✓", "Toledo", "Paraná"],
-  ["✓", "Bonito", "Mato Grosso do Sul"],
-  ["✓", "Recife", "Pernambuco"],
-  ["✓", "Manaus", "Amazonas"],
+const BRASIL_DESTAQUES = [
+  ["15x", "Gramado", "Rio Grande do Sul", "Serra Gaúcha"],
+  ["4x", "Florianópolis", "Santa Catarina", "Ilha + Canasvieiras"],
+  ["3x", "Balneário Camboriú", "Santa Catarina", "Litoral"],
+  ["2x", "Rio de Janeiro", "Rio de Janeiro", "Cidade + praias"],
+  ["2x", "São Paulo", "São Paulo", "Capital"],
+  ["2x", "Arraial d’Ajuda", "Bahia", "Costa do Descobrimento"],
+  ["★", "Caraíva", "Bahia", "Uma praia que marcou"],
+  ["★", "Praia do Espelho", "Bahia", "Litoral sul"],
+  ["★", "Porto de Galinhas", "Pernambuco", "Piscinas naturais"],
+  ["★", "Foz do Iguaçu", "Paraná", "Cataratas"],
+  ["★", "Bonito", "Mato Grosso do Sul", "Natureza"],
+  ["★", "Manaus", "Amazonas", "Amazônia"],
+  ["★", "Recife", "Pernambuco", "Nordeste"],
+  ["★", "João Pessoa", "Paraíba", "Nordeste"],
+  ["★", "Brasília", "Distrito Federal", "Capital do Brasil"],
+] as const;
+
+const OUTROS_DESTINOS_BRASIL = [
+  "Curitiba",
+  "Bombinhas",
+  "Porto Seguro",
+  "Beto Carrero / Penha",
+  "Blumenau",
+  "Joinville",
+  "Criciúma",
+  "Caxias do Sul",
+  "Dourados",
+  "Guaíra",
+  "Uruguaiana",
+  "Cascavel",
+  "Toledo",
+  "Mucuri",
 ] as const;
 
 export default function ExperienciaViagens() {
@@ -81,23 +104,47 @@ export default function ExperienciaViagens() {
         </div>
 
         <div className="mt-10 rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-6 shadow-sm sm:p-8 lg:p-10">
-          <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
-            <div>
+          <div className="grid gap-8 lg:grid-cols-[0.62fr_1.38fr] lg:items-start">
+            <div className="lg:sticky lg:top-28">
               <span className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">Explorando o Brasil</span>
               <h3 className="mt-3 text-4xl font-black leading-tight text-slate-950">Viajar para a gente também é conhecer o próprio país.</h3>
-              <p className="mt-4 leading-7 text-slate-600">Do Sul à Amazônia, nossas experiências não ficam só no exterior. Já viajamos por capitais, cidades menores e destinos de natureza, sempre com o mesmo jeito de explorar: entender a região, circular bastante e aproveitar o caminho.</p>
+              <p className="mt-4 leading-7 text-slate-600">Do Sul à Amazônia e do litoral catarinense às praias da Bahia e do Nordeste, nossas experiências não ficam só no exterior. A gente gosta de capitais, cidades menores, estrada, natureza e praia — e vários desses lugares já receberam a gente mais de uma vez.</p>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-emerald-700 p-4 text-white"><p className="text-3xl font-black">15x</p><p className="mt-1 text-sm font-black">Gramado</p><p className="mt-1 text-xs text-emerald-100">Morando perto, virou quase extensão de casa.</p></div>
+                <div className="rounded-2xl bg-sky-700 p-4 text-white"><p className="text-3xl font-black">2x</p><p className="mt-1 text-sm font-black">Arraial d’Ajuda</p><p className="mt-1 text-xs text-sky-100">Bahia que fez a gente querer voltar.</p></div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-emerald-200 bg-white/80 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Costa do Descobrimento</p>
+                <p className="mt-2 font-black text-slate-950">Arraial d’Ajuda · Caraíva · Praia do Espelho · Porto Seguro</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Uma das regiões que mais renderam experiências marcantes — com Caraíva entrando fácil na lista de praias mais especiais que já conhecemos.</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {BRASIL.map(([vezes, cidade, estado]) => (
-                <div key={cidade} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-2xl font-black text-emerald-700">{vezes}</span>
-                    <span className="text-xl" aria-hidden>🇧🇷</span>
+
+            <div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {BRASIL_DESTAQUES.map(([vezes, cidade, estado, perfil]) => (
+                  <div key={cidade} className="rounded-2xl border border-white bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-2xl font-black text-emerald-700">{vezes}</span>
+                      <span className="text-xl" aria-hidden>🇧🇷</span>
+                    </div>
+                    <p className="mt-2 font-black text-slate-950">{cidade}</p>
+                    <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">{estado}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{perfil}</p>
                   </div>
-                  <p className="mt-2 font-black text-slate-950">{cidade}</p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-400">{estado}</p>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">E ainda passamos por</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {OUTROS_DESTINOS_BRASIL.map((destino) => (
+                    <span key={destino} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">{destino}</span>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </div>
