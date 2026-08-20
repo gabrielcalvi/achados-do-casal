@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const FATOR_ESTIMADO_BEBE_COLO = 0.1;
+
 const NOMES_DESTINOS: Record<string, string> = {
   ORL: "Orlando",
   MIA: "Miami",
@@ -39,11 +41,17 @@ function classificar(preco: number, radar: Record<string, any>) {
   return "Acima da faixa ideal";
 }
 
+function dinheiro(valor: number) {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origem = String(url.searchParams.get("origem") || "POA").trim().toUpperCase();
   const orcamento = Number(url.searchParams.get("orcamento") || 10000);
   const viajantes = Math.min(9, Math.max(1, Number(url.searchParams.get("viajantes") || 2)));
+  const bebesSolicitados = Math.max(0, Number(url.searchParams.get("bebes") || 0));
+  const bebes = Math.min(viajantes, 4, bebesSolicitados);
 
   if (!Number.isFinite(orcamento) || orcamento <= 0) {
     return NextResponse.json({ sucesso: false, erro: "Orçamento inválido." }, { status: 400 });
@@ -72,6 +80,7 @@ export async function GET(request: Request) {
       origem,
       orcamento,
       viajantes,
+      bebes,
       resultados: [],
       totalDestinosMonitorados: 0,
       destinosComDados: 0,
@@ -105,8 +114,10 @@ export async function GET(request: Request) {
       if (!preco) return null;
 
       const porPessoa = Number(preco.preco_por_pessoa);
-      const totalPassagens = porPessoa * viajantes;
-      const sobra = orcamento - totalPassagens;
+      const totalAssentos = dinheiro(porPessoa * viajantes);
+      const estimativaBebes = dinheiro(porPessoa * FATOR_ESTIMADO_BEBE_COLO * bebes);
+      const totalPassagens = dinheiro(totalAssentos + estimativaBebes);
+      const sobra = dinheiro(orcamento - totalPassagens);
       const percentualOrcamento = (totalPassagens / orcamento) * 100;
 
       return {
@@ -115,6 +126,8 @@ export async function GET(request: Request) {
         destinoCodigo: radar.destino_codigo,
         destino: radar.destino_cidade || NOMES_DESTINOS[radar.destino_codigo] || radar.destino_codigo,
         precoPorPessoa: porPessoa,
+        totalAssentos,
+        estimativaBebes,
         totalPassagens,
         sobra,
         cabeNoOrcamento: sobra >= 0,
@@ -149,10 +162,12 @@ export async function GET(request: Request) {
     origem,
     orcamento,
     viajantes,
+    bebes,
+    fatorEstimadoBebeColo: FATOR_ESTIMADO_BEBE_COLO,
     resultados,
     totalDestinosMonitorados: (radares || []).length,
     destinosComDados: resultados.length,
     destinosEmColeta,
-    aviso: "O Radar agora monitora 20 destinos por origem. Resultados aparecem assim que cada rota recebe sua primeira coleta real. Nesta etapa, o orçamento considera as passagens; hospedagem e demais custos entram na próxima camada.",
+    aviso: "O Radar separa viajantes com assento de bebês de colo com menos de 2 anos. Para bebê de colo, a primeira versão usa estimativa de 10% da tarifa adulta por bebê; a cobrança final depende da companhia, rota e taxas. Hospedagem e demais custos entram na próxima camada.",
   });
 }
