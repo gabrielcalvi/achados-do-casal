@@ -23,6 +23,22 @@ function statusRotulo(status: "ok" | "atencao" | "erro") {
   return "● Problema";
 }
 
+function temImagem(oferta: { imagem_url?: string | null }) {
+  return Boolean(String(oferta.imagem_url || "").trim());
+}
+
+function temCodigo(oferta: { codigo?: string | null }) {
+  return Boolean(String(oferta.codigo || "").trim());
+}
+
+function ofertaPublicaExibivel(oferta: { imagem_url?: string | null; codigo?: string | null }) {
+  return temImagem(oferta) || temCodigo(oferta);
+}
+
+function exigeCategoria(oferta: { imagem_url?: string | null }) {
+  return temImagem(oferta);
+}
+
 export default async function AdminSaudePage() {
   const agora = new Date();
   const vinteQuatroHoras = new Date(agora.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -46,7 +62,7 @@ export default async function AdminSaudePage() {
       .order("ordem", { ascending: true }),
     supabaseAdmin
       .from("economize_ofertas")
-      .select("id,loja_id,status,categoria,imagem_url,validade,updated_at")
+      .select("id,loja_id,status,tipo,codigo,categoria,imagem_url,validade,updated_at,origem")
       .eq("status", "ativo"),
     supabaseAdmin
       .from("produtos")
@@ -107,11 +123,15 @@ export default async function AdminSaudePage() {
     return new Date(oferta.validade).getTime() > agora.getTime();
   });
 
-  const semImagem = ofertasValidas.filter(
-    (oferta) => !String(oferta.imagem_url || "").trim()
+  const ofertasPublicas = ofertasValidas.filter(ofertaPublicaExibivel);
+
+  // Cupons gerais sem produto específico não precisam de foto/categoria.
+  // A qualidade visual é cobrada apenas dos cards que realmente exibem produto.
+  const semImagem = ofertasPublicas.filter(
+    (oferta) => !temImagem(oferta) && !temCodigo(oferta)
   ).length;
-  const semCategoria = ofertasValidas.filter(
-    (oferta) => !String(oferta.categoria || "").trim()
+  const semCategoria = ofertasPublicas.filter(
+    (oferta) => exigeCategoria(oferta) && !String(oferta.categoria || "").trim()
   ).length;
   const produtosSemCategoria = produtos.filter(
     (produto) => !String(produto.categoria || "").trim()
@@ -127,10 +147,15 @@ export default async function AdminSaudePage() {
   }).length;
 
   const lojasResumo = lojas.map((loja) => {
-    const itens = ofertasValidas.filter((oferta) => oferta.loja_id === loja.id);
-    const semImagemLoja = itens.filter((oferta) => !String(oferta.imagem_url || "").trim()).length;
-    const semCategoriaLoja = itens.filter((oferta) => !String(oferta.categoria || "").trim()).length;
-    const ultimaAtualizacao = itens
+    const itensValidos = ofertasValidas.filter((oferta) => oferta.loja_id === loja.id);
+    const itens = itensValidos.filter(ofertaPublicaExibivel);
+    const semImagemLoja = itens.filter(
+      (oferta) => !temImagem(oferta) && !temCodigo(oferta)
+    ).length;
+    const semCategoriaLoja = itens.filter(
+      (oferta) => exigeCategoria(oferta) && !String(oferta.categoria || "").trim()
+    ).length;
+    const ultimaAtualizacao = itensValidos
       .map((item) => item.updated_at)
       .filter(Boolean)
       .sort()
@@ -167,32 +192,23 @@ export default async function AdminSaudePage() {
           ? "erro"
           : "atencao";
 
+  const qualidadeStatus: "ok" | "atencao" =
+    semImagem + semCategoria + produtosSemCategoria + produtosSemImagem === 0 ? "ok" : "atencao";
+
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-950 sm:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-wider text-slate-500">
-                Achados do Casal
-              </p>
-              <h1 className="mt-2 text-3xl font-black sm:text-4xl">
-                Saúde do projeto
-              </h1>
-              <p className="mt-2 max-w-3xl text-slate-600">
-                Visão rápida do que está saudável, do que precisa de atenção e do que realmente está quebrado.
-              </p>
+              <p className="text-sm font-black uppercase tracking-wider text-slate-500">Achados do Casal</p>
+              <h1 className="mt-2 text-3xl font-black sm:text-4xl">Saúde do projeto</h1>
+              <p className="mt-2 max-w-3xl text-slate-600">Visão rápida do que está saudável, do que precisa de atenção e do que realmente está quebrado.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href="/admin/monitor" className="rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50">
-                Abrir monitor
-              </Link>
-              <Link href="/admin/viagens" className="rounded-xl border border-violet-300 px-4 py-3 font-black text-violet-700 hover:bg-violet-50">
-                Abrir viagens
-              </Link>
-              <Link href="/admin/economize" className="rounded-xl bg-slate-950 px-4 py-3 font-black text-white hover:bg-slate-800">
-                Abrir Economize
-              </Link>
+              <Link href="/admin/monitor" className="rounded-xl border border-slate-300 px-4 py-3 font-black text-slate-700 hover:bg-slate-50">Abrir monitor</Link>
+              <Link href="/admin/viagens" className="rounded-xl border border-violet-300 px-4 py-3 font-black text-violet-700 hover:bg-violet-50">Abrir viagens</Link>
+              <Link href="/admin/economize" className="rounded-xl bg-slate-950 px-4 py-3 font-black text-white hover:bg-slate-800">Abrir Economize</Link>
             </div>
           </div>
         </header>
@@ -219,11 +235,11 @@ export default async function AdminSaudePage() {
             <p className="mt-1 text-xs opacity-70">Última execução: {formatarData(viagensUltima?.iniciada_em)}</p>
           </article>
 
-          <article className={`rounded-2xl border p-5 ${statusClasse(semImagem + semCategoria + produtosSemCategoria + produtosSemImagem === 0 ? "ok" : "atencao")}`}>
+          <article className={`rounded-2xl border p-5 ${statusClasse(qualidadeStatus)}`}>
             <p className="text-xs font-black uppercase tracking-wide">Qualidade dos dados</p>
-            <p className="mt-2 text-2xl font-black">{statusRotulo(semImagem + semCategoria + produtosSemCategoria + produtosSemImagem === 0 ? "ok" : "atencao")}</p>
+            <p className="mt-2 text-2xl font-black">{statusRotulo(qualidadeStatus)}</p>
             <p className="mt-2 text-sm font-bold">{semImagem + produtosSemImagem} sem imagem · {semCategoria + produtosSemCategoria} sem categoria</p>
-            <p className="mt-1 text-xs opacity-70">Ofertas + produtos cadastrados</p>
+            <p className="mt-1 text-xs opacity-70">Cupons gerais sem produto não contam como falha visual</p>
           </article>
         </section>
 
@@ -231,11 +247,9 @@ export default async function AdminSaudePage() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-2xl font-black">Lojas e catálogos</h2>
-              <p className="mt-1 text-sm text-slate-500">Produtos públicos válidos, imagens e categorias por loja.</p>
+              <p className="mt-1 text-sm text-slate-500">Itens públicos exibíveis, imagens e categorias por loja.</p>
             </div>
-            <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-600">
-              {ofertasValidas.length} ofertas válidas
-            </span>
+            <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-600">{ofertasPublicas.length} ofertas públicas</span>
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
