@@ -31,6 +31,12 @@ export default function PartnerPromoBar() {
         >
           C&A · VER OFERTAS
         </Link>
+        <Link
+          href="/casas-bahia"
+          className="inline-flex items-center rounded-full bg-[#1f4aa8] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#173b88]"
+        >
+          CASAS BAHIA · VER OFERTAS
+        </Link>
       </div>
     </div>
   );
