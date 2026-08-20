@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ProdutoMlV2 = {
   item_id: string;
@@ -47,6 +47,21 @@ type ResultadoComissoes = {
   nao_identificados?: number;
 };
 
+type ProgressoComissoes = {
+  sucesso?: boolean;
+  disponivel?: boolean;
+  status?: string;
+  total?: number;
+  processados?: number;
+  com_comissao?: number;
+  comissao_zero?: number;
+  nao_identificados?: number;
+  erros?: number;
+  ultimo_item?: string | null;
+  atualizado_em?: string | null;
+  erro?: string | null;
+};
+
 function moeda(valor: number | null | undefined) {
   if (valor === null || valor === undefined) return "—";
 
@@ -75,6 +90,15 @@ function rotuloStatus(status: string | null | undefined) {
   return "🟡 Pendente";
 }
 
+function rotuloProgresso(status: string | null | undefined) {
+  if (status === "validando_sessao") return "Validando sessão de afiliado...";
+  if (status === "iniciando_navegador") return "Abrindo navegador no Sandbox...";
+  if (status === "verificando") return "Verificando comissões nos produtos...";
+  if (status === "concluido") return "Verificação concluída";
+  if (status === "erro") return "A verificação encontrou um erro";
+  return "Preparando verificação...";
+}
+
 export default function PainelMlV2() {
   const [executando, setExecutando] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -82,8 +106,11 @@ export default function PainelMlV2() {
   const [resultado, setResultado] = useState<ResultadoMlV2 | null>(null);
   const [resultadoComissoes, setResultadoComissoes] =
     useState<ResultadoComissoes | null>(null);
+  const [progressoComissoes, setProgressoComissoes] =
+    useState<ProgressoComissoes | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatoMlV2[]>([]);
   const [erro, setErro] = useState("");
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function carregarCandidatos() {
     try {
@@ -116,6 +143,10 @@ export default function PainelMlV2() {
 
   useEffect(() => {
     carregarCandidatos();
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, []);
 
   async function executar() {
@@ -143,11 +174,38 @@ export default function PainelMlV2() {
     }
   }
 
+  async function consultarProgressoComissoes() {
+    try {
+      const resposta = await fetch(
+        "/api/admin/economize/cupons/ml-v2/comissoes/progresso",
+        { cache: "no-store", credentials: "include" }
+      );
+      const dados = (await resposta.json()) as ProgressoComissoes;
+
+      if (resposta.ok && dados.sucesso) {
+        setProgressoComissoes(dados);
+      }
+    } catch {
+      // O POST principal continua sendo a fonte de verdade.
+    }
+  }
+
   async function atualizarComissoes() {
     try {
       setAtualizandoComissoes(true);
       setErro("");
       setResultadoComissoes(null);
+      setProgressoComissoes({
+        sucesso: true,
+        disponivel: false,
+        status: "preparando",
+        total: candidatos.filter((item) => (item.produtos || []).length > 0).length,
+        processados: 0,
+      });
+
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = setInterval(consultarProgressoComissoes, 1500);
+      void consultarProgressoComissoes();
 
       const resposta = await fetch(
         "/api/admin/economize/cupons/ml-v2/comissoes/executar",
@@ -166,6 +224,17 @@ export default function PainelMlV2() {
       }
 
       setResultadoComissoes(dados);
+      setProgressoComissoes((atual) => ({
+        ...(atual || {}),
+        sucesso: true,
+        disponivel: true,
+        status: "concluido",
+        total: dados.total_consultados ?? atual?.total ?? 0,
+        processados: dados.total_consultados ?? atual?.processados ?? 0,
+        com_comissao: dados.com_comissao ?? 0,
+        comissao_zero: dados.comissao_zero ?? 0,
+        nao_identificados: dados.nao_identificados ?? 0,
+      }));
       await carregarCandidatos();
     } catch (error) {
       setErro(
@@ -173,10 +242,28 @@ export default function PainelMlV2() {
           ? error.message
           : "Erro inesperado ao verificar comissões."
       );
+      setProgressoComissoes((atual) => ({
+        ...(atual || {}),
+        sucesso: false,
+        status: "erro",
+      }));
     } finally {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
       setAtualizandoComissoes(false);
     }
   }
+
+  const totalProgresso = progressoComissoes?.total ?? 0;
+  const processadosProgresso = progressoComissoes?.processados ?? 0;
+  const porcentagemProgresso =
+    progressoComissoes?.status === "concluido"
+      ? 100
+      : totalProgresso > 0
+        ? Math.min(99, Math.round((processadosProgresso / totalProgresso) * 100))
+        : 3;
 
   return (
     <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
@@ -250,6 +337,32 @@ export default function PainelMlV2() {
           </p>
         </div>
       </div>
+
+      {(atualizandoComissoes || progressoComissoes?.status === "concluido" || progressoComissoes?.status === "erro") && (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black text-amber-950">
+            <span>{rotuloProgresso(progressoComissoes?.status)}</span>
+            <span>
+              {processadosProgresso}/{totalProgresso || "?"} · {porcentagemProgresso}%
+            </span>
+          </div>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-amber-100">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-all duration-500"
+              style={{ width: `${porcentagemProgresso}%` }}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-amber-900/80">
+            <span>Com comissão: {progressoComissoes?.com_comissao ?? 0}</span>
+            <span>0%: {progressoComissoes?.comissao_zero ?? 0}</span>
+            <span>Não identificados: {progressoComissoes?.nao_identificados ?? 0}</span>
+            <span>Erros: {progressoComissoes?.erros ?? 0}</span>
+            {progressoComissoes?.ultimo_item && (
+              <span>Último: {progressoComissoes.ultimo_item}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {resultado && (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
