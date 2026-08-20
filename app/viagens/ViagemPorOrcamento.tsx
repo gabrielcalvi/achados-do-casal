@@ -8,6 +8,8 @@ type Resultado = {
   destinoCodigo: string;
   destino: string;
   precoPorPessoa: number;
+  totalAssentos: number;
+  estimativaBebes: number;
   totalPassagens: number;
   sobra: number;
   cabeNoOrcamento: boolean;
@@ -38,6 +40,7 @@ const ORIGENS = [
 ];
 
 const ORCAMENTOS_RAPIDOS = [5000, 8000, 10000, 15000, 20000];
+const FATOR_ESTIMADO_BEBE = 0.1;
 
 function moeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -67,6 +70,7 @@ export default function ViagemPorOrcamento() {
   const [origem, setOrigem] = useState("POA");
   const [orcamento, setOrcamento] = useState("10000");
   const [viajantes, setViajantes] = useState("2");
+  const [bebes, setBebes] = useState("0");
   const [carregando, setCarregando] = useState(false);
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [destinosEmColeta, setDestinosEmColeta] = useState<DestinoEmColeta[]>([]);
@@ -76,6 +80,8 @@ export default function ViagemPorOrcamento() {
 
   const numeroOrcamento = useMemo(() => Number(orcamento.replace(/\D/g, "")) || 0, [orcamento]);
   const qtdViajantes = Number(viajantes) || 1;
+  const qtdBebes = Math.min(qtdViajantes, Number(bebes) || 0);
+  const totalPessoas = qtdViajantes + qtdBebes;
 
   async function buscar() {
     if (numeroOrcamento <= 0) {
@@ -91,6 +97,7 @@ export default function ViagemPorOrcamento() {
         origem,
         orcamento: String(numeroOrcamento),
         viajantes,
+        bebes: String(qtdBebes),
       });
       const resposta = await fetch(`/api/viagens/orcamento?${params.toString()}`, { cache: "no-store" });
       const dados = await resposta.json();
@@ -124,12 +131,13 @@ export default function ViagemPorOrcamento() {
               <span className="block text-cyan-300">O Radar mostra até onde dá para ir.</span>
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
-              Informe a cidade de saída, o orçamento total e quantas pessoas vão viajar. A gente cruza isso com preços reais encontrados pelos nossos radares.
+              Informe a cidade de saída, o orçamento e a composição da viagem. O Radar separa quem ocupa assento de bebê de colo e cruza o cenário com preços reais encontrados nas rotas.
             </p>
-            <div className="mt-7 grid max-w-xl grid-cols-3 gap-3">
+            <div className="mt-7 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Origem</p><p className="mt-1 text-xl font-black">{origem}</p></div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Orçamento</p><p className="mt-1 text-xl font-black text-cyan-300">{moeda(numeroOrcamento || 0)}</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Viajantes</p><p className="mt-1 text-xl font-black">{qtdViajantes}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Com assento</p><p className="mt-1 text-xl font-black">{qtdViajantes}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Bebês de colo</p><p className="mt-1 text-xl font-black text-amber-200">{qtdBebes}</p></div>
             </div>
           </div>
 
@@ -139,7 +147,7 @@ export default function ViagemPorOrcamento() {
               <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Dados reais do Radar</span>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <label className="grid gap-2 text-sm font-black text-slate-700">Saindo de
                 <select value={origem} onChange={(e) => setOrigem(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-950 outline-none focus:border-sky-400 focus:bg-white">
                   {ORIGENS.map((item) => <option key={item.codigo} value={item.codigo}>{item.nome}</option>)}
@@ -149,8 +157,13 @@ export default function ViagemPorOrcamento() {
                 <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">R$</span><input inputMode="numeric" value={orcamento} onChange={(e) => setOrcamento(e.target.value)} placeholder="10000" className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-base font-black text-slate-950 outline-none focus:border-sky-400 focus:bg-white" /></div>
               </label>
               <label className="grid gap-2 text-sm font-black text-slate-700">Viajantes com assento
-                <select value={viajantes} onChange={(e) => setViajantes(e.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-950 outline-none focus:border-sky-400 focus:bg-white">
+                <select value={viajantes} onChange={(e) => { setViajantes(e.target.value); setBebes((atual) => String(Math.min(Number(atual) || 0, Number(e.target.value) || 1))); }} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-950 outline-none focus:border-sky-400 focus:bg-white">
                   {[1,2,3,4,5,6].map((n) => <option key={n} value={n}>{n} {n === 1 ? "pessoa" : "pessoas"}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-black text-slate-700">Bebês de colo · até 1 ano e 11 meses
+                <select value={String(qtdBebes)} onChange={(e) => setBebes(e.target.value)} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-base font-bold text-slate-950 outline-none focus:border-amber-400 focus:bg-white">
+                  {Array.from({ length: Math.min(qtdViajantes, 4) + 1 }, (_, n) => n).map((n) => <option key={n} value={n}>{n === 0 ? "Nenhum" : `${n} ${n === 1 ? "bebê" : "bebês"}`}</option>)}
                 </select>
               </label>
             </div>
@@ -162,7 +175,9 @@ export default function ViagemPorOrcamento() {
             <button type="button" onClick={buscar} disabled={carregando} className="mt-6 w-full rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-4 text-lg font-black text-white shadow-lg shadow-sky-200 transition hover:from-sky-700 hover:to-cyan-600 disabled:opacity-60">
               {carregando ? "Consultando os radares..." : "Descobrir para onde eu posso ir"}
             </button>
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Nesta etapa, o cálculo usa o valor das passagens. Hospedagem, carro e passeios entram na próxima camada de custo total.</div>
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+              Passagens de quem ocupa assento entram pelo valor cheio encontrado pelo Radar. Para bebê de colo, usamos por enquanto uma estimativa de {Math.round(FATOR_ESTIMADO_BEBE * 100)}% da tarifa adulta por bebê; a cobrança real varia por companhia, rota e taxas. Hospedagem, carro e passeios entram na próxima camada de custo total.
+            </div>
             {erro ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{erro}</p> : null}
           </div>
         </div>
@@ -170,7 +185,7 @@ export default function ViagemPorOrcamento() {
         {buscou ? (
           <div className="mt-10 rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur sm:p-6 lg:p-8">
             <div className="flex flex-wrap items-end justify-between gap-4">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">Resultado do Radar</p><h3 className="mt-2 text-3xl font-black">Melhores encaixes para {moeda(numeroOrcamento)}</h3><p className="mt-2 text-slate-300">{resultadosQueCabem.length} destino(s) já cabem nas passagens para {qtdViajantes} viajante(s).</p></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">Resultado do Radar</p><h3 className="mt-2 text-3xl font-black">Melhores encaixes para {moeda(numeroOrcamento)}</h3><p className="mt-2 text-slate-300">{resultadosQueCabem.length} destino(s) já cabem no aéreo para {qtdViajantes} com assento{qtdBebes > 0 ? ` + ${qtdBebes} ${qtdBebes === 1 ? "bebê de colo" : "bebês de colo"}` : ""} ({totalPessoas} viajante{totalPessoas === 1 ? "" : "s"}).</p></div>
               <div className="flex flex-wrap gap-2"><span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black">{totalDestinos || 20} destinos monitorados</span><span className="rounded-full bg-cyan-400/10 px-4 py-2 text-sm font-black text-cyan-200">{destinosEmColeta.length} ainda recebendo primeira coleta</span></div>
             </div>
 
@@ -183,8 +198,8 @@ export default function ViagemPorOrcamento() {
                   return <article key={item.radarId} className={`relative overflow-hidden rounded-3xl border p-5 text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${dentro ? "border-emerald-200 bg-white" : "border-slate-200 bg-slate-100"}`}>
                     {index === 0 && dentro ? <div className="absolute right-0 top-0 rounded-bl-2xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white">Melhor encaixe</div> : null}
                     <div className="flex items-start justify-between gap-4 pr-20"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{origem} → {item.destinoCodigo}</p><h4 className="mt-1 text-2xl font-black">{item.destino}</h4></div><span className={`rounded-full px-3 py-2 text-xs font-black ${classeFaixa(item.classificacao)}`}>{item.classificacao}</span></div>
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Por pessoa</p><p className="mt-1 text-xl font-black">{moeda(item.precoPorPessoa)}</p></div><div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Total passagens</p><p className="mt-1 text-xl font-black">{moeda(item.totalPassagens)}</p></div><div className={`rounded-2xl border p-4 ${dentro ? "border-emerald-100 bg-emerald-50" : "border-red-100 bg-red-50"}`}><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Saldo do orçamento</p><p className={`mt-1 text-xl font-black ${dentro ? "text-emerald-700" : "text-red-600"}`}>{moeda(item.sobra)}</p></div></div>
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${dentro ? "bg-emerald-500" : "bg-red-400"}`} style={{ width: `${Math.min(100, Math.max(4, item.percentualOrcamento))}%` }} /></div><p className="mt-2 text-xs font-bold text-slate-400">As passagens usam {Math.round(item.percentualOrcamento)}% do orçamento informado.</p>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Tarifa por assento</p><p className="mt-1 text-xl font-black">{moeda(item.precoPorPessoa)}</p></div><div className="rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Total aéreo estimado</p><p className="mt-1 text-xl font-black">{moeda(item.totalPassagens)}</p>{qtdBebes > 0 ? <p className="mt-1 text-[11px] font-bold text-amber-700">Inclui ~{moeda(item.estimativaBebes)} de tarifa infantil.</p> : null}</div><div className={`rounded-2xl border p-4 ${dentro ? "border-emerald-100 bg-emerald-50" : "border-red-100 bg-red-50"}`}><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Saldo do orçamento</p><p className={`mt-1 text-xl font-black ${dentro ? "text-emerald-700" : "text-red-600"}`}>{moeda(item.sobra)}</p></div></div>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${dentro ? "bg-emerald-500" : "bg-red-400"}`} style={{ width: `${Math.min(100, Math.max(4, item.percentualOrcamento))}%` }} /></div><p className="mt-2 text-xs font-bold text-slate-400">O aéreo estimado usa {Math.round(item.percentualOrcamento)}% do orçamento informado.</p>
                     <div className="mt-4 flex flex-wrap gap-2 text-sm font-bold text-slate-600">{ida && volta ? <span className="rounded-full bg-slate-100 px-3 py-2">{ida} → {volta}</span> : null}{item.permanenciaDias ? <span className="rounded-full bg-slate-100 px-3 py-2">{item.permanenciaDias} dias</span> : null}{item.ciaAerea ? <span className="rounded-full bg-slate-100 px-3 py-2">{item.ciaAerea}</span> : null}</div>
                     <div className="mt-5 flex flex-wrap gap-3 border-t border-slate-100 pt-5">{item.link ? <a href={item.link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white">Ver passagem</a> : null}<a href="https://chat.whatsapp.com/LaeDJXjVTnhIpRf8FfR8Xx" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">Receber oportunidades</a></div>
                   </article>;
