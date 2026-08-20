@@ -78,7 +78,7 @@ export async function GET(
             alignItems: "center",
             justifyContent: "center",
             background: "#0f172a",
-            color: "white",
+            color: "#ffffff",
             fontSize: 54,
             fontWeight: 900,
           }}
@@ -125,8 +125,8 @@ export async function GET(
             display: "flex",
             overflow: "hidden",
             borderRadius: 34,
-            background: "white",
-            boxShadow: "0 14px 34px rgba(15,23,42,0.14)",
+            border: "2px solid #cbd5e1",
+            background: "#ffffff",
           }}
         >
           <div
@@ -138,42 +138,24 @@ export async function GET(
               justifyContent: "center",
               position: "relative",
               background: "#ffffff",
-              padding: 38,
+              padding: 36,
             }}
           >
             <div
               style={{
                 position: "absolute",
-                left: 28,
-                top: 26,
+                left: 26,
+                top: 24,
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
                 padding: "10px 16px",
                 borderRadius: 999,
                 background: "#0f172a",
-                color: "white",
+                color: "#ffffff",
                 fontSize: 19,
                 fontWeight: 900,
-                letterSpacing: "0.5px",
               }}
             >
-              <span
-                style={{
-                  display: "flex",
-                  width: 28,
-                  height: 28,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 8,
-                  background: "#ffffff",
-                  color: "#0f172a",
-                  fontSize: 16,
-                  fontWeight: 900,
-                }}
-              >
-                A
-              </span>
               ACHADOS DO CASAL
             </div>
 
@@ -183,8 +165,8 @@ export async function GET(
                 alt=""
                 style={{
                   width: "94%",
-                  height: "86%",
-                  marginTop: 36,
+                  height: "84%",
+                  marginTop: 38,
                   objectFit: "contain",
                 }}
               />
@@ -211,10 +193,9 @@ export async function GET(
               flex: 1,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between",
               background: "#0f172a",
-              color: "white",
-              padding: "42px 42px 34px",
+              color: "#ffffff",
+              padding: "38px 40px 32px",
             }}
           >
             <div
@@ -222,7 +203,6 @@ export async function GET(
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: 14,
               }}
             >
               <div
@@ -242,14 +222,12 @@ export async function GET(
               <div
                 style={{
                   display: "flex",
-                  maxWidth: 260,
                   padding: "9px 15px",
                   borderRadius: 999,
                   background: "#1e293b",
                   color: "#e2e8f0",
                   fontSize: 19,
                   fontWeight: 800,
-                  overflow: "hidden",
                 }}
               >
                 {loja}
@@ -258,85 +236,77 @@ export async function GET(
 
             <div
               style={{
+                marginTop: 58,
                 display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                flex: 1,
-                paddingTop: 20,
+                color: "#94a3b8",
+                fontSize: 24,
+                fontWeight: 800,
               }}
             >
+              OFERTA ENCONTRADA
+            </div>
+
+            {temPrecoAnterior ? (
               <div
                 style={{
+                  marginTop: 20,
                   display: "flex",
                   color: "#94a3b8",
-                  fontSize: 24,
-                  fontWeight: 800,
+                  fontSize: 27,
+                  textDecoration: "line-through",
                 }}
               >
-                OFERTA ENCONTRADA
+                {precoOriginal}
               </div>
-
-              {temPrecoAnterior ? (
-                <div
-                  style={{
-                    marginTop: 18,
-                    display: "flex",
-                    color: "#94a3b8",
-                    fontSize: 27,
-                    textDecoration: "line-through",
-                  }}
-                >
-                  {precoOriginal}
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  marginTop: temPrecoAnterior ? 4 : 18,
-                  display: "flex",
-                  fontSize: preco ? 72 : 45,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  letterSpacing: "-2px",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {preco || "CONFIRA A OFERTA"}
-              </div>
-
-              {desconto > 0 ? (
-                <div
-                  style={{
-                    marginTop: 22,
-                    display: "flex",
-                    alignSelf: "flex-start",
-                    padding: "10px 16px",
-                    borderRadius: 14,
-                    background: "#dcfce7",
-                    color: "#166534",
-                    fontSize: 28,
-                    fontWeight: 900,
-                  }}
-                >
-                  {Math.round(desconto)}% OFF
-                </div>
-              ) : (
-                <div
-                  style={{
-                    marginTop: 22,
-                    display: "flex",
-                    color: "#cbd5e1",
-                    fontSize: 23,
-                    fontWeight: 700,
-                  }}
-                >
-                  Veja preço e disponibilidade
-                </div>
-              )}
-            </div>
+            ) : null}
 
             <div
               style={{
+                marginTop: temPrecoAnterior ? 4 : 24,
+                display: "flex",
+                fontSize: preco ? 68 : 43,
+                lineHeight: 1,
+                fontWeight: 900,
+                letterSpacing: "-2px",
+              }}
+            >
+              {preco || "CONFIRA A OFERTA"}
+            </div>
+
+            {desconto > 0 ? (
+              <div
+                style={{
+                  marginTop: 24,
+                  display: "flex",
+                  width: 180,
+                  justifyContent: "center",
+                  padding: "10px 14px",
+                  borderRadius: 14,
+                  background: "#dcfce7",
+                  color: "#166534",
+                  fontSize: 27,
+                  fontWeight: 900,
+                }}
+              >
+                {Math.round(desconto)}% OFF
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginTop: 24,
+                  display: "flex",
+                  color: "#cbd5e1",
+                  fontSize: 22,
+                  fontWeight: 700,
+                }}
+              >
+                Veja preço e disponibilidade
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "auto",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -358,7 +328,7 @@ export async function GET(
       width: LARGURA,
       height: ALTURA,
       headers: {
-        "Cache-Control": "public, max-age=120, s-maxage=900",
+        "Cache-Control": "public, max-age=60, s-maxage=300",
       },
     }
   );
