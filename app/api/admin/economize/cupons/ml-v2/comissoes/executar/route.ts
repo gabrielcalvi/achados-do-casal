@@ -11,6 +11,7 @@ const SANDBOX_NAME = "achados-cupons-ml-test";
 const AUTH_STATE_PATH = "/vercel/tmp/meli-auth.json";
 const SCRIPT_PATH = "/vercel/scripts/verificar-comissoes-ml-v2.cjs";
 const RESULT_PATH = "/vercel/tmp/ml-v2-comissoes.json";
+const PROGRESS_PATH = "/vercel/tmp/ml-v2-comissoes-progresso.json";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const MAX_CANDIDATOS = 100;
 
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
   }
 
   let sandbox: SandboxInstancia | null = null;
+  const execucaoId = crypto.randomUUID();
 
   try {
     const { data: candidatos, error: erroCandidatos } = await supabaseAdmin
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
     if (itemIds.length === 0) {
       return NextResponse.json({
         sucesso: true,
+        execucao_id: execucaoId,
         total_consultados: 0,
         com_comissao: 0,
         comissao_zero: 0,
@@ -127,6 +130,11 @@ export async function POST(request: NextRequest) {
         preparar.stderr || "Falha preparando diretorios do Sandbox."
       );
     }
+
+    await rodarComando(sandbox, {
+      cmd: "rm",
+      args: ["-f", RESULT_PATH, PROGRESS_PATH],
+    });
 
     const auth = await rodarComando(sandbox, {
       cmd: "test",
@@ -169,6 +177,8 @@ export async function POST(request: NextRequest) {
       env: {
         MELI_AFFILIATE_AUTH_STATE_PATH: AUTH_STATE_PATH,
         ML_V2_COMISSOES_RESULT_PATH: RESULT_PATH,
+        ML_V2_COMISSOES_PROGRESS_PATH: PROGRESS_PATH,
+        ML_V2_COMISSOES_EXECUTION_ID: execucaoId,
         ML_V2_COMISSOES_CONCURRENCY: "3",
         ML_V2_ITEM_IDS: JSON.stringify(itemIds),
       },
@@ -251,6 +261,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       sucesso: true,
+      execucao_id: execucaoId,
       total_consultados: resultados.length,
       candidatos_atualizados: atualizados,
       com_comissao: comComissao,
@@ -264,6 +275,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         sucesso: false,
+        execucao_id: execucaoId,
         erro: erro instanceof Error ? erro.message : "Erro inesperado.",
       },
       { status: 500 }
