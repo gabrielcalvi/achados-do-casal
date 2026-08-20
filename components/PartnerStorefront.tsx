@@ -16,6 +16,7 @@ type Oferta = {
 };
 
 type Resposta = { ofertas?: Oferta[]; error?: string };
+type Ordenacao = "relevancia" | "menor-preco" | "maior-preco" | "maior-desconto";
 
 type Props = {
   slug: string;
@@ -30,9 +31,15 @@ function moeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
 }
 
+function precoValido(oferta: Oferta) {
+  const preco = Number(oferta.preco_oferta);
+  return Number.isFinite(preco) && preco > 0 ? preco : null;
+}
+
 export default function PartnerStorefront({ slug, nome, descricao, placeholder, cor }: Props) {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>("relevancia");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
@@ -58,13 +65,34 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return ofertas;
-    return ofertas.filter((oferta) =>
-      [oferta.titulo, oferta.categoria, oferta.descricao]
-        .filter(Boolean)
-        .some((texto) => String(texto).toLowerCase().includes(termo)),
-    );
-  }, [busca, ofertas]);
+    const base = termo
+      ? ofertas.filter((oferta) =>
+          [oferta.titulo, oferta.categoria, oferta.descricao]
+            .filter(Boolean)
+            .some((texto) => String(texto).toLowerCase().includes(termo)),
+        )
+      : [...ofertas];
+
+    if (ordenacao === "relevancia") return base;
+
+    return base.sort((a, b) => {
+      if (ordenacao === "menor-preco") {
+        const precoA = precoValido(a);
+        const precoB = precoValido(b);
+        if (precoA === null) return 1;
+        if (precoB === null) return -1;
+        return precoA - precoB;
+      }
+      if (ordenacao === "maior-preco") {
+        const precoA = precoValido(a);
+        const precoB = precoValido(b);
+        if (precoA === null) return 1;
+        if (precoB === null) return -1;
+        return precoB - precoA;
+      }
+      return (Number(b.desconto_percentual) || 0) - (Number(a.desconto_percentual) || 0);
+    });
+  }, [busca, ofertas, ordenacao]);
 
   const melhor = ofertas.reduce((maior, oferta) => Math.max(maior, Number(oferta.desconto_percentual) || 0), 0);
   const cupons = ofertas.filter((oferta) => Boolean(oferta.codigo)).length;
@@ -97,9 +125,22 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: cor }}>Achados {nome}</p><h2 className="mt-1 text-2xl font-black">Maiores descontos primeiro</h2></div>
-          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={placeholder} className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-5 outline-none sm:max-w-md" />
+        <div className="rounded-3xl bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: cor }}>Achados {nome}</p>
+              <h2 className="mt-1 text-2xl font-black">Produtos selecionados</h2>
+            </div>
+            <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_220px] lg:max-w-2xl">
+              <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={placeholder} className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-5 outline-none" />
+              <select value={ordenacao} onChange={(e) => setOrdenacao(e.target.value as Ordenacao)} aria-label="Ordenar produtos" className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-4 font-bold outline-none">
+                <option value="relevancia">Relevância</option>
+                <option value="menor-preco">Menor preço</option>
+                <option value="maior-preco">Maior preço</option>
+                <option value="maior-desconto">Maior desconto</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {carregando ? (
@@ -109,7 +150,7 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
         ) : filtradas.length === 0 ? (
           <div className="mt-6 rounded-3xl bg-white p-12 text-center shadow-sm">
             <p className="text-2xl font-black">Vitrine conectada.</p>
-            <p className="mx-auto mt-3 max-w-2xl text-zinc-500">Assim que o feed oficial trouxer ofertas elegíveis de {nome}, elas aparecem aqui automaticamente, já ordenadas pelas melhores oportunidades.</p>
+            <p className="mx-auto mt-3 max-w-2xl text-zinc-500">Assim que o feed oficial trouxer ofertas elegíveis de {nome}, elas aparecem aqui automaticamente.</p>
           </div>
         ) : (
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
