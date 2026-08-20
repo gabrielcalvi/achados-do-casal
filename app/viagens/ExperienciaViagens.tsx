@@ -19,8 +19,8 @@ export default function ExperienciaViagens() {
   return (
     <section id="nossas-viagens" className="border-y border-slate-200 bg-white">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:py-16 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-stretch">
-          <div className="flex flex-col justify-center">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
             <span className="text-sm font-black uppercase tracking-[0.2em] text-amber-600">Nossa história viajando</span>
             <h2 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">Tudo começou com uma demissão.</h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
@@ -35,26 +35,40 @@ export default function ExperienciaViagens() {
             </div>
           </div>
 
-          <figure className="group relative min-h-[440px] overflow-hidden rounded-[2rem] bg-slate-900 shadow-2xl shadow-slate-900/15 sm:min-h-[520px]">
-            <img src="/viagens/familia-times-square.jpg" alt="Família em uma viagem para Nova York" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/5 to-transparent" />
-            <figcaption className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
+          <figure className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-2xl shadow-slate-900/15">
+            <div className="aspect-square overflow-hidden bg-slate-100 sm:aspect-[5/4]">
+              <img
+                src="/viagens/familia-times-square.jpg"
+                alt="Família em uma viagem para Nova York"
+                className="h-full w-full object-cover object-center"
+              />
+            </div>
+            <figcaption className="p-5 text-white sm:p-6">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Nova York · viagem em família</p>
-              <p className="mt-2 max-w-xl text-2xl font-black">Viajar mudou de fase com a família — e ficou ainda mais importante para nós.</p>
+              <p className="mt-2 text-xl font-black sm:text-2xl">Viajar mudou de fase com a família — e ficou ainda mais importante para nós.</p>
             </figcaption>
           </figure>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <figure className="group relative min-h-[300px] overflow-hidden rounded-3xl bg-slate-900 sm:min-h-[360px]">
-            <img src="/viagens/casal-europa.jpg" alt="Casal em uma viagem pela Europa" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent" />
-            <figcaption className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6"><p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">Europa</p><p className="mt-1 text-2xl font-black">De casal, descobrindo cidades e culturas.</p></figcaption>
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <figure className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-lg shadow-slate-900/5">
+            <div className="aspect-square overflow-hidden bg-slate-100">
+              <img src="/viagens/casal-europa.jpg" alt="Casal em uma viagem pela Europa" className="h-full w-full object-contain object-center" />
+            </div>
+            <figcaption className="border-t border-slate-100 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-600">Europa</p>
+              <p className="mt-1 text-xl font-black text-slate-950 sm:text-2xl">De casal, descobrindo cidades e culturas.</p>
+            </figcaption>
           </figure>
-          <figure className="group relative min-h-[300px] overflow-hidden rounded-3xl bg-slate-900 sm:min-h-[360px]">
-            <img src="/viagens/familia-europa.jpg" alt="Família em uma viagem pela Europa" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent" />
-            <figcaption className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6"><p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Viagem em família</p><p className="mt-1 text-2xl font-black">Estradas, cidades menores e experiências locais.</p></figcaption>
+
+          <figure className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-lg shadow-slate-900/5">
+            <div className="aspect-square overflow-hidden bg-slate-100">
+              <img src="/viagens/familia-europa.jpg" alt="Família em uma viagem pela Europa" className="h-full w-full object-contain object-center" />
+            </div>
+            <figcaption className="border-t border-slate-100 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">Viagem em família</p>
+              <p className="mt-1 text-xl font-black text-slate-950 sm:text-2xl">Estradas, cidades menores e experiências locais.</p>
+            </figcaption>
           </figure>
         </div>
 
