@@ -1172,15 +1172,31 @@ const produtosPaginados = produtosOrdenados.slice(
   className="rounded-xl border p-4"
 />
 
+<div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+  <label className="mb-2 block font-black text-blue-950">
+    🔗 Link original do produto
+  </label>
+  <input
+    type="url"
+    placeholder="https://produto.mercadolivre.com.br/..."
+    value={formulario.link}
+    onChange={(e) => {
+      const link = e.target.value;
+      setFormulario({
+        ...formulario,
+        link,
+      });
+      setLinkProdutoDireto(link);
+    }}
+    className="w-full rounded-xl border border-blue-200 bg-white p-4"
+  />
+  <p className="mt-2 text-xs font-bold text-blue-700">
+    Usado pelo monitor automático para conferir e atualizar o preço. Não é o link de afiliado.
+  </p>
+</div>
+
 {modoCadastro === "ia" && (
   <>
-    <input
-      placeholder="Link direto do produto"
-      value={linkProdutoDireto}
-      onChange={(e) => setLinkProdutoDireto(e.target.value)}
-      className="rounded-xl border p-4"
-    />
-
     <button
       type="button"
       onClick={prepararProdutoComIa}
