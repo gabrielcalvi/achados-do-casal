@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import CorrigirLinkProduto from "./CorrigirLinkProduto";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,10 @@ function exigeCategoria(oferta: { imagem_url?: string | null }) {
   return temImagem(oferta);
 }
 
+function erroDeLinkOriginal(erro: string | null | undefined) {
+  return String(erro || "").toLowerCase().includes("sem link original");
+}
+
 export default async function AdminSaudePage() {
   const agora = new Date();
   const vinteQuatroHoras = new Date(agora.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -70,7 +75,7 @@ export default async function AdminSaudePage() {
       .eq("ativo", true),
     supabaseAdmin
       .from("produtos")
-      .select("id,nome,monitor_erro,monitor_erro_em,monitor_falhas_consecutivas")
+      .select("id,nome,link,monitor_erro,monitor_erro_em,monitor_falhas_consecutivas")
       .eq("ativo", true)
       .not("monitor_erro", "is", null)
       .order("monitor_erro_em", { ascending: false })
@@ -125,8 +130,6 @@ export default async function AdminSaudePage() {
 
   const ofertasPublicas = ofertasValidas.filter(ofertaPublicaExibivel);
 
-  // Cupons gerais sem produto específico não precisam de foto/categoria.
-  // A qualidade visual é cobrada apenas dos cards que realmente exibem produto.
   const semImagem = ofertasPublicas.filter(
     (oferta) => !temImagem(oferta) && !temCodigo(oferta)
   ).length;
@@ -284,13 +287,31 @@ export default async function AdminSaudePage() {
           <section className="mt-6 rounded-3xl border border-red-200 bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-black">Problemas que exigem atenção</h2>
             <div className="mt-4 grid gap-3">
-              {falhasMonitor.slice(0, 8).map((produto) => (
-                <div key={produto.id} className="rounded-2xl border border-red-100 bg-red-50 p-4">
-                  <p className="font-black text-slate-950">{produto.nome}</p>
-                  <p className="mt-1 text-sm font-bold text-red-700">{produto.monitor_erro}</p>
-                  <p className="mt-1 text-xs text-slate-500">{produto.monitor_falhas_consecutivas ?? 0} falha(s) consecutiva(s) · {formatarData(produto.monitor_erro_em)}</p>
-                </div>
-              ))}
+              {falhasMonitor.slice(0, 8).map((produto) => {
+                const faltaLinkOriginal = erroDeLinkOriginal(produto.monitor_erro);
+
+                return (
+                  <div
+                    key={produto.id}
+                    className={`rounded-2xl border p-4 ${
+                      faltaLinkOriginal
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-red-100 bg-red-50"
+                    }`}
+                  >
+                    <p className="font-black text-slate-950">{produto.nome}</p>
+                    <p className={`mt-1 text-sm font-bold ${faltaLinkOriginal ? "text-amber-800" : "text-red-700"}`}>
+                      {produto.monitor_erro}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {produto.monitor_falhas_consecutivas ?? 0} falha(s) consecutiva(s) · {formatarData(produto.monitor_erro_em)}
+                    </p>
+                    {faltaLinkOriginal ? (
+                      <CorrigirLinkProduto produtoId={produto.id} linkAtual={produto.link} />
+                    ) : null}
+                  </div>
+                );
+              })}
               {viagensUltima?.erro ? (
                 <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
                   <p className="font-black text-slate-950">Radar de viagens</p>
