@@ -28,6 +28,13 @@ function urlProdutoMl(itemId: string) {
   return `https://produto.mercadolivre.com.br/MLB-${match[1]}`;
 }
 
+function percentualComissao(valor: unknown) {
+  if (valor === null || valor === undefined || valor === "") return null;
+
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : null;
+}
+
 export async function GET() {
   if (!(await usuarioAutenticado())) {
     return NextResponse.json(
@@ -58,6 +65,10 @@ export async function GET() {
       ? bruto.item_ids.map((valor: unknown) => String(valor || "").trim()).filter(Boolean)
       : [];
     const produtos = Array.isArray(item.top_produtos) ? item.top_produtos : [];
+    const comissao =
+      bruto.comissao_afiliado && typeof bruto.comissao_afiliado === "object"
+        ? bruto.comissao_afiliado
+        : null;
 
     return {
       candidato_id: item.id,
@@ -72,6 +83,10 @@ export async function GET() {
       tipo_acao: bruto.tipo_acao ?? null,
       possui_token_ativacao: Boolean(bruto.possui_token_ativacao),
       quantidade_produtos: itemIds.length,
+      comissao_estimada_percentual: percentualComissao(comissao?.percentual),
+      comissao_status: comissao?.status ?? null,
+      comissao_item_id: comissao?.item_id ?? null,
+      comissao_verificada_em: comissao?.verificada_em ?? null,
       produtos: itemIds.map((itemId: string, indice: number) => ({
         item_id: itemId,
         nome: produtos[indice]?.nome || null,

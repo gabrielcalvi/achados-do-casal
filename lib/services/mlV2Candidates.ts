@@ -16,6 +16,7 @@ type CandidatoExistente = {
   aprovado_em: string | null;
   publicado_em: string | null;
   cupom_publicado_id: string | null;
+  dados_brutos?: CupomMlV2 | null;
 };
 
 type LinhaCandidato = {
@@ -51,7 +52,7 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
   const { data: existentes, error: erroExistentes } = await supabaseAdmin
     .from("economize_cupons_candidatos")
     .select(
-      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id"
+      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id,dados_brutos"
     )
     .eq("origem", ORIGEM)
     .in("campanha_externa_id", campanhas);
@@ -62,7 +63,7 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
     );
   }
 
-  const existentesPorCampanha = new Map(
+  const existentesPorCampanha = new Map<string, CandidatoExistente>(
     (existentes || []).map((item) => [
       String(item.campanha_externa_id || ""),
       item as CandidatoExistente,
@@ -80,6 +81,11 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
     const status = STATUS_PRESERVADOS.has(statusExistente)
       ? statusExistente
       : "coletado";
+    const comissaoAfiliado = existente?.dados_brutos?.comissao_afiliado;
+    const dadosBrutos = {
+      ...cupom,
+      ...(comissaoAfiliado ? { comissao_afiliado: comissaoAfiliado } : {}),
+    };
 
     linhas.push({
       origem: ORIGEM,
@@ -89,7 +95,7 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
       valor_desconto: Number(cupom.valor_desconto || 0) || null,
       validade: cupom.validade || null,
       status,
-      dados_brutos: cupom,
+      dados_brutos: dadosBrutos,
       top_produtos: Array.isArray(cupom.produtos) ? cupom.produtos : [],
       resumo_produtos: {
         quantidade: Array.isArray(cupom.produtos) ? cupom.produtos.length : 0,
@@ -138,7 +144,7 @@ export async function persistirCandidatosMlV2(cupons: CupomMlV2[]) {
   const { data: persistidos, error: erroLeituraFinal } = await supabaseAdmin
     .from("economize_cupons_candidatos")
     .select(
-      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id"
+      "id,campanha_externa_id,status,aprovado_em,publicado_em,cupom_publicado_id,dados_brutos"
     )
     .eq("origem", ORIGEM)
     .in("campanha_externa_id", campanhas);
