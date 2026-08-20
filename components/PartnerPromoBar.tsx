@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation";
 export default function PartnerPromoBar() {
   const pathname = usePathname();
 
-  if (pathname?.startsWith("/admin")) {
+  if (
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/viagens")
+  ) {
     return null;
   }
 
