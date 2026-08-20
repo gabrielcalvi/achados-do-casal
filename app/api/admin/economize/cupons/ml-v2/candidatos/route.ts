@@ -66,6 +66,7 @@ export async function GET() {
       compra_minima: bruto.compra_minima ?? null,
       validade: item.validade,
       status: item.status,
+      acao: typeof bruto.acao === "string" ? bruto.acao : null,
       cupom_publicado_id: item.cupom_publicado_id,
       publicado_em: item.publicado_em,
       itens: itemIds.map((itemId: string, indice: number) => ({
