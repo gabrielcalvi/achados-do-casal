@@ -5,15 +5,18 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 120;
 
 const SANDBOX_NAME = "achados-cupons-ml-test";
-const AUTH_STATE_PATH = "/vercel/tmp/meli-auth.json";
+const AUTH_BUYER_PATH = "/vercel/tmp/meli-buyer-auth.json";
+const AUTH_AFILIADO_PATH = "/vercel/tmp/meli-auth.json";
 const SCRIPT_PATH = "/vercel/scripts/verificar-comissoes-ml-v2.cjs";
 const RESULT_PATH = "/vercel/tmp/ml-v2-comissoes.json";
 const PROGRESS_PATH = "/vercel/tmp/ml-v2-comissoes-progresso.json";
 const REPOSITORY = "gabrielcalvi/achados-do-casal";
 const MAX_CANDIDATOS = 100;
+const TAMANHO_LOTE_PADRAO = 6;
+const TAMANHO_LOTE_MAXIMO = 8;
 
 type SandboxInstancia = Awaited<ReturnType<typeof Sandbox.get>>;
 
@@ -24,6 +27,18 @@ type ResultadoComissao = {
   erro?: string;
   url_final?: string;
   verificada_em?: string;
+};
+
+type CandidatoBanco = {
+  id: string;
+  status: string | null;
+  dados_brutos: Record<string, unknown> | null;
+  ultima_coleta_em: string | null;
+};
+
+type EntradaItem = {
+  itemId: string;
+  candidatos: CandidatoBanco[];
 };
 
 async function rodarComando(
@@ -76,153 +91,98 @@ function primeiroItemId(dadosBrutos: unknown) {
   return /^MLB\d+$/.test(primeiro) ? primeiro : null;
 }
 
-export async function POST(request: NextRequest) {
-  if (!(await autorizado(request))) {
-    return NextResponse.json(
-      { sucesso: false, erro: "Nao autorizado." },
-      { status: 401 }
+function mensagemErro(erro: unknown) {
+  return erro instanceof Error ? erro.message : String(erro || "Erro inesperado.");
+}
+
+function pareceErroSessao(resultado: ResultadoComissao) {
+  const texto = String(resultado.erro || "").toLowerCase();
+  return (
+    texto.includes("sessao afiliada") ||
+    texto.includes("sessão afiliada") ||
+    texto.includes("login") ||
+    texto.includes("account-verification") ||
+    texto.includes("captcha")
+  );
+}
+
+async function arquivoExiste(sandbox: SandboxInstancia, caminho: string) {
+  const teste = await rodarComando(sandbox, {
+    cmd: "test",
+    args: ["-s", caminho],
+  });
+
+  return teste.resultado.exitCode === 0;
+}
+
+async function executarLote(
+  sandbox: SandboxInstancia,
+  authPath: string,
+  itemIds: string[],
+  execucaoId: string
+) {
+  await rodarComando(sandbox, {
+    cmd: "rm",
+    args: ["-f", RESULT_PATH, PROGRESS_PATH],
+  });
+
+  const execucao = await rodarComando(sandbox, {
+    cmd: "xvfb-run",
+    args: ["-a", "node", SCRIPT_PATH],
+    cwd: "/vercel",
+    env: {
+      MELI_AFFILIATE_AUTH_STATE_PATH: authPath,
+      ML_V2_COMISSOES_RESULT_PATH: RESULT_PATH,
+      ML_V2_COMISSOES_PROGRESS_PATH: PROGRESS_PATH,
+      ML_V2_COMISSOES_EXECUTION_ID: execucaoId,
+      ML_V2_COMISSOES_CONCURRENCY: "3",
+      ML_V2_ITEM_IDS: JSON.stringify(itemIds),
+    },
+  });
+
+  if (execucao.resultado.exitCode !== 0) {
+    throw new Error(
+      execucao.stderr || execucao.stdout || "Falha verificando comissoes ML V2."
     );
   }
 
-  let sandbox: SandboxInstancia | null = null;
-  const execucaoId = crypto.randomUUID();
+  const arquivo = await rodarComando(sandbox, {
+    cmd: "cat",
+    args: [RESULT_PATH],
+  });
 
-  try {
-    const { data: candidatos, error: erroCandidatos } = await supabaseAdmin
-      .from("economize_cupons_candidatos")
-      .select("id,status,dados_brutos,ultima_coleta_em")
-      .eq("origem", "mercado_livre_v2")
-      .neq("status", "descartado")
-      .order("ultima_coleta_em", { ascending: false })
-      .limit(MAX_CANDIDATOS);
+  if (arquivo.resultado.exitCode !== 0 || !arquivo.stdout) {
+    throw new Error("O verificador terminou sem gerar o resultado de comissoes.");
+  }
 
-    if (erroCandidatos) {
-      throw new Error(`Falha lendo candidatos: ${erroCandidatos.message}`);
-    }
+  const resultado = JSON.parse(arquivo.stdout) as {
+    resultados?: ResultadoComissao[];
+  };
 
-    const candidatosComItem = (candidatos || []).flatMap((candidato) => {
-      const itemId = primeiroItemId(candidato.dados_brutos);
-      return itemId ? [{ candidato, itemId }] : [];
-    });
+  return Array.isArray(resultado.resultados) ? resultado.resultados : [];
+}
 
-    const itemIds = [...new Set(candidatosComItem.map((item) => item.itemId))];
+async function atualizarCandidatos(
+  entradas: EntradaItem[],
+  resultados: ResultadoComissao[]
+) {
+  const porItem = new Map(
+    resultados
+      .filter((item) => item.item_id)
+      .map((item) => [String(item.item_id), item])
+  );
 
-    if (itemIds.length === 0) {
-      return NextResponse.json({
-        sucesso: true,
-        execucao_id: execucaoId,
-        total_consultados: 0,
-        com_comissao: 0,
-        comissao_zero: 0,
-        nao_identificados: 0,
-      });
-    }
+  let atualizados = 0;
 
-    sandbox = await Sandbox.get({ name: SANDBOX_NAME });
+  for (const entrada of entradas) {
+    const comissao = porItem.get(entrada.itemId);
+    if (!comissao) continue;
 
-    const preparar = await rodarComando(sandbox, {
-      cmd: "mkdir",
-      args: ["-p", "/vercel/scripts", "/vercel/tmp"],
-    });
-
-    if (preparar.resultado.exitCode !== 0) {
-      throw new Error(
-        preparar.stderr || "Falha preparando diretorios do Sandbox."
-      );
-    }
-
-    await rodarComando(sandbox, {
-      cmd: "rm",
-      args: ["-f", RESULT_PATH, PROGRESS_PATH],
-    });
-
-    const auth = await rodarComando(sandbox, {
-      cmd: "test",
-      args: ["-s", AUTH_STATE_PATH],
-    });
-
-    if (auth.resultado.exitCode !== 0) {
-      throw new Error(
-        "A sessao afiliada do Mercado Livre nao esta disponivel no Sandbox. Renove a sessao antes de verificar comissoes."
-      );
-    }
-
-    const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
-    const scriptUrl = `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
-      commit
-    )}/scripts/verificar-comissoes-ml-v2.cjs`;
-
-    const download = await rodarComando(sandbox, {
-      cmd: "curl",
-      args: [
-        "-fsSL",
-        "--max-time",
-        "30",
-        scriptUrl,
-        "-o",
-        SCRIPT_PATH,
-      ],
-    });
-
-    if (download.resultado.exitCode !== 0) {
-      throw new Error(
-        download.stderr || "Falha sincronizando o verificador de comissoes ML V2."
-      );
-    }
-
-    const execucao = await rodarComando(sandbox, {
-      cmd: "xvfb-run",
-      args: ["-a", "node", SCRIPT_PATH],
-      cwd: "/vercel",
-      env: {
-        MELI_AFFILIATE_AUTH_STATE_PATH: AUTH_STATE_PATH,
-        ML_V2_COMISSOES_RESULT_PATH: RESULT_PATH,
-        ML_V2_COMISSOES_PROGRESS_PATH: PROGRESS_PATH,
-        ML_V2_COMISSOES_EXECUTION_ID: execucaoId,
-        ML_V2_COMISSOES_CONCURRENCY: "3",
-        ML_V2_ITEM_IDS: JSON.stringify(itemIds),
-      },
-    });
-
-    if (execucao.resultado.exitCode !== 0) {
-      throw new Error(
-        execucao.stderr || execucao.stdout || "Falha verificando comissoes ML V2."
-      );
-    }
-
-    const arquivo = await rodarComando(sandbox, {
-      cmd: "cat",
-      args: [RESULT_PATH],
-    });
-
-    if (arquivo.resultado.exitCode !== 0 || !arquivo.stdout) {
-      throw new Error("O verificador terminou sem gerar o resultado de comissoes.");
-    }
-
-    const resultado = JSON.parse(arquivo.stdout) as {
-      resultados?: ResultadoComissao[];
-    };
-
-    const resultados = Array.isArray(resultado.resultados)
-      ? resultado.resultados
-      : [];
-
-    const porItem = new Map(
-      resultados
-        .filter((item) => item.item_id)
-        .map((item) => [String(item.item_id), item])
-    );
-
-    let atualizados = 0;
-
-    for (const { candidato, itemId } of candidatosComItem) {
-      const comissao = porItem.get(itemId);
-      if (!comissao) continue;
-
+    for (const candidato of entrada.candidatos) {
       const bruto = {
         ...((candidato.dados_brutos || {}) as Record<string, unknown>),
         comissao_afiliado: {
-          item_id: itemId,
+          item_id: entrada.itemId,
           percentual:
             typeof comissao.percentual === "number" ? comissao.percentual : null,
           status: comissao.status || "nao_identificada",
@@ -252,33 +212,233 @@ export async function POST(request: NextRequest) {
 
       atualizados += 1;
     }
+  }
 
+  return atualizados;
+}
+
+export async function POST(request: NextRequest) {
+  if (!(await autorizado(request))) {
+    return NextResponse.json(
+      { sucesso: false, erro: "Nao autorizado." },
+      { status: 401 }
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as
+    | {
+        offset?: number;
+        tamanho_lote?: number;
+        execucao_id?: string;
+      }
+    | null;
+
+  const offset = Math.max(0, Number(body?.offset || 0) || 0);
+  const tamanhoLote = Math.max(
+    1,
+    Math.min(
+      TAMANHO_LOTE_MAXIMO,
+      Number(body?.tamanho_lote || TAMANHO_LOTE_PADRAO) || TAMANHO_LOTE_PADRAO
+    )
+  );
+  const execucaoId = String(body?.execucao_id || "").trim() || crypto.randomUUID();
+
+  let sandbox: SandboxInstancia | null = null;
+
+  try {
+    const { data: candidatos, error: erroCandidatos } = await supabaseAdmin
+      .from("economize_cupons_candidatos")
+      .select("id,status,dados_brutos,ultima_coleta_em")
+      .eq("origem", "mercado_livre_v2")
+      .neq("status", "descartado")
+      .order("ultima_coleta_em", { ascending: false })
+      .limit(MAX_CANDIDATOS);
+
+    if (erroCandidatos) {
+      throw new Error(`Falha lendo candidatos: ${erroCandidatos.message}`);
+    }
+
+    const entradasPorItem = new Map<string, EntradaItem>();
+
+    for (const candidato of (candidatos || []) as CandidatoBanco[]) {
+      const itemId = primeiroItemId(candidato.dados_brutos);
+      if (!itemId) continue;
+
+      const existente = entradasPorItem.get(itemId);
+      if (existente) {
+        existente.candidatos.push(candidato);
+      } else {
+        entradasPorItem.set(itemId, {
+          itemId,
+          candidatos: [candidato],
+        });
+      }
+    }
+
+    const entradas = [...entradasPorItem.values()];
+    const totalDisponivel = entradas.length;
+    const lote = entradas.slice(offset, offset + tamanhoLote);
+
+    if (lote.length === 0) {
+      return NextResponse.json({
+        sucesso: true,
+        execucao_id: execucaoId,
+        total_disponivel: totalDisponivel,
+        total_consultados: 0,
+        candidatos_atualizados: 0,
+        com_comissao: 0,
+        comissao_zero: 0,
+        nao_identificados: 0,
+        erros: 0,
+        erros_detalhados: [],
+        proximo_offset: totalDisponivel,
+        concluido: true,
+      });
+    }
+
+    sandbox = await Sandbox.get({ name: SANDBOX_NAME });
+
+    const preparar = await rodarComando(sandbox, {
+      cmd: "mkdir",
+      args: ["-p", "/vercel/scripts", "/vercel/tmp"],
+    });
+
+    if (preparar.resultado.exitCode !== 0) {
+      throw new Error(
+        preparar.stderr || "Falha preparando diretorios do Sandbox."
+      );
+    }
+
+    const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
+    const scriptUrl = `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
+      commit
+    )}/scripts/verificar-comissoes-ml-v2.cjs`;
+
+    const download = await rodarComando(sandbox, {
+      cmd: "curl",
+      args: [
+        "-fsSL",
+        "--max-time",
+        "30",
+        scriptUrl,
+        "-o",
+        SCRIPT_PATH,
+      ],
+    });
+
+    if (download.resultado.exitCode !== 0) {
+      throw new Error(
+        download.stderr || "Falha sincronizando o verificador de comissoes ML V2."
+      );
+    }
+
+    const buyerExiste = await arquivoExiste(sandbox, AUTH_BUYER_PATH);
+    const afiliadoExiste = await arquivoExiste(sandbox, AUTH_AFILIADO_PATH);
+
+    if (!buyerExiste && !afiliadoExiste) {
+      throw new Error(
+        "Nenhuma sessao do Mercado Livre esta disponivel no Sandbox. Renove a sessao antes de verificar comissoes."
+      );
+    }
+
+    const itemIds = lote.map((entrada) => entrada.itemId);
+    let authUtilizada = buyerExiste ? AUTH_BUYER_PATH : AUTH_AFILIADO_PATH;
+    let resultados = await executarLote(
+      sandbox,
+      authUtilizada,
+      itemIds,
+      execucaoId
+    );
+
+    const todosErrosSessao =
+      resultados.length > 0 &&
+      resultados.every(
+        (resultado) => resultado.status === "erro" && pareceErroSessao(resultado)
+      );
+
+    if (
+      todosErrosSessao &&
+      authUtilizada === AUTH_BUYER_PATH &&
+      afiliadoExiste
+    ) {
+      authUtilizada = AUTH_AFILIADO_PATH;
+      resultados = await executarLote(
+        sandbox,
+        authUtilizada,
+        itemIds,
+        `${execucaoId}-fallback`
+      );
+    }
+
+    const errosSessaoAposFallback =
+      resultados.length > 0 &&
+      resultados.every(
+        (resultado) => resultado.status === "erro" && pareceErroSessao(resultado)
+      );
+
+    if (errosSessaoAposFallback) {
+      const detalhe = resultados.find((item) => item.erro)?.erro;
+      return NextResponse.json(
+        {
+          sucesso: false,
+          execucao_id: execucaoId,
+          sessao_expirada: true,
+          erro:
+            detalhe ||
+            "A sessao do Mercado Livre no Sandbox expirou. Renove a sessao e tente novamente.",
+          total_disponivel: totalDisponivel,
+          proximo_offset: offset,
+        },
+        { status: 409 }
+      );
+    }
+
+    const atualizados = await atualizarCandidatos(lote, resultados);
     const comissaoZero = resultados.filter((item) => item.percentual === 0).length;
     const comComissao = resultados.filter(
       (item) => typeof item.percentual === "number" && item.percentual > 0
     ).length;
-    const naoIdentificados = resultados.length - comissaoZero - comComissao;
+    const erros = resultados.filter((item) => item.status === "erro").length;
+    const naoIdentificados = resultados.filter(
+      (item) => item.status === "nao_identificada"
+    ).length;
+    const errosDetalhados = resultados
+      .filter((item) => item.status === "erro" && item.erro)
+      .slice(0, 3)
+      .map((item) => `${item.item_id || "item"}: ${item.erro}`);
+    const proximoOffset = Math.min(offset + lote.length, totalDisponivel);
 
     return NextResponse.json({
       sucesso: true,
       execucao_id: execucaoId,
+      auth_utilizada:
+        authUtilizada === AUTH_BUYER_PATH ? "buyer" : "afiliado_fallback",
+      total_disponivel: totalDisponivel,
       total_consultados: resultados.length,
       candidatos_atualizados: atualizados,
       com_comissao: comComissao,
       comissao_zero: comissaoZero,
       nao_identificados: naoIdentificados,
+      erros,
+      erros_detalhados: errosDetalhados,
+      ultimo_item: itemIds[itemIds.length - 1] || null,
+      proximo_offset: proximoOffset,
+      concluido: proximoOffset >= totalDisponivel,
       executado_em: new Date().toISOString(),
     });
   } catch (erro) {
+    const mensagem = mensagemErro(erro);
     console.error("[ML V2 comissoes] Erro:", erro);
 
     return NextResponse.json(
       {
         sucesso: false,
         execucao_id: execucaoId,
-        erro: erro instanceof Error ? erro.message : "Erro inesperado.",
+        erro: mensagem,
+        erro_stream: mensagem.includes("Sandbox stream was closed"),
+        proximo_offset: offset,
       },
-      { status: 500 }
+      { status: mensagem.includes("Sandbox stream was closed") ? 503 : 500 }
     );
   } finally {
     if (sandbox) {
