@@ -187,3 +187,24 @@ main > header a[href="/gamer"]::after {
 #ofertas span.bg-emerald-100.text-emerald-800 {
   display: none !important;
 }
+
+/* KaBuM desktop: mantém código e CTA dos cupons perfeitamente alinhados. */
+@media (min-width: 1280px) {
+  main:has(a[href="https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir"]) section.mt-10 > div.grid > article {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  main:has(a[href="https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir"]) section.mt-10 > div.grid > article > div:first-child {
+    flex: 1 1 auto;
+  }
+
+  main:has(a[href="https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir"]) section.mt-10 > div.grid > article > div:nth-of-type(2) {
+    margin-top: 1rem;
+  }
+
+  main:has(a[href="https://chat.whatsapp.com/D4XuZWkA1zb772LTVeXjir"]) section.mt-10 > div.grid > article > button {
+    margin-top: 1rem;
+  }
+}
