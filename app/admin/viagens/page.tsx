@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PacotesViagem from "./PacotesViagem";
+import PacotesDisponibilidade from "./PacotesDisponibilidade";
 import CapturadorDecolarLocal from "./CapturadorDecolarLocal";
 
 export const dynamic = "force-dynamic";
@@ -264,6 +265,7 @@ export default async function AdminViagensPage() {
         </section>
 
         <CapturadorDecolarLocal />
+        <PacotesDisponibilidade />
         <PacotesViagem />
       </div>
     </main>
