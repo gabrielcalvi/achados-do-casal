@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 const BRASIL_VISITADOS = new Set(["am", "ba", "df", "ms", "pb", "pe", "pr", "rj", "rs", "sc", "sp"]);
-const MUNDO_VISITADOS = new Set(["ar", "br", "bs", "ca", "ch", "co", "hr", "hu", "it", "jm", "ky", "mx", "pe", "py", "si", "us", "uy"]);
+const MUNDO_VISITADOS = new Set(["ar", "br", "bs", "ca", "ch", "co", "hr", "hu", "it", "jm", "ky", "mx", "pa", "pe", "py", "si", "us", "uy"]);
 
 const CORES_BRASIL: Record<string, string> = {
   am: "#059669",
@@ -32,6 +32,7 @@ const CORES_MUNDO: Record<string, string> = {
   jm: "#f472b6",
   ky: "#db2777",
   mx: "#14b8a6",
+  pa: "#38bdf8",
   pe: "#34d399",
   py: "#2dd4bf",
   si: "#fbbf24",
@@ -132,7 +133,7 @@ export function MapaMundoVisitados() {
         )}
       </div>
       <div className="absolute bottom-3 left-3 right-3 flex flex-wrap justify-center gap-2 text-[10px] font-black">
-        <span className="rounded-full bg-cyan-500/90 px-3 py-1.5 text-slate-950 shadow-sm">17 visitados em cores</span>
+        <span className="rounded-full bg-cyan-500/90 px-3 py-1.5 text-slate-950 shadow-sm">18 visitados em cores</span>
         <span className="rounded-full bg-slate-950/80 px-3 py-1.5 text-slate-200 shadow-sm">demais países em azul escuro</span>
       </div>
     </div>
