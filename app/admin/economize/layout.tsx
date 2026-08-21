@@ -18,6 +18,12 @@ export default function AdminEconomizeLayout({
               💰 Economize
             </Link>
             <Link
+              href="/admin/economize/performance"
+              className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white transition hover:bg-violet-500"
+            >
+              📊 Performance
+            </Link>
+            <Link
               href="/admin/economize/nike"
               className="rounded-lg bg-white px-4 py-2 text-xs font-black text-black transition hover:bg-zinc-200"
             >
