@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DIAS_PERMITIDOS = new Set([7, 30, 90]);
+const TRAFEGO_VALIDO = "humano_provavel";
 
 async function usuarioAutenticado() {
   try {
@@ -71,18 +72,29 @@ export async function GET(request: NextRequest) {
 
     const { data: cliques, error } = await supabaseAdmin
       .from("economize_cliques")
-      .select("oferta_id,loja_id,origem,session_id,clicado_em")
+      .select("oferta_id,loja_id,origem,session_id,clicado_em,trafego_tipo,trafego_motivo")
       .gte("clicado_em", inicioAnterior.toISOString())
       .order("clicado_em", { ascending: false })
       .limit(10000);
 
     if (error) throw new Error(`Falha ao carregar cliques: ${error.message}`);
 
-    const atuais = (cliques ?? []).filter((clique) => new Date(clique.clicado_em).getTime() >= inicioAtual.getTime());
-    const anteriores = (cliques ?? []).filter((clique) => {
+    const janelaAtual = (cliques ?? []).filter((clique) => new Date(clique.clicado_em).getTime() >= inicioAtual.getTime());
+    const janelaAnterior = (cliques ?? []).filter((clique) => {
       const tempo = new Date(clique.clicado_em).getTime();
       return tempo >= inicioAnterior.getTime() && tempo < inicioAtual.getTime();
     });
+
+    const atuais = janelaAtual.filter((clique) => clique.trafego_tipo === TRAFEGO_VALIDO);
+    const anteriores = janelaAnterior.filter((clique) => clique.trafego_tipo === TRAFEGO_VALIDO);
+
+    const diagnostico = {
+      humanoProvavel: atuais.length,
+      bots: janelaAtual.filter((clique) => clique.trafego_tipo === "bot").length,
+      interno: janelaAtual.filter((clique) => clique.trafego_tipo === "interno").length,
+      naoClassificado: janelaAtual.filter((clique) => clique.trafego_tipo === "nao_classificado").length,
+      totalBruto: janelaAtual.length,
+    };
 
     const ofertaIds = Array.from(new Set(atuais.map((c) => c.oferta_id).filter(Boolean))) as string[];
     const lojaIds = Array.from(new Set(atuais.map((c) => c.loja_id).filter(Boolean))) as string[];
@@ -129,6 +141,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       periodo: { dias, inicio: inicioAtual.toISOString(), fim: agora.toISOString() },
+      filtro: { trafego: TRAFEGO_VALIDO, descricao: "Métricas principais usam apenas tráfego classificado como humano provável." },
       resumo: {
         cliques: atuais.length,
         sessoes: sessoes.size,
@@ -137,6 +150,7 @@ export async function GET(request: NextRequest) {
         variacaoCliques: percentualVariacao(atuais.length, anteriores.length),
         variacaoSessoes: percentualVariacao(sessoes.size, sessoesAnteriores.size),
       },
+      diagnostico,
       origens,
       topLojas,
       topOfertas,
