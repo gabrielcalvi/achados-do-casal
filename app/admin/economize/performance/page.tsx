@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type RespostaPerformance = {
   periodo: { dias: number; inicio: string; fim: string };
+  filtro?: { trafego: string; descricao: string };
   resumo: {
     cliques: number;
     sessoes: number;
@@ -12,6 +13,13 @@ type RespostaPerformance = {
     canaisAtivos: number;
     variacaoCliques: number;
     variacaoSessoes: number;
+  };
+  diagnostico?: {
+    humanoProvavel: number;
+    bots: number;
+    interno: number;
+    naoClassificado: number;
+    totalBruto: number;
   };
   origens: Array<{ origem: string; quantidade: number; percentual: number }>;
   topLojas: Array<{ lojaId: string; loja: string; slug: string | null; quantidade: number }>;
@@ -76,7 +84,7 @@ export default function PerformancePage() {
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-violet-600">Crescimento e monetização</p>
               <h1 className="mt-2 text-3xl font-black sm:text-4xl">📊 Performance & Distribuição</h1>
-              <p className="mt-2 max-w-3xl text-slate-600">Veja quais ofertas geram clique, quais canais trazem tráfego e quais lojas estão puxando interesse. Este painel usa os cliques reais já registrados pelo Achados.</p>
+              <p className="mt-2 max-w-3xl text-slate-600">As métricas principais agora usam apenas tráfego classificado como humano provável. Bots conhecidos e acessos internos ficam separados para não inflar os números.</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -98,8 +106,8 @@ export default function PerformancePage() {
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { titulo: "Cliques", valor: dados?.resumo.cliques ?? 0, detalhe: dados ? variacao(dados.resumo.variacaoCliques) : "—" },
-            { titulo: "Sessões", valor: dados?.resumo.sessoes ?? 0, detalhe: dados ? variacao(dados.resumo.variacaoSessoes) : "—" },
+            { titulo: "Cliques humanos", valor: dados?.resumo.cliques ?? 0, detalhe: dados ? variacao(dados.resumo.variacaoCliques) : "—" },
+            { titulo: "Sessões humanas", valor: dados?.resumo.sessoes ?? 0, detalhe: dados ? variacao(dados.resumo.variacaoSessoes) : "—" },
             { titulo: "Cliques / sessão", valor: dados?.resumo.cliquesPorSessao ?? 0, detalhe: "engajamento" },
             { titulo: "Canais ativos", valor: dados?.resumo.canaisAtivos ?? 0, detalhe: "origens com clique" },
           ].map((card) => (
@@ -111,12 +119,27 @@ export default function PerformancePage() {
           ))}
         </section>
 
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { titulo: "Humano provável", valor: dados?.diagnostico?.humanoProvavel ?? 0, detalhe: "entra nas métricas", classe: "border-emerald-200 bg-emerald-50" },
+            { titulo: "Bots", valor: dados?.diagnostico?.bots ?? 0, detalhe: "excluídos", classe: "border-amber-200 bg-amber-50" },
+            { titulo: "Interno", valor: dados?.diagnostico?.interno ?? 0, detalhe: "admin / testes", classe: "border-blue-200 bg-blue-50" },
+            { titulo: "Não classificado", valor: dados?.diagnostico?.naoClassificado ?? 0, detalhe: "fora das métricas", classe: "border-slate-200 bg-white" },
+          ].map((card) => (
+            <div key={card.titulo} className={`rounded-3xl border p-5 shadow-sm ${card.classe}`}>
+              <p className="text-sm font-bold text-slate-600">{card.titulo}</p>
+              <p className="mt-2 text-3xl font-black">{carregando ? "…" : card.valor}</p>
+              <p className="mt-2 text-xs font-black uppercase tracking-wide text-slate-500">{card.detalhe}</p>
+            </div>
+          ))}
+        </section>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black uppercase tracking-wide text-emerald-600">Distribuição</p>
-                <h2 className="mt-1 text-2xl font-black">Cliques por canal</h2>
+                <h2 className="mt-1 text-2xl font-black">Cliques humanos por canal</h2>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">últimos {dias} dias</span>
             </div>
@@ -133,14 +156,14 @@ export default function PerformancePage() {
                   </div>
                 </div>
               ))}
-              {!carregando && (dados?.origens.length ?? 0) === 0 ? <p className="text-sm text-slate-500">Ainda não há cliques no período.</p> : null}
+              {!carregando && (dados?.origens.length ?? 0) === 0 ? <p className="text-sm text-slate-500">Ainda não há cliques humanos no período.</p> : null}
             </div>
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div>
               <p className="text-sm font-black uppercase tracking-wide text-blue-600">O que chama atenção</p>
-              <h2 className="mt-1 text-2xl font-black">Top ofertas por clique</h2>
+              <h2 className="mt-1 text-2xl font-black">Top ofertas por clique humano</h2>
             </div>
 
             <div className="mt-5 divide-y divide-slate-100">
@@ -165,7 +188,7 @@ export default function PerformancePage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-wide text-violet-600">Parceiros</p>
-              <h2 className="mt-1 text-2xl font-black">Lojas com mais cliques</h2>
+              <h2 className="mt-1 text-2xl font-black">Lojas com mais cliques humanos</h2>
             </div>
             <Link href="/admin/economize" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">Voltar à Central</Link>
           </div>
@@ -175,7 +198,7 @@ export default function PerformancePage() {
               <div key={loja.lojaId} className="rounded-2xl bg-slate-50 p-4">
                 <p className="truncate text-sm font-black">{loja.loja}</p>
                 <p className="mt-2 text-3xl font-black">{loja.quantidade}</p>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">cliques</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">cliques humanos</p>
               </div>
             ))}
           </div>
