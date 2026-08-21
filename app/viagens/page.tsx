@@ -77,7 +77,8 @@ export default function ViagensPage() {
 
         <style>{`
           .travel-plane-wrap {
-            --plane-rise: 46vh;
+            --plane-mid-rise: -20vh;
+            --plane-end-rise: -46vh;
             animation: travel-plane-flight 24s linear infinite;
             color: rgba(255, 255, 255, 0.52);
             opacity: 0;
@@ -104,21 +105,29 @@ export default function ViagensPage() {
             }
             45% {
               opacity: 1;
-              transform: translate3d(60vw, calc(var(--plane-rise) * -0.44), 0) scale(1);
+              transform: translate3d(60vw, var(--plane-mid-rise), 0) scale(1);
             }
             88% {
               opacity: 1;
             }
             100% {
               opacity: 0;
-              transform: translate3d(125vw, calc(var(--plane-rise) * -1), 0) scale(1.06);
+              transform: translate3d(125vw, var(--plane-end-rise), 0) scale(1.06);
             }
           }
 
           @media (max-width: 640px) {
             .travel-plane-wrap {
-              --plane-rise: 34vh;
-              animation-duration: 20s;
+              --plane-mid-rise: -14vh;
+              --plane-end-rise: -32vh;
+              top: 74%;
+              animation-duration: 18s;
+              color: rgba(255, 255, 255, 0.62);
+            }
+
+            .travel-plane {
+              width: 2.75rem;
+              height: 2.75rem;
             }
 
             .travel-plane-trail {
@@ -128,7 +137,12 @@ export default function ViagensPage() {
 
           @media (prefers-reduced-motion: reduce) {
             .travel-plane-wrap {
-              display: none;
+              left: auto;
+              right: 8%;
+              top: 68%;
+              opacity: 0.52;
+              animation: none;
+              transform: rotate(-8deg);
             }
           }
         `}</style>
