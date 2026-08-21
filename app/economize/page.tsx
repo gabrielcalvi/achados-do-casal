@@ -285,10 +285,16 @@ export default function EconomizePage() {
               const pedidoMinimo = formatarMoeda(oferta.pedido_minimo);
               const validade = formatarData(oferta.validade);
               const cupom = ehCupom(oferta);
+              const cupomSemImagem = cupom && !oferta.imagem_url;
               const mostrarBeneficioFixo = Boolean(valorDesconto && !precoOferta);
+              const beneficioResumo = oferta.desconto_percentual !== null
+                ? `-${oferta.desconto_percentual}%`
+                : valorDesconto
+                  ? `${valorDesconto} OFF`
+                  : null;
 
               return (
-                <article key={oferta.id} className={`grid overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg lg:grid-cols-[175px_minmax(0,1fr)] xl:grid-cols-[195px_minmax(0,1fr)] ${oferta.destaque ? "border-orange-300 ring-2 ring-orange-100" : "border-slate-200"}`}>
+                <article key={oferta.id} className={`grid overflow-hidden rounded-3xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${oferta.imagem_url ? "bg-white lg:grid-cols-[175px_minmax(0,1fr)] xl:grid-cols-[195px_minmax(0,1fr)]" : "grid-cols-1"} ${cupomSemImagem ? "border-orange-200 bg-gradient-to-br from-white via-white to-orange-50/70" : oferta.destaque ? "border-orange-300 bg-white ring-2 ring-orange-100" : "border-slate-200 bg-white"}`}>
                   {oferta.imagem_url && (
                     <div className="flex h-44 items-center justify-center bg-gradient-to-br from-white to-slate-50 p-4 lg:h-full lg:min-h-[260px] lg:border-r lg:border-slate-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -296,22 +302,38 @@ export default function EconomizePage() {
                     </div>
                   )}
 
-                  <div className="min-w-0 p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-2xl">{iconesTipo[oferta.tipo]}</span>
+                  <div className={`min-w-0 p-4 sm:p-5 ${cupomSemImagem ? "flex h-full flex-col" : ""}`}>
+                    {cupomSemImagem ? (
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-black uppercase tracking-wider text-emerald-600">{rotulosTipo[oferta.tipo]}</p>
-                          <p className="text-sm font-bold text-slate-500">{oferta.loja?.nome || "Loja parceira"}</p>
+                          <p className="text-xs font-black uppercase tracking-wider text-orange-600">
+                            {oferta.loja?.nome || "Loja parceira"} · CUPOM
+                          </p>
+                          {oferta.destaque && <p className="mt-1 text-xs font-black text-orange-500">⭐ Destaque</p>}
                         </div>
+                        {beneficioResumo && (
+                          <span className="shrink-0 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-black text-white shadow-sm">
+                            {beneficioResumo}
+                          </span>
+                        )}
                       </div>
-                      {oferta.destaque && <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-orange-700">⭐ Destaque</span>}
-                    </div>
+                    ) : (
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-2xl">{iconesTipo[oferta.tipo]}</span>
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-emerald-600">{rotulosTipo[oferta.tipo]}</p>
+                            <p className="text-sm font-bold text-slate-500">{oferta.loja?.nome || "Loja parceira"}</p>
+                          </div>
+                        </div>
+                        {oferta.destaque && <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-orange-700">⭐ Destaque</span>}
+                      </div>
+                    )}
 
-                    <h3 className="mt-3 line-clamp-3 text-lg font-black leading-6 text-slate-900 sm:text-xl">{oferta.titulo}</h3>
+                    <h3 className={`${cupomSemImagem ? "mt-3 text-xl leading-7" : "mt-3 text-lg leading-6 sm:text-xl"} line-clamp-3 font-black text-slate-900`}>{oferta.titulo}</h3>
                     {oferta.descricao && !cupom && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600 sm:text-base">{oferta.descricao}</p>}
 
-                    {(oferta.categoria || oferta.selos.length > 0) && (
+                    {(oferta.categoria || oferta.selos.length > 0) && !cupomSemImagem && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {oferta.categoria && <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{oferta.categoria}</span>}
                         {oferta.selos.map((selo) => <span key={selo} className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">{selo}</span>)}
@@ -319,65 +341,89 @@ export default function EconomizePage() {
                     )}
 
                     {cupom && oferta.codigo && (
-                      <div className="mt-3 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 px-4 py-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">Código do cupom</p>
-                        <p className="mt-0.5 break-all text-xl font-black tracking-tight text-emerald-950 sm:text-2xl">{oferta.codigo}</p>
+                      <div className={cupomSemImagem ? "mt-4 rounded-2xl bg-orange-50 px-4 py-4 text-center ring-1 ring-orange-100" : "mt-3 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 px-4 py-3"}>
+                        <p className={`text-[11px] font-black uppercase tracking-[0.16em] ${cupomSemImagem ? "text-orange-500" : "text-emerald-700"}`}>Código do cupom</p>
+                        <p className={`mt-1 break-all font-black tracking-tight ${cupomSemImagem ? "text-xl text-orange-600 sm:text-2xl" : "text-xl text-emerald-950 sm:text-2xl"}`}>{oferta.codigo}</p>
                       </div>
                     )}
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {precoOferta && (
-                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3 sm:col-span-2">
-                          <div className="flex flex-wrap items-end justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Preço da oferta</p>
-                              <p className="mt-0.5 text-3xl font-black tracking-tight text-emerald-900">{precoOferta}</p>
-                              {precoOriginal && <p className="mt-1 text-sm text-slate-400">De <span className="line-through">{precoOriginal}</span></p>}
-                            </div>
-                            {valorDesconto && (
-                              <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
-                                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Você economiza</p>
-                                <p className="text-lg font-black text-emerald-700">{valorDesconto}</p>
+                    {!cupomSemImagem && (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {precoOferta && (
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3 sm:col-span-2">
+                            <div className="flex flex-wrap items-end justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Preço da oferta</p>
+                                <p className="mt-0.5 text-3xl font-black tracking-tight text-emerald-900">{precoOferta}</p>
+                                {precoOriginal && <p className="mt-1 text-sm text-slate-400">De <span className="line-through">{precoOriginal}</span></p>}
                               </div>
-                            )}
+                              {valorDesconto && (
+                                <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Você economiza</p>
+                                  <p className="text-lg font-black text-emerald-700">{valorDesconto}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {mostrarBeneficioFixo && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Benefício</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{valorDesconto} OFF</p></div>}
-                      {oferta.desconto_percentual !== null && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Desconto</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{oferta.desconto_percentual}% OFF</p></div>}
-                      {oferta.cashback_percentual !== null && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Cashback</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{oferta.cashback_percentual}%</p></div>}
-                      {pedidoMinimo && <div className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-bold text-slate-500">Pedido mínimo</p><p className="mt-0.5 font-black text-slate-800">{pedidoMinimo}</p></div>}
-                    </div>
+                        )}
+                        {mostrarBeneficioFixo && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Benefício</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{valorDesconto} OFF</p></div>}
+                        {oferta.desconto_percentual !== null && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Desconto</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{oferta.desconto_percentual}% OFF</p></div>}
+                        {oferta.cashback_percentual !== null && <div className="rounded-xl border border-emerald-100 bg-white px-3.5 py-3"><p className="text-xs font-bold text-slate-500">Cashback</p><p className="mt-0.5 text-2xl font-black text-emerald-700">{oferta.cashback_percentual}%</p></div>}
+                        {pedidoMinimo && <div className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-bold text-slate-500">Pedido mínimo</p><p className="mt-0.5 font-black text-slate-800">{pedidoMinimo}</p></div>}
+                      </div>
+                    )}
+
+                    {cupomSemImagem && pedidoMinimo && (
+                      <p className="mt-3 text-sm font-bold text-slate-500">Pedido mínimo: <span className="text-slate-700">{pedidoMinimo}</span></p>
+                    )}
 
                     {oferta.regras && (
-                      <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <summary className="cursor-pointer text-sm font-black text-slate-700">Ver regras e condições</summary>
+                      <details className={`mt-3 rounded-xl border px-4 py-3 ${cupomSemImagem ? "border-orange-100 bg-white/80" : "border-slate-200 bg-slate-50"}`}>
+                        <summary className={`cursor-pointer text-sm font-black ${cupomSemImagem ? "text-orange-700" : "text-slate-700"}`}>Ver regras e condições</summary>
                         <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{oferta.regras}</p>
                       </details>
                     )}
 
-                    <div className="mt-4 border-t border-slate-200 pt-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div className="text-sm text-slate-500">
+                    {cupomSemImagem ? (
+                      <div className="mt-auto pt-4">
+                        <div className="border-t border-orange-100 pt-4 text-sm text-slate-500">
                           {validade ? <p>Válido até <strong className="text-slate-700">{validade}</strong></p> : <p>Consulte as condições da oportunidade.</p>}
-                          {cupom && codigoCopiado === oferta.id && <p className="mt-1 font-bold text-emerald-700">Cupom copiado! Cole no carrinho da loja.</p>}
+                          {codigoCopiado === oferta.id && <p className="mt-1 font-bold text-orange-600">Cupom copiado! Cole no carrinho da loja.</p>}
                         </div>
-
-                        {cupom && oferta.codigo ? (
-                          <a
-                            href={`/oferta/${oferta.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => void copiarCodigo(oferta.id, oferta.codigo as string)}
-                            className="w-full cursor-pointer rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] sm:w-auto sm:min-w-[220px]"
-                          >
-                            {codigoCopiado === oferta.id ? "✅ CUPOM COPIADO" : "🛒 USAR CUPOM"}
-                          </a>
-                        ) : (
-                          <a href={`/oferta/${oferta.id}`} target="_blank" rel="noopener noreferrer" className="w-full rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto sm:min-w-[220px]">Ir para a oferta</a>
-                        )}
+                        <a
+                          href={`/oferta/${oferta.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => void copiarCodigo(oferta.id, oferta.codigo as string)}
+                          className="mt-3 block w-full cursor-pointer rounded-full bg-orange-500 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.99]"
+                        >
+                          {codigoCopiado === oferta.id ? "✅ CUPOM COPIADO" : "USAR CUPOM"}
+                        </a>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="mt-4 border-t border-slate-200 pt-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                          <div className="text-sm text-slate-500">
+                            {validade ? <p>Válido até <strong className="text-slate-700">{validade}</strong></p> : <p>Consulte as condições da oportunidade.</p>}
+                            {cupom && codigoCopiado === oferta.id && <p className="mt-1 font-bold text-emerald-700">Cupom copiado! Cole no carrinho da loja.</p>}
+                          </div>
+
+                          {cupom && oferta.codigo ? (
+                            <a
+                              href={`/oferta/${oferta.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => void copiarCodigo(oferta.id, oferta.codigo as string)}
+                              className="w-full cursor-pointer rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] sm:w-auto sm:min-w-[220px]"
+                            >
+                              {codigoCopiado === oferta.id ? "✅ CUPOM COPIADO" : "🛒 USAR CUPOM"}
+                            </a>
+                          ) : (
+                            <a href={`/oferta/${oferta.id}`} target="_blank" rel="noopener noreferrer" className="w-full rounded-xl bg-emerald-600 px-6 py-3.5 text-center text-sm font-black uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto sm:min-w-[220px]">Ir para a oferta</a>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
