@@ -88,12 +88,14 @@ export default function RadarPublico() {
   const [totalDestinos, setTotalDestinos] = useState(20);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [filtroDestino, setFiltroDestino] = useState("TODOS");
 
   useEffect(() => {
     let ativo = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
 
-    async function carregar() {
-      setCarregando(true);
+    async function carregar(silencioso = false) {
+      if (!silencioso) setCarregando(true);
       setErro("");
 
       try {
@@ -122,18 +124,25 @@ export default function RadarPublico() {
         setResultados(ordenados);
         setDestinosEmColeta(dados.destinosEmColeta || []);
         setTotalDestinos(Number(dados.totalDestinosMonitorados || 20));
+        setFiltroDestino((atual) => atual === "TODOS" || ordenados.some((item) => item.destinoCodigo === atual) ? atual : "TODOS");
       } catch (error) {
         if (!ativo) return;
         setErro(error instanceof Error ? error.message : "Radar indisponível.");
       } finally {
-        if (ativo) setCarregando(false);
+        if (ativo && !silencioso) setCarregando(false);
       }
     }
 
+    setFiltroDestino("TODOS");
     carregar();
+
+    timer = setInterval(() => {
+      carregar(true);
+    }, 5 * 60 * 1000);
 
     return () => {
       ativo = false;
+      if (timer) clearInterval(timer);
     };
   }, [origem]);
 
@@ -142,7 +151,20 @@ export default function RadarPublico() {
     [origem]
   );
 
-  const topResultados = resultados.slice(0, 6);
+  const destinosDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>();
+    resultados.forEach((item) => mapa.set(item.destinoCodigo, item.destino));
+    return Array.from(mapa.entries())
+      .map(([codigo, nome]) => ({ codigo, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [resultados]);
+
+  const resultadosFiltrados = useMemo(
+    () => filtroDestino === "TODOS" ? resultados : resultados.filter((item) => item.destinoCodigo === filtroDestino),
+    [resultados, filtroDestino]
+  );
+
+  const topResultados = resultadosFiltrados.slice(0, 6);
   const melhor = topResultados[0] || null;
 
   return (
@@ -155,12 +177,8 @@ export default function RadarPublico() {
             <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
               <div>
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">
-                    Radar inteligente
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">
-                    Atualização automática 4x/dia
-                  </span>
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Radar inteligente</span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">Atualização automática 4x/dia</span>
                 </div>
 
                 <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">
@@ -168,24 +186,13 @@ export default function RadarPublico() {
                   <span className="block text-cyan-300">saindo da sua cidade agora?</span>
                 </h2>
 
-                <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-                  O Radar acompanha preços reais, classifica cada rota pela própria régua e destaca primeiro o que merece atenção de verdade.
-                </p>
+                <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">O Radar acompanha preços reais, classifica cada rota pela própria régua e destaca primeiro o que merece atenção de verdade.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Origens</p>
-                  <p className="mt-1 text-2xl font-black">8</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Destinos</p>
-                  <p className="mt-1 text-2xl font-black text-cyan-300">{totalDestinos}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Com dados</p>
-                  <p className="mt-1 text-2xl font-black text-emerald-300">{resultados.length}</p>
-                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Origens</p><p className="mt-1 text-2xl font-black">8</p></div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Destinos</p><p className="mt-1 text-2xl font-black text-cyan-300">{totalDestinos}</p></div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Com dados</p><p className="mt-1 text-2xl font-black text-emerald-300">{resultados.length}</p></div>
               </div>
             </div>
 
@@ -193,16 +200,7 @@ export default function RadarPublico() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Saindo de</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {ORIGENS.map((item) => (
-                  <button
-                    key={item.codigo}
-                    type="button"
-                    onClick={() => setOrigem(item.codigo)}
-                    className={`rounded-full border px-4 py-2.5 text-sm font-black transition ${
-                      origem === item.codigo
-                        ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20"
-                        : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10"
-                    }`}
-                  >
+                  <button key={item.codigo} type="button" onClick={() => setOrigem(item.codigo)} className={`rounded-full border px-4 py-2.5 text-sm font-black transition ${origem === item.codigo ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20" : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10"}`}>
                     {item.nome}
                   </button>
                 ))}
@@ -215,9 +213,7 @@ export default function RadarPublico() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Top oportunidades agora</p>
                 <h3 className="mt-2 text-3xl font-black text-slate-950">Saindo de {origemNome}</h3>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Promoções primeiro; dentro da mesma faixa, menor preço primeiro.
-                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">Promoções primeiro; dentro da mesma faixa, menor preço primeiro.</p>
               </div>
 
               {melhor ? (
@@ -228,22 +224,36 @@ export default function RadarPublico() {
               ) : null}
             </div>
 
+            {!carregando && !erro && destinosDisponiveis.length > 0 ? (
+              <div className="mt-6 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Filtrar por destino</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">O botão aparece automaticamente assim que o Radar recebe a primeira tarifa real daquele destino.</p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-500">atualiza sozinho a cada 5 min</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setFiltroDestino("TODOS")} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === "TODOS" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-sky-300"}`}>
+                    Todos ({resultados.length})
+                  </button>
+                  {destinosDisponiveis.map((destino) => (
+                    <button key={destino.codigo} type="button" onClick={() => setFiltroDestino(destino.codigo)} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === destino.codigo ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800"}`}>
+                      {destino.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {carregando ? (
-              <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-64 animate-pulse rounded-3xl bg-slate-100" />
-                ))}
-              </div>
+              <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">{[1, 2, 3].map((item) => <div key={item} className="h-64 animate-pulse rounded-3xl bg-slate-100" />)}</div>
             ) : erro ? (
-              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 font-bold text-red-700">
-                {erro}
-              </div>
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 font-bold text-red-700">{erro}</div>
             ) : topResultados.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6">
                 <p className="font-black text-amber-950">Esta origem já está cadastrada no Radar.</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
-                  Os 20 destinos estão recebendo as primeiras coletas reais. Assim que a primeira tarifa chegar, as oportunidades aparecem aqui automaticamente.
-                </p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">Os 20 destinos estão recebendo as primeiras coletas reais. Assim que a primeira tarifa chegar, as oportunidades e o novo filtro aparecem aqui automaticamente.</p>
               </div>
             ) : (
               <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -252,68 +262,28 @@ export default function RadarPublico() {
                   const volta = dataCurta(item.volta);
 
                   return (
-                    <article
-                      key={item.radarId}
-                      className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl"
-                    >
-                      {index === 0 ? (
-                        <span className="absolute right-0 top-0 rounded-bl-2xl bg-slate-950 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white">
-                          Destaque do Radar
-                        </span>
-                      ) : null}
+                    <article key={item.radarId} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl">
+                      {index === 0 ? <span className="absolute right-0 top-0 rounded-bl-2xl bg-slate-950 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white">Destaque do Radar</span> : null}
 
                       <div className="flex items-start justify-between gap-3 pr-20">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{origem} → {item.destinoCodigo}</p>
-                          <h4 className="mt-1 text-2xl font-black text-slate-950">{item.destino}</h4>
-                        </div>
+                        <div><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{origem} → {item.destinoCodigo}</p><h4 className="mt-1 text-2xl font-black text-slate-950">{item.destino}</h4></div>
                       </div>
 
                       <div className="mt-5 flex items-end justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Melhor tarifa recente</p>
-                          <p className="mt-1 text-3xl font-black text-slate-950">{moeda(item.precoPorPessoa)}</p>
-                          <p className="text-xs font-bold text-slate-400">por pessoa</p>
-                        </div>
-                        <span className={`rounded-full border px-3 py-2 text-xs font-black ${estiloClassificacao(item.classificacao)}`}>
-                          {item.classificacao}
-                        </span>
+                        <div><p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Melhor tarifa recente</p><p className="mt-1 text-3xl font-black text-slate-950">{moeda(item.precoPorPessoa)}</p><p className="text-xs font-bold text-slate-400">por pessoa</p></div>
+                        <span className={`rounded-full border px-3 py-2 text-xs font-black ${estiloClassificacao(item.classificacao)}`}>{item.classificacao}</span>
                       </div>
 
                       <div className="mt-5 grid grid-cols-2 gap-2 text-sm font-bold text-slate-600">
-                        {ida && volta ? (
-                          <div className="rounded-2xl bg-slate-50 p-3">
-                            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Datas</p>
-                            <p className="mt-1">{ida} → {volta}</p>
-                          </div>
-                        ) : null}
-                        <div className="rounded-2xl bg-slate-50 p-3">
-                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Permanência</p>
-                          <p className="mt-1">{item.permanenciaDias ? `${item.permanenciaDias} dias` : "Flexível"}</p>
-                        </div>
+                        {ida && volta ? <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Datas</p><p className="mt-1">{ida} → {volta}</p></div> : null}
+                        <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Permanência</p><p className="mt-1">{item.permanenciaDias ? `${item.permanenciaDias} dias` : "Flexível"}</p></div>
                       </div>
 
-                      {item.ciaAerea ? (
-                        <p className="mt-4 text-sm font-bold text-slate-500">Companhia: <span className="text-slate-800">{item.ciaAerea}</span></p>
-                      ) : null}
+                      {item.ciaAerea ? <p className="mt-4 text-sm font-bold text-slate-500">Companhia: <span className="text-slate-800">{item.ciaAerea}</span></p> : null}
 
                       <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
-                        {item.link ? (
-                          <a
-                            href={item.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
-                          >
-                            Ver passagem
-                          </a>
-                        ) : null}
-                        <a
-                          href="#viajar-com-orcamento"
-                          className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-100"
-                        >
-                          Simular orçamento
-                        </a>
+                        {item.link ? <a href={item.link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800">Ver passagem</a> : null}
+                        <a href="#viajar-com-orcamento" className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-100">Simular orçamento</a>
                       </div>
                     </article>
                   );
@@ -328,11 +298,7 @@ export default function RadarPublico() {
                   <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-500">{destinosEmColeta.length} destinos</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {destinosEmColeta.map((destino) => (
-                    <span key={destino.codigo} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
-                      {destino.nome}
-                    </span>
-                  ))}
+                  {destinosEmColeta.map((destino) => <span key={destino.codigo} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">{destino.nome}</span>)}
                 </div>
               </div>
             ) : null}
