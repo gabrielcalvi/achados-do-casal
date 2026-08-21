@@ -34,7 +34,7 @@ export default function ViagensPage() {
           <span className="travel-plane-trail absolute right-8 top-1/2 block h-px w-36 origin-right" />
           <svg
             viewBox="0 0 64 64"
-            className="travel-plane h-9 w-9 sm:h-11 sm:w-11"
+            className="travel-plane h-10 w-10 sm:h-12 sm:w-12"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -79,18 +79,18 @@ export default function ViagensPage() {
           .travel-plane-wrap {
             --plane-rise: 46vh;
             animation: travel-plane-flight 24s linear infinite;
-            color: rgba(255, 255, 255, 0.16);
+            color: rgba(255, 255, 255, 0.52);
             opacity: 0;
             will-change: transform, opacity;
           }
 
           .travel-plane {
-            filter: drop-shadow(0 0 10px rgba(165, 243, 252, 0.12));
+            filter: drop-shadow(0 0 12px rgba(165, 243, 252, 0.22));
             transform: rotate(-13deg);
           }
 
           .travel-plane-trail {
-            background: linear-gradient(90deg, transparent, rgba(186, 230, 253, 0.08), rgba(255, 255, 255, 0.2));
+            background: linear-gradient(90deg, transparent, rgba(186, 230, 253, 0.16), rgba(255, 255, 255, 0.38));
             transform: rotate(-13deg);
           }
 
