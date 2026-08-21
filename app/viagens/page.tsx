@@ -29,7 +29,23 @@ export default function ViagensPage() {
 
       <section className="relative overflow-hidden bg-gradient-to-br from-sky-950 via-blue-900 to-cyan-700 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.12),transparent_25%),radial-gradient(circle_at_10%_80%,rgba(34,211,238,0.12),transparent_30%)]" />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:py-18 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:py-20">
+
+        <div className="travel-plane-wrap pointer-events-none absolute left-[-10vw] top-[82%] z-[1]" aria-hidden="true">
+          <span className="travel-plane-trail absolute right-8 top-1/2 block h-px w-36 origin-right" />
+          <svg
+            viewBox="0 0 64 64"
+            className="travel-plane h-9 w-9 sm:h-11 sm:w-11"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M58.2 27.7 38.9 18l-8.2-12.2c-.8-1.2-2.3-1.8-3.7-1.4l-2.7.8 4.9 14.9-14.8 4.2-7.8-6.1-3.7 1.1 5.8 10.1-3.8 10.9 3.8-1.1 5.5-8.6 15.1-1.9-1.7 15.6 2.8-.8c1.4-.4 2.5-1.6 2.6-3.1l1.6-14.5 21.2-1.6c2.9-.2 5.2-2.7 5.1-5.6-.1-1.9-1.1-3.6-2.7-4.5Z"
+              fill="currentColor"
+            />
+          </svg>
+        </div>
+
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:py-18 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:py-20">
           <div>
             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black tracking-wide">INTELIGÊNCIA DE VIAGEM</span>
             <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">Viajar melhor,<br />pagar menos<br /><span className="text-cyan-200">e decidir com dados.</span></h1>
@@ -58,6 +74,64 @@ export default function ViagensPage() {
             <div className="mt-5 flex flex-wrap gap-2">{ORIGENS_MONITORADAS.map((origem) => <span key={origem} className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white">{origem}</span>)}</div>
           </div>
         </div>
+
+        <style>{`
+          .travel-plane-wrap {
+            --plane-rise: 46vh;
+            animation: travel-plane-flight 24s linear infinite;
+            color: rgba(255, 255, 255, 0.16);
+            opacity: 0;
+            will-change: transform, opacity;
+          }
+
+          .travel-plane {
+            filter: drop-shadow(0 0 10px rgba(165, 243, 252, 0.12));
+            transform: rotate(-13deg);
+          }
+
+          .travel-plane-trail {
+            background: linear-gradient(90deg, transparent, rgba(186, 230, 253, 0.08), rgba(255, 255, 255, 0.2));
+            transform: rotate(-13deg);
+          }
+
+          @keyframes travel-plane-flight {
+            0% {
+              opacity: 0;
+              transform: translate3d(0, 0, 0) scale(0.9);
+            }
+            7% {
+              opacity: 1;
+            }
+            45% {
+              opacity: 1;
+              transform: translate3d(60vw, calc(var(--plane-rise) * -0.44), 0) scale(1);
+            }
+            88% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 0;
+              transform: translate3d(125vw, calc(var(--plane-rise) * -1), 0) scale(1.06);
+            }
+          }
+
+          @media (max-width: 640px) {
+            .travel-plane-wrap {
+              --plane-rise: 34vh;
+              animation-duration: 20s;
+            }
+
+            .travel-plane-trail {
+              width: 5.5rem;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .travel-plane-wrap {
+              display: none;
+            }
+          }
+        `}</style>
       </section>
 
       <RadarPublico />
