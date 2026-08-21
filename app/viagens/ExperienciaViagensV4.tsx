@@ -1,3 +1,5 @@
+import { MapaBrasilVisitados, MapaMundoVisitados } from "./MapaVisitados";
+
 const PAISES = [
   ["ar", "Argentina"], ["br", "Brasil"], ["bs", "Bahamas"], ["ca", "Canadá"],
   ["ch", "Suíça"], ["co", "Colômbia"], ["hr", "Croácia"], ["hu", "Hungria"],
@@ -30,42 +32,6 @@ const OUTROS_BRASIL = [
   "Criciúma", "Caxias do Sul", "Dourados", "Guaíra", "Uruguaiana", "Cascavel", "Toledo", "Mucuri",
 ] as const;
 
-function MapaBrasilReal() {
-  return (
-    <div className="relative mx-auto aspect-[1/1] w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/80 bg-white/70 p-5 shadow-inner backdrop-blur">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(16,185,129,.17),transparent_40%),linear-gradient(145deg,rgba(236,253,245,.7),rgba(224,242,254,.7))]" />
-      <img
-        src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Brazil_Blank_Map.svg"
-        alt="Mapa real do Brasil com divisão dos estados"
-        className="absolute inset-[7%] h-[86%] w-[86%] object-contain opacity-95"
-        style={{ filter: "sepia(.1) saturate(.8) hue-rotate(115deg) brightness(.9)" }}
-      />
-      <span className="absolute left-[10%] top-[18%] rounded-full bg-emerald-800 px-3 py-2 text-xs font-black text-white shadow-lg">📍 Amazônia</span>
-      <span className="absolute right-[5%] top-[31%] rounded-full bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 shadow-lg">📍 Nordeste</span>
-      <span className="absolute right-[6%] top-[59%] rounded-full bg-violet-700 px-3 py-2 text-xs font-black text-white shadow-lg">📍 Sudeste</span>
-      <span className="absolute left-[4%] top-[52%] rounded-full bg-amber-500 px-3 py-2 text-xs font-black text-white shadow-lg">📍 Centro-Oeste</span>
-      <span className="absolute left-[33%] bottom-[7%] rounded-full bg-emerald-700 px-3 py-2 text-xs font-black text-white shadow-lg">📍 Sul</span>
-    </div>
-  );
-}
-
-function MapaMundoReal() {
-  return (
-    <div className="relative min-h-[320px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#07172c] sm:min-h-[370px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(14,165,233,.15),transparent_28%),radial-gradient(circle_at_58%_30%,rgba(250,204,21,.08),transparent_25%)]" />
-      <img
-        src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Blank_world_map_Robinson_projection.svg"
-        alt="Mapa-múndi real em projeção Robinson"
-        className="absolute inset-[5%] h-[90%] w-[90%] object-contain opacity-55 invert"
-      />
-      <span className="absolute left-[9%] top-[28%] rounded-full bg-sky-700 px-3 py-2 text-xs font-black text-white shadow-lg">🌎 América do Norte</span>
-      <span className="absolute left-[25%] top-[67%] rounded-full bg-emerald-700 px-3 py-2 text-xs font-black text-white shadow-lg">📍 América do Sul</span>
-      <span className="absolute left-[52%] top-[24%] rounded-full bg-amber-300 px-3 py-2 text-xs font-black text-slate-950 shadow-lg">Europa</span>
-      <span className="absolute left-[25%] top-[48%] hidden rounded-full bg-pink-400 px-3 py-2 text-xs font-black text-slate-950 shadow-lg sm:block">Caribe</span>
-    </div>
-  );
-}
-
 export default function ExperienciaViagensV4() {
   return (
     <section id="nossas-viagens" className="border-y border-slate-200 bg-white">
@@ -82,7 +48,7 @@ export default function ExperienciaViagensV4() {
               <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-100/80 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-800">🇧🇷 Explorando o Brasil</span>
               <h3 className="mt-4 max-w-xl text-4xl font-black leading-[1.06] text-slate-950">Nosso país também é parte da nossa história.</h3>
               <p className="mt-4 max-w-xl leading-7 text-slate-600">Das montanhas do Sul às praias do Nordeste, da Amazônia ao Centro-Oeste, o Brasil sempre nos surpreende. Paisagens, estrada, cidades, natureza e lugares que fizeram a gente voltar.</p>
-              <div className="mt-6"><MapaBrasilReal /></div>
+              <div className="mt-6"><MapaBrasilVisitados /></div>
             </div>
 
             <div className="rounded-[2rem] border border-white/90 bg-white/85 p-4 shadow-sm backdrop-blur sm:p-5">
@@ -109,7 +75,7 @@ export default function ExperienciaViagensV4() {
               <p className="mt-4 max-w-xl leading-7 text-slate-300">Cada ponto no mapa é uma experiência real: culturas diferentes, paisagens inesquecíveis, decisões, acertos, erros e aprendizados que levamos para a vida.</p>
             </div>
             <div className="grid gap-4 p-5 sm:p-7 xl:grid-cols-[1fr_0.5fr]">
-              <MapaMundoReal />
+              <MapaMundoVisitados />
               <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-4">
                 <h4 className="text-lg font-black">Países e territórios</h4>
                 <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 xl:grid-cols-1">
