@@ -4,8 +4,8 @@ const PAISES = [
   ["ar", "Argentina"], ["br", "Brasil"], ["bs", "Bahamas"], ["ca", "Canadá"],
   ["ch", "Suíça"], ["co", "Colômbia"], ["hr", "Croácia"], ["hu", "Hungria"],
   ["it", "Itália"], ["jm", "Jamaica"], ["ky", "Ilhas Cayman"], ["mx", "México"],
-  ["pe", "Peru"], ["py", "Paraguai"], ["si", "Eslovênia"], ["us", "Estados Unidos"],
-  ["uy", "Uruguai"],
+  ["pa", "Panamá"], ["pe", "Peru"], ["py", "Paraguai"], ["si", "Eslovênia"],
+  ["us", "Estados Unidos"], ["uy", "Uruguai"],
 ] as const;
 
 const BRASIL_PRINCIPAIS = [
@@ -15,6 +15,7 @@ const BRASIL_PRINCIPAIS = [
   ["2x", "Rio de Janeiro", "RJ", "Cidade + praias"],
   ["2x", "São Paulo", "SP", "Capital"],
   ["2x", "Arraial d’Ajuda", "BA", "Costa do Descobrimento"],
+  ["2x", "Trancoso", "BA", "Costa do Descobrimento"],
   ["★", "Búzios", "RJ", "Região dos Lagos"],
   ["★", "Caraíva", "BA", "Praia que marcou"],
   ["★", "Praia do Espelho", "BA", "Litoral sul"],
@@ -30,6 +31,9 @@ const BRASIL_PRINCIPAIS = [
 const OUTROS_BRASIL = [
   "Curitiba", "Bombinhas", "Canela", "Beto Carrero / Penha", "Blumenau", "Joinville",
   "Criciúma", "Caxias do Sul", "Dourados", "Guaíra", "Uruguaiana", "Cascavel", "Toledo", "Mucuri",
+  "Passo Fundo", "Santo André", "São Caetano do Sul", "Itu", "Torres", "Capão da Canoa", "Tramandaí",
+  "Chapecó", "Novo Hamburgo", "Nova Friburgo", "Canasvieiras", "Ingleses", "Praia da Ferradura",
+  "Rio dos Frades", "Curuípe", "Coqueiros",
 ] as const;
 
 export default function ExperienciaViagensV4() {
@@ -71,7 +75,7 @@ export default function ExperienciaViagensV4() {
           <div className="grid lg:grid-cols-[0.72fr_1.28fr]">
             <div className="flex flex-col justify-center border-b border-white/10 p-7 sm:p-9 lg:border-b-0 lg:border-r">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">Nosso mapa pelo mundo</span>
-              <h3 className="mt-3 text-4xl font-black leading-tight">17 países e territórios, centenas de histórias.</h3>
+              <h3 className="mt-3 text-4xl font-black leading-tight">18 países e territórios, centenas de histórias.</h3>
               <p className="mt-4 max-w-xl leading-7 text-slate-300">Cada ponto no mapa é uma experiência real: culturas diferentes, paisagens inesquecíveis, decisões, acertos, erros e aprendizados que levamos para a vida.</p>
             </div>
             <div className="grid gap-4 p-5 sm:p-7 xl:grid-cols-[1fr_0.5fr]">
