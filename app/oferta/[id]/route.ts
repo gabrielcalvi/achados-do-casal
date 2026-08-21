@@ -18,6 +18,7 @@ type ContextoRota = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NOME_COOKIE_SESSAO = "economize_session";
 const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram"]);
+const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
 function limitarTexto(valor: string | null, limite = 1000) {
   if (!valor) return null;
@@ -34,6 +35,36 @@ function gerarHashIp(ip: string | null) {
   const salt = process.env.ECONOMIZE_IP_HASH_SALT;
   if (!ip || !salt) return null;
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+function classificarTrafego(request: NextRequest, origem: string) {
+  const userAgent = request.headers.get("user-agent")?.trim() || "";
+  const referer = request.headers.get("referer")?.trim() || "";
+
+  if (origem === "admin") {
+    return { tipo: "interno", motivo: "origem_admin" } as const;
+  }
+
+  try {
+    if (referer) {
+      const urlReferer = new URL(referer);
+      if (urlReferer.pathname === "/admin" || urlReferer.pathname.startsWith("/admin/")) {
+        return { tipo: "interno", motivo: "referer_admin" } as const;
+      }
+    }
+  } catch {
+    // Referer inválido não deve impedir o clique.
+  }
+
+  if (!userAgent) {
+    return { tipo: "nao_classificado", motivo: "sem_user_agent" } as const;
+  }
+
+  if (PADRAO_BOT.test(userAgent)) {
+    return { tipo: "bot", motivo: "user_agent_automatizado" } as const;
+  }
+
+  return { tipo: "humano_provavel", motivo: "navegador_normal" } as const;
 }
 
 function urlEhSegura(valor: unknown) {
@@ -155,17 +186,21 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
     const possuiSessaoValida = typeof sessaoRecebida === "string" && UUID_REGEX.test(sessaoRecebida);
     const sessaoId = possuiSessaoValida ? sessaoRecebida : randomUUID();
     const ipHash = gerarHashIp(obterIp(request));
-    const origemClique = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "central_economize";
+    const origemRecebida = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "central_economize";
+    const origemClique = ORIGENS_PERMITIDAS.has(origemRecebida) ? origemRecebida : "central_economize";
+    const classificacao = classificarTrafego(request, origemClique);
 
     const { error: erroClique } = await supabaseAdmin.from("economize_cliques").insert({
       oferta_id: oferta.id,
       loja_id: oferta.loja_id,
-      origem: ORIGENS_PERMITIDAS.has(origemClique) ? origemClique : "central_economize",
+      origem: origemClique,
       rota: request.nextUrl.pathname,
       referer: limitarTexto(request.headers.get("referer")),
       user_agent: limitarTexto(request.headers.get("user-agent")),
       session_id: sessaoId,
       ip_hash: ipHash,
+      trafego_tipo: classificacao.tipo,
+      trafego_motivo: classificacao.motivo,
     });
 
     if (erroClique) console.error("Erro ao registrar clique da Central Economize:", erroClique);
