@@ -8,7 +8,9 @@ export const maxDuration = 300;
 const SITE_ORIGIN = "https://achadosdocasal.com.br";
 const LOTES_POR_DIA = 4;
 const CONCORRENCIA = 5;
+const LIMITE_MENSAL_IGNAV = 12000;
 const ORIGENS_PRIORITARIAS = new Set(["POA", "GRU"]);
+const ORIGENS_SEMANAIS = new Set(["BSB"]);
 
 type RadarExpansao = {
   slug: string;
@@ -31,7 +33,39 @@ function indiceLoteAtual() {
   return 3;
 }
 
+function deveRodarOrigemSemanal(lote: number) {
+  const agora = new Date();
+  return agora.getUTCDay() === 0 && lote === 0;
+}
+
+async function reservarChamada(radar: RadarExpansao) {
+  const { data, error } = await supabaseAdmin.rpc("reservar_chamada_ignav", {
+    p_limite: LIMITE_MENSAL_IGNAV,
+    p_camada: "expansao",
+    p_rota: radar.slug,
+    p_origem: radar.origem_codigo,
+    p_destino: radar.destino_codigo,
+  });
+
+  if (error) throw new Error(`Falha ao controlar orçamento Ignav: ${error.message}`);
+  return data !== null && data !== undefined;
+}
+
 async function executarRadar(radar: RadarExpansao, authorization: string) {
+  const reservado = await reservarChamada(radar);
+  if (!reservado) {
+    return {
+      slug: radar.slug,
+      origem: radar.origem_codigo,
+      destino: radar.destino_codigo,
+      prioridade: ORIGENS_PRIORITARIAS.has(radar.origem_codigo),
+      sucesso: false,
+      gravadas: 0,
+      limiteMensalAtingido: true,
+      detalhe: `Limite interno de ${LIMITE_MENSAL_IGNAV} chamadas mensais atingido.`,
+    };
+  }
+
   const url = new URL("/api/admin/viagens/radar/executar-expandido", SITE_ORIGIN);
   url.searchParams.set("slug", radar.slug);
 
@@ -97,46 +131,61 @@ export async function GET(request: NextRequest) {
 
   const lista = (radares || []) as RadarExpansao[];
   const prioritarios = lista.filter((radar) => ORIGENS_PRIORITARIAS.has(radar.origem_codigo));
-  const demais = lista.filter((radar) => !ORIGENS_PRIORITARIAS.has(radar.origem_codigo));
+  const semanais = lista.filter((radar) => ORIGENS_SEMANAIS.has(radar.origem_codigo));
+  const demaisDiarios = lista.filter(
+    (radar) => !ORIGENS_PRIORITARIAS.has(radar.origem_codigo) && !ORIGENS_SEMANAIS.has(radar.origem_codigo)
+  );
 
   const lote = indiceLoteAtual();
-  const tamanhoLoteDemais = Math.max(1, Math.ceil(demais.length / LOTES_POR_DIA));
+  const tamanhoLoteDemais = Math.max(1, Math.ceil(demaisDiarios.length / LOTES_POR_DIA));
   const inicio = lote * tamanhoLoteDemais;
-  const selecionadosDemais = demais.slice(inicio, inicio + tamanhoLoteDemais);
+  const selecionadosDemais = demaisDiarios.slice(inicio, inicio + tamanhoLoteDemais);
+  const selecionadosSemanais = deveRodarOrigemSemanal(lote) ? semanais : [];
 
-  // POA e GRU sao nossas origens estrategicas: entram em TODAS as quatro rodadas.
-  // As outras origens continuam girando em quatro lotes para controlar o volume total.
-  const selecionados = [...prioritarios, ...selecionadosDemais];
+  // POA e GRU entram nas quatro rodadas diarias.
+  // Brasilia deixa de ser diaria e passa a receber uma rodada semanal.
+  // As demais origens continuam divididas em quatro lotes diarios.
+  const selecionados = [...prioritarios, ...selecionadosDemais, ...selecionadosSemanais];
   const authorization = request.headers.get("authorization") || "";
   const resultados: Array<Record<string, unknown>> = [];
+  let limiteMensalAtingido = false;
 
-  // Concorrencia controlada evita uma rodada longa demais sem disparar todas as consultas de uma vez.
   for (let i = 0; i < selecionados.length; i += CONCORRENCIA) {
+    if (limiteMensalAtingido) break;
+
     const grupo = selecionados.slice(i, i + CONCORRENCIA);
     const respostas = await Promise.all(
       grupo.map((radar) => executarRadar(radar, authorization))
     );
     resultados.push(...respostas);
+
+    if (respostas.some((item) => item.limiteMensalAtingido === true)) {
+      limiteMensalAtingido = true;
+    }
   }
 
   const gravadas = resultados.reduce((total, item) => total + Number(item.gravadas || 0), 0);
-  const erros = resultados.filter((item) => item.sucesso !== true).length;
+  const erros = resultados.filter((item) => item.sucesso !== true && item.limiteMensalAtingido !== true).length;
   const prioritariosExecutados = resultados.filter((item) => item.prioridade === true).length;
 
   return NextResponse.json({
-    sucesso: erros === 0,
+    sucesso: erros === 0 && !limiteMensalAtingido,
+    limiteMensalIgnav: LIMITE_MENSAL_IGNAV,
+    limiteMensalAtingido,
     lote: lote + 1,
     lotesPorDia: LOTES_POR_DIA,
     radaresExpandidos: lista.length,
     origensPrioritarias: ["POA", "GRU"],
+    origensSemanais: ["BSB"],
     radaresPrioritarios: prioritarios.length,
     prioritariosExecutados,
-    outrosExecutados: selecionadosDemais.length,
-    executados: selecionados.length,
+    outrosExecutados: resultados.filter((item) => item.prioridade !== true).length,
+    planejados: selecionados.length,
+    executados: resultados.length,
     concorrencia: CONCORRENCIA,
     observacoesGravadas: gravadas,
     erros,
     resultados,
     executadoEm: new Date().toISOString(),
-  }, { status: erros === 0 ? 200 : 207 });
+  }, { status: limiteMensalAtingido ? 429 : erros === 0 ? 200 : 207 });
 }
