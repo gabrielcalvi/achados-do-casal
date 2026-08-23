@@ -2,32 +2,34 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const SITE_ORIGIN = "https://achadosdocasal.com.br";
+const LIMITE_MENSAL_IGNAV = 12000;
 
 const ROTAS = [
-  { slug: "poa-orlando", limite: 1 },
-  { slug: "poa-new-york", limite: 1 },
-  { slug: "poa-miami", limite: 1 },
-  { slug: "poa-los-angeles", limite: 1 },
-  { slug: "poa-lisboa", limite: 1 },
+  { slug: "poa-orlando", limite: 1, origem: "POA", destino: "ORL" },
+  { slug: "poa-new-york", limite: 1, origem: "POA", destino: "NYC" },
+  { slug: "poa-miami", limite: 1, origem: "POA", destino: "MIA" },
+  { slug: "poa-los-angeles", limite: 1, origem: "POA", destino: "LAX" },
+  { slug: "poa-lisboa", limite: 1, origem: "POA", destino: "LIS" },
 
-  { slug: "gru-orlando", limite: 1 },
-  { slug: "gru-new-york", limite: 1 },
-  { slug: "gru-miami", limite: 1 },
-  { slug: "gru-los-angeles", limite: 1 },
-  { slug: "gru-lisboa", limite: 1 },
-  { slug: "gru-madrid", limite: 1 },
+  { slug: "gru-orlando", limite: 1, origem: "GRU", destino: "ORL" },
+  { slug: "gru-new-york", limite: 1, origem: "GRU", destino: "NYC" },
+  { slug: "gru-miami", limite: 1, origem: "GRU", destino: "MIA" },
+  { slug: "gru-los-angeles", limite: 1, origem: "GRU", destino: "LAX" },
+  { slug: "gru-lisboa", limite: 1, origem: "GRU", destino: "LIS" },
+  { slug: "gru-madrid", limite: 1, origem: "GRU", destino: "MAD" },
 
-  { slug: "gig-orlando", limite: 1 },
-  { slug: "gig-new-york", limite: 1 },
-  { slug: "gig-miami", limite: 1 },
-  { slug: "gig-los-angeles", limite: 1 },
-  { slug: "gig-lisboa", limite: 1 },
+  { slug: "gig-orlando", limite: 1, origem: "GIG", destino: "ORL" },
+  { slug: "gig-new-york", limite: 1, origem: "GIG", destino: "NYC" },
+  { slug: "gig-miami", limite: 1, origem: "GIG", destino: "MIA" },
+  { slug: "gig-los-angeles", limite: 1, origem: "GIG", destino: "LAX" },
+  { slug: "gig-lisboa", limite: 1, origem: "GIG", destino: "LIS" },
 ] as const;
 
 function autorizado(request: NextRequest) {
@@ -38,6 +40,22 @@ function autorizado(request: NextRequest) {
   }
 
   return request.headers.get("authorization") === `Bearer ${segredo}`;
+}
+
+async function reservarChamada(rota: (typeof ROTAS)[number]) {
+  const { data, error } = await supabaseAdmin.rpc("reservar_chamada_ignav", {
+    p_limite: LIMITE_MENSAL_IGNAV,
+    p_camada: "radar_principal",
+    p_rota: rota.slug,
+    p_origem: rota.origem,
+    p_destino: rota.destino,
+  });
+
+  if (error) {
+    throw new Error(`Falha ao controlar orçamento Ignav: ${error.message}`);
+  }
+
+  return data !== null && data !== undefined;
 }
 
 export async function GET(request: NextRequest) {
@@ -54,8 +72,37 @@ export async function GET(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
   const resultados: Array<Record<string, unknown>> = [];
   let consultas = 0;
+  let limiteMensalAtingido = false;
 
   for (const rota of ROTAS) {
+    let reservado = false;
+
+    try {
+      reservado = await reservarChamada(rota);
+    } catch (erro) {
+      const resultado = {
+        slug: rota.slug,
+        limite: rota.limite,
+        sucesso: false,
+        erro: erro instanceof Error ? erro.message : String(erro),
+      };
+      console.error("[Radar rodada]", JSON.stringify(resultado));
+      resultados.push(resultado);
+      continue;
+    }
+
+    if (!reservado) {
+      limiteMensalAtingido = true;
+      resultados.push({
+        slug: rota.slug,
+        limite: rota.limite,
+        sucesso: false,
+        limiteMensalAtingido: true,
+        detalhe: `Limite interno de ${LIMITE_MENSAL_IGNAV} chamadas mensais atingido.`,
+      });
+      break;
+    }
+
     const url = new URL(
       "/api/admin/viagens/radar/executar",
       SITE_ORIGIN
@@ -114,12 +161,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const sucesso = resultados.every((item) => item.sucesso === true);
+  const sucesso = !limiteMensalAtingido && resultados.every((item) => item.sucesso === true);
 
   console.log(
     "[Radar rodada] resumo",
     JSON.stringify({
       sucesso,
+      limiteMensalIgnav: LIMITE_MENSAL_IGNAV,
+      limiteMensalAtingido,
       consultas_planejadas: ROTAS.length,
       consultas_realizadas: consultas,
       radares: resultados,
@@ -129,11 +178,13 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       sucesso,
+      limiteMensalIgnav: LIMITE_MENSAL_IGNAV,
+      limiteMensalAtingido,
       consultas_planejadas: ROTAS.length,
       consultas_realizadas: consultas,
       radares: resultados,
       executadoEm: new Date().toISOString(),
     },
-    { status: sucesso ? 200 : 207 }
+    { status: limiteMensalAtingido ? 429 : sucesso ? 200 : 207 }
   );
 }
