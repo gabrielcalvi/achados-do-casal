@@ -46,6 +46,15 @@ const ORIGENS = [
   { codigo: "REC", nome: "Recife" },
 ] as const;
 
+function registrarInteracao(evento: string, origem?: string, destino?: string, detalhe?: string) {
+  void fetch("/api/viagens/interacoes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ evento, origem, destino, detalhe }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
+
 function moeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -89,6 +98,8 @@ export default function RadarPublico() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [filtroDestino, setFiltroDestino] = useState("TODOS");
+  const [outraOrigem, setOutraOrigem] = useState("");
+  const [interesseEnviado, setInteresseEnviado] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -186,6 +197,24 @@ export default function RadarPublico() {
   const topResultados = resultadosFiltrados.slice(0, 6);
   const melhor = topResultados[0] || null;
 
+  function selecionarOrigem(codigo: string) {
+    setOrigem(codigo);
+    registrarInteracao("origem_selecionada", codigo, undefined, "radar_publico");
+  }
+
+  function selecionarDestino(codigo: string) {
+    setFiltroDestino(codigo);
+    if (codigo !== "TODOS") registrarInteracao("destino_selecionado", origem, codigo, "radar_publico");
+  }
+
+  function enviarOutraOrigem() {
+    const valor = outraOrigem.trim();
+    if (!valor) return;
+    registrarInteracao("outra_origem_interesse", undefined, undefined, valor);
+    setInteresseEnviado(true);
+    setOutraOrigem("");
+  }
+
   return (
     <section id="radar-real" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:py-16 lg:py-20">
@@ -197,7 +226,7 @@ export default function RadarPublico() {
               <div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Radar inteligente</span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">Atualização automática 4x/dia</span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">Radar atualizado automaticamente todos os dias</span>
                 </div>
                 <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">Onde existe uma oportunidade<span className="block text-cyan-300">saindo da sua cidade agora?</span></h2>
                 <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">O Radar acompanha preços reais, classifica cada rota pela própria régua e destaca primeiro o que merece atenção de verdade.</p>
@@ -214,11 +243,16 @@ export default function RadarPublico() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Saindo de</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {ORIGENS.map((item) => (
-                  <button key={item.codigo} type="button" onClick={() => setOrigem(item.codigo)} className={`rounded-full border px-4 py-2.5 text-sm font-black transition ${origem === item.codigo ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20" : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10"}`}>
+                  <button key={item.codigo} type="button" onClick={() => selecionarOrigem(item.codigo)} className={`rounded-full border px-4 py-2.5 text-sm font-black transition ${origem === item.codigo ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20" : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-300/40 hover:bg-cyan-300/10"}`}>
                     {item.nome}
                   </button>
                 ))}
               </div>
+              <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
+                <input value={outraOrigem} onChange={(e) => { setOutraOrigem(e.target.value); setInteresseEnviado(false); }} placeholder="Sua cidade não está aqui? Digite cidade/UF" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-400 outline-none focus:border-cyan-300/50" />
+                <button type="button" onClick={enviarOutraOrigem} className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-300/20">Quero essa origem</button>
+              </div>
+              {interesseEnviado ? <p className="mt-2 text-xs font-bold text-emerald-300">Anotado! Essa demanda entra nas nossas métricas de expansão.</p> : null}
             </div>
           </div>
 
@@ -249,7 +283,7 @@ export default function RadarPublico() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setFiltroDestino("TODOS")} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === "TODOS" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-sky-300"}`}>
+                  <button type="button" onClick={() => selecionarDestino("TODOS")} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === "TODOS" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-sky-300"}`}>
                     Todos ({totalDestinos})
                   </button>
 
@@ -257,7 +291,7 @@ export default function RadarPublico() {
                     <button
                       key={destino.codigo}
                       type="button"
-                      onClick={() => setFiltroDestino(destino.codigo)}
+                      onClick={() => selecionarDestino(destino.codigo)}
                       className={`rounded-full border px-3 py-2 text-xs font-black transition ${
                         filtroDestino === destino.codigo
                           ? destino.temDados
