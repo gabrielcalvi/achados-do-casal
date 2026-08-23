@@ -35,14 +35,66 @@ function instanteReferencia(item: {
   created_at?: string | null;
 }) {
   const candidatos = [item.verificado_em, item.updated_at, item.coletado_em, item.created_at];
-
   for (const valor of candidatos) {
     if (!valor) continue;
     const tempo = Date.parse(valor);
     if (Number.isFinite(tempo)) return tempo;
   }
-
   return 0;
+}
+
+async function limparRevisoesIndisponiveis(agoraIso: string) {
+  const { data: revisoes, error } = await supabaseAdmin
+    .from("monitor_alteracoes")
+    .select("id,produto_id,valor_novo,status")
+    .eq("tipo", "preco")
+    .eq("status", "pendente")
+    .limit(500);
+
+  if (error) throw new Error(`Falha ao revisar pendencias do monitor: ${error.message}`);
+
+  const indisponiveis = (revisoes ?? []).filter((item) => {
+    const valor = Number(item.valor_novo);
+    return Number.isFinite(valor) && valor <= 0;
+  });
+
+  const produtoIds = Array.from(new Set(indisponiveis.map((item) => Number(item.produto_id)).filter((id) => Number.isInteger(id) && id > 0)));
+  const revisaoIds = indisponiveis.map((item) => item.id);
+
+  if (produtoIds.length > 0) {
+    const { error: erroProdutos } = await supabaseAdmin
+      .from("produtos")
+      .update({
+        ativo: false,
+        preco_alterado: false,
+        ultima_verificacao: agoraIso,
+        monitor_erro: null,
+        monitor_erro_em: null,
+        monitor_falhas_consecutivas: 0,
+        updated_at: agoraIso,
+      })
+      .in("id", produtoIds);
+
+    if (erroProdutos) throw new Error(`Falha ao desativar produtos indisponiveis: ${erroProdutos.message}`);
+  }
+
+  if (revisaoIds.length > 0) {
+    const { error: erroRevisoes } = await supabaseAdmin
+      .from("monitor_alteracoes")
+      .update({
+        status: "aprovado",
+        atualizado_em: agoraIso,
+        aprovado_em: agoraIso,
+      })
+      .in("id", revisaoIds);
+
+    if (erroRevisoes) throw new Error(`Falha ao encerrar revisoes de indisponibilidade: ${erroRevisoes.message}`);
+  }
+
+  return {
+    revisoesEncontradas: indisponiveis.length,
+    produtosDesativados: produtoIds.length,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -54,6 +106,8 @@ export async function GET(request: NextRequest) {
     const agora = new Date();
     const agoraIso = agora.toISOString();
     const limiteFrescor = agora.getTime() - JANELA_FRESCOR_MS;
+
+    const revisoes = await limparRevisoesIndisponiveis(agoraIso);
 
     const { data, error } = await supabaseAdmin
       .from("economize_ofertas")
@@ -71,9 +125,10 @@ export async function GET(request: NextRequest) {
       const tempo = Date.parse(item.validade);
       return Number.isFinite(tempo) && tempo <= agora.getTime();
     });
+    const expiradosPorValidadeIds = new Set(expiradosPorValidade.map((item) => item.id));
 
     const desatualizados = itens.filter((item) => {
-      if (expiradosPorValidade.some((expirado) => expirado.id === item.id)) return false;
+      if (expiradosPorValidadeIds.has(item.id)) return false;
       return instanteReferencia(item) < limiteFrescor;
     });
 
@@ -107,6 +162,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       sucesso: true,
+      revisoesMonitor: revisoes,
       politica: {
         origem: "agente_produtos_awin_*",
         frescorMaximoHoras: JANELA_FRESCOR_MS / 3600000,
