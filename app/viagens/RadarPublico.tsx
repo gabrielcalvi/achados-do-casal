@@ -104,6 +104,7 @@ export default function RadarPublico() {
           orcamento: "999999",
           viajantes: "1",
         });
+
         const resposta = await fetch(`/api/viagens/orcamento?${params.toString()}`, {
           cache: "no-store",
         });
@@ -120,11 +121,16 @@ export default function RadarPublico() {
           if (prioridade !== 0) return prioridade;
           return a.precoPorPessoa - b.precoPorPessoa;
         });
+        const emColeta = dados.destinosEmColeta || [];
+        const monitorados = new Set([
+          ...ordenados.map((item) => item.destinoCodigo),
+          ...emColeta.map((item) => item.codigo),
+        ]);
 
         setResultados(ordenados);
-        setDestinosEmColeta(dados.destinosEmColeta || []);
-        setTotalDestinos(Number(dados.totalDestinosMonitorados || 20));
-        setFiltroDestino((atual) => atual === "TODOS" || ordenados.some((item) => item.destinoCodigo === atual) ? atual : "TODOS");
+        setDestinosEmColeta(emColeta);
+        setTotalDestinos(Number(dados.totalDestinosMonitorados || monitorados.size || 20));
+        setFiltroDestino((atual) => atual === "TODOS" || monitorados.has(atual) ? atual : "TODOS");
       } catch (error) {
         if (!ativo) return;
         setErro(error instanceof Error ? error.message : "Radar indisponível.");
@@ -136,9 +142,7 @@ export default function RadarPublico() {
     setFiltroDestino("TODOS");
     carregar();
 
-    timer = setInterval(() => {
-      carregar(true);
-    }, 5 * 60 * 1000);
+    timer = setInterval(() => carregar(true), 5 * 60 * 1000);
 
     return () => {
       ativo = false;
@@ -152,12 +156,27 @@ export default function RadarPublico() {
   );
 
   const destinosDisponiveis = useMemo(() => {
-    const mapa = new Map<string, string>();
-    resultados.forEach((item) => mapa.set(item.destinoCodigo, item.destino));
+    const mapa = new Map<string, { nome: string; temDados: boolean }>();
+
+    resultados.forEach((item) => {
+      mapa.set(item.destinoCodigo, { nome: item.destino, temDados: true });
+    });
+
+    destinosEmColeta.forEach((item) => {
+      if (!mapa.has(item.codigo)) {
+        mapa.set(item.codigo, { nome: item.nome, temDados: false });
+      }
+    });
+
     return Array.from(mapa.entries())
-      .map(([codigo, nome]) => ({ codigo, nome }))
+      .map(([codigo, dados]) => ({ codigo, ...dados }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  }, [resultados]);
+  }, [resultados, destinosEmColeta]);
+
+  const destinoSelecionado = useMemo(
+    () => destinosDisponiveis.find((item) => item.codigo === filtroDestino) || null,
+    [destinosDisponiveis, filtroDestino]
+  );
 
   const resultadosFiltrados = useMemo(
     () => filtroDestino === "TODOS" ? resultados : resultados.filter((item) => item.destinoCodigo === filtroDestino),
@@ -180,12 +199,7 @@ export default function RadarPublico() {
                   <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Radar inteligente</span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-slate-300">Atualização automática 4x/dia</span>
                 </div>
-
-                <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">
-                  Onde existe uma oportunidade
-                  <span className="block text-cyan-300">saindo da sua cidade agora?</span>
-                </h2>
-
+                <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">Onde existe uma oportunidade<span className="block text-cyan-300">saindo da sua cidade agora?</span></h2>
                 <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">O Radar acompanha preços reais, classifica cada rota pela própria régua e destaca primeiro o que merece atenção de verdade.</p>
               </div>
 
@@ -229,17 +243,32 @@ export default function RadarPublico() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Filtrar por destino</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">O botão aparece automaticamente assim que o Radar recebe a primeira tarifa real daquele destino.</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">Todos os destinos monitorados aparecem aqui. Os que ainda não receberam tarifa real ficam identificados como “em coleta”.</p>
                   </div>
                   <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-500">atualiza sozinho a cada 5 min</span>
                 </div>
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setFiltroDestino("TODOS")} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === "TODOS" ? "border-sky-700 bg-sky-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-sky-300"}`}>
-                    Todos ({resultados.length})
+                    Todos ({totalDestinos})
                   </button>
+
                   {destinosDisponiveis.map((destino) => (
-                    <button key={destino.codigo} type="button" onClick={() => setFiltroDestino(destino.codigo)} className={`rounded-full border px-3 py-2 text-xs font-black transition ${filtroDestino === destino.codigo ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800"}`}>
-                      {destino.nome}
+                    <button
+                      key={destino.codigo}
+                      type="button"
+                      onClick={() => setFiltroDestino(destino.codigo)}
+                      className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                        filtroDestino === destino.codigo
+                          ? destino.temDados
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : "border-amber-500 bg-amber-500 text-white"
+                          : destino.temDados
+                            ? "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800"
+                            : "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-400"
+                      }`}
+                    >
+                      {destino.nome}{!destino.temDados ? " · em coleta" : ""}
                     </button>
                   ))}
                 </div>
@@ -252,8 +281,10 @@ export default function RadarPublico() {
               <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 font-bold text-red-700">{erro}</div>
             ) : topResultados.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-                <p className="font-black text-amber-950">Esta origem já está cadastrada no Radar.</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">Os 20 destinos estão recebendo as primeiras coletas reais. Assim que a primeira tarifa chegar, as oportunidades e o novo filtro aparecem aqui automaticamente.</p>
+                <p className="font-black text-amber-950">
+                  {destinoSelecionado ? `Ainda não temos uma tarifa real recente para ${destinoSelecionado.nome}.` : "Esta origem já está cadastrada no Radar."}
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">A rota continua monitorada e entra automaticamente nas oportunidades assim que uma tarifa real válida for gravada.</p>
               </div>
             ) : (
               <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -264,7 +295,6 @@ export default function RadarPublico() {
                   return (
                     <article key={item.radarId} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl">
                       {index === 0 ? <span className="absolute right-0 top-0 rounded-bl-2xl bg-slate-950 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white">Destaque do Radar</span> : null}
-
                       <div className="flex items-start justify-between gap-3 pr-20">
                         <div><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{origem} → {item.destinoCodigo}</p><h4 className="mt-1 text-2xl font-black text-slate-950">{item.destino}</h4></div>
                       </div>
