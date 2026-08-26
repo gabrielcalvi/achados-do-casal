@@ -74,7 +74,7 @@ export default async function IngressosPublicos() {
           <div>
             <span className="text-sm font-black uppercase tracking-widest text-fuchsia-700">Ingressos e experiências</span>
             <h2 className="mt-2 text-3xl font-black sm:text-4xl">Parques, passeios e atrações</h2>
-            <p className="mt-3 max-w-3xl leading-7 text-slate-600">Achados que não dependem de voo ou hospedagem. Abra o ingresso como produto para compartilhar no WhatsApp e em outras redes.</p>
+            <p className="mt-3 max-w-3xl leading-7 text-slate-600">Ofertas selecionadas de parques, passeios e atrações para aproveitar mais a viagem e pagar menos.</p>
           </div>
           <span className="inline-flex w-fit rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-500 shadow-sm ring-1 ring-slate-200">Disponibilidade pode mudar no parceiro</span>
         </div>
