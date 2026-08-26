@@ -28,6 +28,7 @@ type PacotePublico = {
   validade: string | null;
   destaque: boolean;
   created_at: string;
+  disponibilidade_status: string | null;
 };
 
 function moeda(valor: number | null | undefined, codigo = "BRL") {
@@ -55,6 +56,11 @@ function passageiros(pacote: PacotePublico) {
   return partes.join(" + ");
 }
 
+function disponibilidadePublicavel(status: string | null) {
+  const valor = String(status || "nao_verificado").toLowerCase();
+  return valor === "disponivel" || valor === "nao_verificado";
+}
+
 export default async function PacotesPublicos() {
   const { data, error } = await supabaseAdmin
     .from("viagens_pacotes")
@@ -63,7 +69,7 @@ export default async function PacotesPublicos() {
       origem_codigo,destino_codigo,destino_nome,data_ida,data_volta,
       hotel_nome,hotel_categoria,regime_hospedagem,noites,adultos,criancas,
       companhia_aerea,bagagem,preco_total,preco_por_pessoa,moeda,imagem_url,
-      observacoes,validade,destaque,created_at
+      observacoes,validade,destaque,created_at,disponibilidade_status
     `)
     .eq("status", "ativo")
     .order("destaque", { ascending: false })
@@ -77,6 +83,7 @@ export default async function PacotesPublicos() {
 
   const agora = Date.now();
   const pacotes = ((data ?? []) as PacotePublico[]).filter((pacote) => {
+    if (!disponibilidadePublicavel(pacote.disponibilidade_status)) return false;
     if (!pacote.validade) return true;
     const validade = new Date(pacote.validade).getTime();
     return Number.isFinite(validade) && validade > agora;
