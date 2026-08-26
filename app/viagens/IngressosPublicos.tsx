@@ -74,7 +74,7 @@ export default async function IngressosPublicos() {
           <div>
             <span className="text-sm font-black uppercase tracking-widest text-fuchsia-700">Ingressos e experiências</span>
             <h2 className="mt-2 text-3xl font-black sm:text-4xl">Parques, passeios e atrações</h2>
-            <p className="mt-3 max-w-3xl leading-7 text-slate-600">Achados que não dependem de voo ou hospedagem. Confira a atração, a condição e o preço diretamente no parceiro antes de comprar.</p>
+            <p className="mt-3 max-w-3xl leading-7 text-slate-600">Achados que não dependem de voo ou hospedagem. Abra o ingresso como produto para compartilhar no WhatsApp e em outras redes.</p>
           </div>
           <span className="inline-flex w-fit rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-500 shadow-sm ring-1 ring-slate-200">Disponibilidade pode mudar no parceiro</span>
         </div>
@@ -82,21 +82,25 @@ export default async function IngressosPublicos() {
         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {ingressos.map((item) => (
             <article key={item.id} className="overflow-hidden rounded-3xl border border-fuchsia-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-              <div className="relative aspect-[16/9] bg-gradient-to-br from-fuchsia-100 via-violet-100 to-sky-100">
-                {item.imagem_url ? (
-                  <img src={item.imagem_url} alt={item.titulo} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-6xl">🎟️</div>
-                )}
-                <div className="absolute left-4 top-4 flex gap-2">
-                  <span className="rounded-full bg-slate-950/90 px-3 py-1.5 text-xs font-black text-white">Ingresso</span>
-                  {item.destaque ? <span className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Destaque</span> : null}
+              <a href={`/viagens/ingresso/${item.id}`} className="block">
+                <div className="relative aspect-[16/9] bg-gradient-to-br from-fuchsia-100 via-violet-100 to-sky-100">
+                  {item.imagem_url ? (
+                    <img src={item.imagem_url} alt={item.titulo} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-6xl">🎟️</div>
+                  )}
+                  <div className="absolute left-4 top-4 flex gap-2">
+                    <span className="rounded-full bg-slate-950/90 px-3 py-1.5 text-xs font-black text-white">Ingresso</span>
+                    {item.destaque ? <span className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Destaque</span> : null}
+                  </div>
                 </div>
-              </div>
+              </a>
 
               <div className="p-5">
                 <p className="text-xs font-black uppercase tracking-wide text-fuchsia-700">{item.cidade_uf || "Experiência"}</p>
-                <h3 className="mt-2 text-xl font-black leading-tight text-slate-950">{item.titulo}</h3>
+                <a href={`/viagens/ingresso/${item.id}`} className="block">
+                  <h3 className="mt-2 text-xl font-black leading-tight text-slate-950 transition hover:text-fuchsia-700">{item.titulo}</h3>
+                </a>
                 <p className="mt-2 font-bold text-slate-600">{item.atracao_nome}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
@@ -112,7 +116,10 @@ export default async function IngressosPublicos() {
                   {item.preco_por_pessoa ? <p className="mt-1 text-xs text-slate-500">Total informado: {moeda(item.preco_total, item.moeda)}</p> : null}
                 </div>
 
-                <a href={item.link_afiliado} target="_blank" rel="sponsored noopener noreferrer" className="mt-5 flex w-full items-center justify-center rounded-xl bg-fuchsia-600 px-5 py-3 font-black text-white transition hover:bg-fuchsia-700">Ver ingresso na {item.parceiro} ↗</a>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <a href={`/viagens/ingresso/${item.id}`} className="flex w-full items-center justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-center font-black text-fuchsia-800 transition hover:bg-fuchsia-100">Abrir produto</a>
+                  <a href={item.link_afiliado} target="_blank" rel="sponsored noopener noreferrer" className="flex w-full items-center justify-center rounded-xl bg-fuchsia-600 px-4 py-3 text-center font-black text-white transition hover:bg-fuchsia-700">Ver na {item.parceiro} ↗</a>
+                </div>
               </div>
             </article>
           ))}
