@@ -1,5 +1,6 @@
 import RadarPublico from "./RadarPublico";
 import PacotesPublicos from "./PacotesPublicos";
+import IngressosPublicos from "./IngressosPublicos";
 import ViagemPorOrcamento from "./ViagemPorOrcamento";
 import ExperienciaViagens from "./ExperienciaViagensV2";
 
@@ -151,6 +152,7 @@ export default function ViagensPage() {
       <RadarPublico />
       <ViagemPorOrcamento />
       <PacotesPublicos />
+      <IngressosPublicos />
       <ExperienciaViagens />
 
       <footer className="border-t border-slate-200 bg-white">
