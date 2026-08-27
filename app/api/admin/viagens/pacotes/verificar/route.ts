@@ -8,8 +8,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const MAX_CONCORRENCIA = 2;
+// O Chromium serverless usa arquivos compartilhados em /tmp. Rodar dois browsers ao
+// mesmo tempo podia disputar a extracao do binario e causar ETXTBSY/libnspr4 ausente.
+// A verificacao passa a ser serial: menos agressiva, mas muito mais confiavel.
+const MAX_CONCORRENCIA = 1;
 const FALHAS_PARA_INATIVAR = 2;
+const RETENTATIVAS_BROWSER = 2;
 
 function autorizadoCron(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim();
@@ -53,9 +57,50 @@ function similaridade(a: string | null | undefined, b: string | null | undefined
   return comuns / Math.min(aa.size, bb.size);
 }
 
+function mensagemErro(erro: unknown) {
+  return erro instanceof Error ? erro.message : String(erro || "");
+}
+
 function precisaFallbackBrowser(erro: unknown) {
-  const mensagem = erro instanceof Error ? erro.message.toLowerCase() : String(erro || "").toLowerCase();
+  const mensagem = mensagemErro(erro).toLowerCase();
   return mensagem.includes("http 403") || mensagem.includes("forbidden") || mensagem.includes("access denied");
+}
+
+function erroTransitorioChromium(erro: unknown) {
+  const mensagem = mensagemErro(erro).toLowerCase();
+  return (
+    mensagem.includes("etxtbsy") ||
+    mensagem.includes("libnspr4") ||
+    mensagem.includes("spawn") ||
+    mensagem.includes("eacces") ||
+    mensagem.includes("chromium")
+  );
+}
+
+function dormir(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function extrairBrowserComRetry(link: string) {
+  let ultimoErro: unknown = null;
+
+  for (let tentativa = 1; tentativa <= RETENTATIVAS_BROWSER; tentativa += 1) {
+    try {
+      return await extrairPacoteDecolarBrowser(link);
+    } catch (erro) {
+      ultimoErro = erro;
+      if (!erroTransitorioChromium(erro) || tentativa === RETENTATIVAS_BROWSER) {
+        throw erro;
+      }
+
+      console.warn(
+        `[Pacotes Decolar] Chromium falhou na tentativa ${tentativa}/${RETENTATIVAS_BROWSER}: ${mensagemErro(erro).slice(0, 220)}. Nova tentativa em modo serial.`
+      );
+      await dormir(1800);
+    }
+  }
+
+  throw ultimoErro instanceof Error ? ultimoErro : new Error(String(ultimoErro || "Falha no Chromium."));
 }
 
 async function extrair(link: string) {
@@ -63,7 +108,7 @@ async function extrair(link: string) {
     return await extrairPacoteDecolar(link);
   } catch (erro) {
     if (!precisaFallbackBrowser(erro)) throw erro;
-    return await extrairPacoteDecolarBrowser(link);
+    return await extrairBrowserComRetry(link);
   }
 }
 
@@ -195,7 +240,7 @@ async function verificarPacote(pacote: PacoteDb) {
       falhas,
     };
   } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : String(erro);
+    const mensagem = mensagemErro(erro);
     await supabaseAdmin.from("viagens_pacotes").update({
       disponibilidade_status: "erro",
       disponibilidade_motivo: mensagem.slice(0, 500),
@@ -250,6 +295,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     sucesso: true,
+    modo: "serial",
+    retentativas_browser: RETENTATIVAS_BROWSER,
     verificados: resultados.length,
     resumo,
     resultados,
