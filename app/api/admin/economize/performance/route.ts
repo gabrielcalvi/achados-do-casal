@@ -33,12 +33,21 @@ async function buscarOfertas(ids: string[]) {
   for (let i = 0; i < ids.length; i += 200) {
     const lote = ids.slice(i, i + 200);
     if (lote.length === 0) continue;
-    const { data, error } = await supabaseAdmin
-      .from("economize_ofertas")
-      .select("id,titulo,preco_oferta")
-      .in("id", lote);
+    const { data, error } = await supabaseAdmin.from("economize_ofertas").select("id,titulo,preco_oferta").in("id", lote);
     if (error) throw new Error(`Falha ao carregar ofertas da performance: ${error.message}`);
     for (const item of data ?? []) resultado.set(item.id, item);
+  }
+  return resultado;
+}
+
+async function buscarProdutos(ids: number[]) {
+  const resultado = new Map<number, { id: number; nome: string; preco_atual: number | null; loja: string | null }>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const lote = ids.slice(i, i + 200);
+    if (lote.length === 0) continue;
+    const { data, error } = await supabaseAdmin.from("produtos").select("id,nome,preco_atual,loja").in("id", lote);
+    if (error) throw new Error(`Falha ao carregar produtos da performance: ${error.message}`);
+    for (const item of data ?? []) resultado.set(Number(item.id), { id: Number(item.id), nome: item.nome, preco_atual: item.preco_atual, loja: item.loja });
   }
   return resultado;
 }
@@ -48,10 +57,7 @@ async function buscarLojas(ids: string[]) {
   for (let i = 0; i < ids.length; i += 200) {
     const lote = ids.slice(i, i + 200);
     if (lote.length === 0) continue;
-    const { data, error } = await supabaseAdmin
-      .from("economize_lojas")
-      .select("id,nome,slug")
-      .in("id", lote);
+    const { data, error } = await supabaseAdmin.from("economize_lojas").select("id,nome,slug").in("id", lote);
     if (error) throw new Error(`Falha ao carregar lojas da performance: ${error.message}`);
     for (const item of data ?? []) resultado.set(item.id, item);
   }
@@ -59,9 +65,7 @@ async function buscarLojas(ids: string[]) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!(await usuarioAutenticado())) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  }
+  if (!(await usuarioAutenticado())) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
   try {
     const diasRecebidos = Number(request.nextUrl.searchParams.get("dias") || "30");
@@ -72,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     const { data: cliques, error } = await supabaseAdmin
       .from("economize_cliques")
-      .select("oferta_id,loja_id,origem,session_id,clicado_em,trafego_tipo,trafego_motivo")
+      .select("oferta_id,produto_id,loja_id,origem,session_id,clicado_em,trafego_tipo,trafego_motivo")
       .gte("clicado_em", inicioAnterior.toISOString())
       .order("clicado_em", { ascending: false })
       .limit(10000);
@@ -97,19 +101,21 @@ export async function GET(request: NextRequest) {
     };
 
     const ofertaIds = Array.from(new Set(atuais.map((c) => c.oferta_id).filter(Boolean))) as string[];
+    const produtoIds = Array.from(new Set(atuais.map((c) => Number(c.produto_id)).filter((id) => Number.isFinite(id) && id > 0))) as number[];
     const lojaIds = Array.from(new Set(atuais.map((c) => c.loja_id).filter(Boolean))) as string[];
-    const [ofertas, lojas] = await Promise.all([buscarOfertas(ofertaIds), buscarLojas(lojaIds)]);
+    const [ofertas, produtos, lojas] = await Promise.all([buscarOfertas(ofertaIds), buscarProdutos(produtoIds), buscarLojas(lojaIds)]);
 
     const porOrigem = new Map<string, number>();
     const porLoja = new Map<string, number>();
-    const porOferta = new Map<string, number>();
+    const porItem = new Map<string, number>();
     const sessoes = new Set<string>();
     const sessoesAnteriores = new Set<string>();
 
     for (const clique of atuais) {
       incrementar(porOrigem, clique.origem);
-      incrementar(porLoja, clique.loja_id);
-      incrementar(porOferta, clique.oferta_id);
+      if (clique.loja_id) incrementar(porLoja, clique.loja_id);
+      if (clique.oferta_id) incrementar(porItem, `oferta:${clique.oferta_id}`);
+      else if (clique.produto_id) incrementar(porItem, `produto:${clique.produto_id}`);
       if (clique.session_id) sessoes.add(clique.session_id);
     }
     for (const clique of anteriores) if (clique.session_id) sessoesAnteriores.add(clique.session_id);
@@ -119,23 +125,33 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.quantidade - a.quantidade);
 
     const topLojas = Array.from(porLoja.entries())
-      .map(([lojaId, quantidade]) => ({
-        lojaId,
-        loja: lojas.get(lojaId)?.nome || "Loja não identificada",
-        slug: lojas.get(lojaId)?.slug || null,
-        quantidade,
-      }))
+      .map(([lojaId, quantidade]) => ({ lojaId, loja: lojas.get(lojaId)?.nome || "Loja não identificada", slug: lojas.get(lojaId)?.slug || null, quantidade }))
       .sort((a, b) => b.quantidade - a.quantidade)
       .slice(0, 10);
 
-    const topOfertas = Array.from(porOferta.entries())
-      .map(([ofertaId, quantidade]) => ({
-        ofertaId,
-        titulo: ofertas.get(ofertaId)?.titulo || "Oferta não identificada",
-        preco: ofertas.get(ofertaId)?.preco_oferta ?? null,
-        loja: lojas.get(atuais.find((c) => c.oferta_id === ofertaId)?.loja_id || "")?.nome || "Loja",
-        quantidade,
-      }))
+    const topOfertas = Array.from(porItem.entries())
+      .map(([chave, quantidade]) => {
+        if (chave.startsWith("produto:")) {
+          const produtoId = Number(chave.slice(8));
+          const produto = produtos.get(produtoId);
+          return {
+            ofertaId: chave,
+            titulo: produto?.nome || "Produto não identificado",
+            preco: produto?.preco_atual ?? null,
+            loja: produto?.loja || "Loja",
+            quantidade,
+          };
+        }
+
+        const ofertaId = chave.slice(7);
+        return {
+          ofertaId,
+          titulo: ofertas.get(ofertaId)?.titulo || "Oferta não identificada",
+          preco: ofertas.get(ofertaId)?.preco_oferta ?? null,
+          loja: lojas.get(atuais.find((c) => c.oferta_id === ofertaId)?.loja_id || "")?.nome || "Loja",
+          quantidade,
+        };
+      })
       .sort((a, b) => b.quantidade - a.quantidade)
       .slice(0, 10);
 
@@ -155,6 +171,7 @@ export async function GET(request: NextRequest) {
       topLojas,
       topOfertas,
       limiteAmostra: 10000,
+      atualizadoEm: agora.toISOString(),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Erro na API de performance:", error);
