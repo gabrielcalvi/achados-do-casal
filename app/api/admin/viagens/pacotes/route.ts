@@ -103,6 +103,7 @@ export async function GET() {
       created_at,
       updated_at
     `)
+    .in("status", ["ativo", "rascunho"])
     .order("created_at", { ascending: false })
     .limit(100);
 
