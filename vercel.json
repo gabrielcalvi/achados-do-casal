@@ -51,6 +51,10 @@
     {
       "path": "/api/admin/economize/cupons/ml-v2/executar",
       "schedule": "30 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/admin/watchdog",
+      "schedule": "5 * * * *"
     }
   ]
 }
