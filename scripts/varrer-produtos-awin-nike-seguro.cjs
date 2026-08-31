@@ -2,7 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const origem = path.join(__dirname, "varrer-produtos-awin-legacy.cjs");
+const origem = process.env.AWIN_NIKE_BASE_SCRIPT
+  ? path.resolve(process.env.AWIN_NIKE_BASE_SCRIPT)
+  : path.join(__dirname, "varrer-produtos-awin-legacy.cjs");
 const temporario = path.join(__dirname, ".varrer-produtos-awin-nike-seguro-temp.cjs");
 const observacaoHoras = Math.max(
   6,
@@ -81,6 +83,38 @@ if (!codigo.includes(marcadorMarca)) {
 }
 
 codigo = codigo.replace(marcadorMarca, marcaComProtecao);
+
+// O batch Link Builder esta respondendo 400 para a Nike mesmo com parceria e feed ativos.
+// Gera o deep link pelo tracking direto AWIN, usando advertiser, publisher e destino.
+const marcadorLinks = `async function gerarLinksAfiliados(loja, produtos) {`;
+const helperLinksNike = `function linkAfiliadoNikeDireto(loja, destino) {
+  const params = new URLSearchParams({
+    awinmid: String(loja.advertiserId),
+    awinaffid: PUBLISHER_ID,
+    campaign: "achados-economize-produtos",
+    ued: destino,
+    platform: "pl",
+  });
+  return \`https://www.awin1.com/cread.php?\${params.toString()}\`;
+}
+
+async function gerarLinksAfiliados(loja, produtos) {
+  if (loja.slug === "nike") {
+    const prontosNike = produtos.map((produto) => ({
+      ...produto,
+      linkAfiliado: linkAfiliadoNikeDireto(loja, produto.link),
+    }));
+    return {
+      produtos: prontosNike.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA),
+      falhas: 0,
+      nativos: prontosNike.length,
+    };
+  }`;
+
+if (!codigo.includes(marcadorLinks)) {
+  throw new Error("Nao foi possivel ativar tracking direto da Nike.");
+}
+codigo = codigo.replace(marcadorLinks, helperLinksNike);
 
 const marcadorPublicar = `async function publicar(lojaConfig, produtos) {`;
 const publicarNikeSeguro = `async function publicarNikeSeguro(lojaConfig, produtos) {
