@@ -76,6 +76,15 @@ codigo = codigo.replace(
   `selecionados: top.slice(0, LIMITE_POR_LOJA),`,
   `selecionados: loja.slug === "kabum" ? selecionarMixKabum(top) : top.slice(0, LIMITE_POR_LOJA),`,
 );
+
+// A API batch do Link Builder da AWIN passou a responder 400 para o anunciante,
+// apesar de o feed e a parceria estarem ativos. Usa o formato oficial de tracking
+// direto da AWIN, com advertiser + publisher + destino, evitando depender do batch.
+const marcadorLinks = "async function gerarLinksAfiliados(loja, produtos) {";
+const helperLinksKabum = `function linkAfiliadoKabumDireto(loja, destino) {\n  const params = new URLSearchParams({\n    awinmid: String(loja.advertiserId),\n    awinaffid: PUBLISHER_ID,\n    campaign: "achados-economize-produtos",\n    ued: destino,\n    platform: "pl",\n  });\n  return \`https://www.awin1.com/cread.php?\${params.toString()}\`;\n}\n\nasync function gerarLinksAfiliados(loja, produtos) {\n  if (loja.slug === "kabum") {\n    const prontosKabum = produtos.map((produto) => ({\n      ...produto,\n      linkAfiliado: linkAfiliadoKabumDireto(loja, produto.link),\n    }));\n    return { produtos: selecionarMixKabum(prontosKabum), falhas: 0, nativos: prontosKabum.length };\n  }`;
+if (!codigo.includes(marcadorLinks)) throw new Error("Gerador de links KaBuM nao encontrado.");
+codigo = codigo.replace(marcadorLinks, helperLinksKabum);
+
 codigo = codigo.replace(
   `return { produtos: prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };`,
   `return { produtos: loja.slug === "kabum" ? selecionarMixKabum(prontos) : prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };`,
