@@ -25,11 +25,12 @@ async function lerJson(sandbox: SandboxInstancia, caminho: string) {
 export async function GET() {
   try {
     const sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-    const [ps, ceaStatus, ceaResultado, ceaExit, nikeStatus, nikeResultado, kabumStatus, kabumResultado] = await Promise.all([
+    const [ps, ceaStatus, ceaResultado, ceaExit, ceaLog, nikeStatus, nikeResultado, kabumStatus, kabumResultado] = await Promise.all([
       sandbox.runCommand({ cmd: "ps", args: ["-eo", "pid=,etime=,args="], cwd: "/vercel" }),
       lerJson(sandbox, "/vercel/tmp/awin-produtos-status.json"),
       lerJson(sandbox, "/vercel/tmp/awin-produtos-resultado.json"),
       lerTexto(sandbox, "/vercel/tmp/awin-produtos-exit.txt"),
+      lerTexto(sandbox, "/vercel/tmp/awin-produtos.log"),
       lerJson(sandbox, "/vercel/tmp/awin-nike-produtos-status.json"),
       lerJson(sandbox, "/vercel/tmp/awin-nike-produtos-resultado.json"),
       lerJson(sandbox, "/vercel/tmp/awin-kabum-produtos-status.json"),
@@ -46,7 +47,7 @@ export async function GET() {
       sucesso: true,
       sandbox: SANDBOX_NAME,
       processos,
-      cea: { status: ceaStatus, resultado: ceaResultado, exitCode: ceaExit },
+      cea: { status: ceaStatus, resultado: ceaResultado, exitCode: ceaExit, logFinal: ceaLog?.slice(-7000) || null },
       nike: { status: nikeStatus, resultado: nikeResultado },
       kabum: { status: kabumStatus, resultado: kabumResultado },
       consultadoEm: new Date().toISOString(),
