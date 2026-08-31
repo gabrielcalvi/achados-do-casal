@@ -112,17 +112,16 @@ async function executar(request: NextRequest) {
       throw new Error(timeoutPatch.stderr || "Falha ao ampliar timeout do feed C&A.");
     }
 
-    // A C&A disponibiliza dois feeds muito grandes e com forte sobreposicao. A rotina
-    // estava terminando o primeiro e morrendo durante o segundo, deixando o status
-    // eternamente como "executando". Um unico feed oficial ja oferece catalogo mais
-    // do que suficiente para a curadoria; limitar a um elimina a duplicacao e reduz
-    // drasticamente tempo/memoria sem publicar dado que nao venha da AWIN.
+    // A C&A oferece dois feeds sobrepostos. O primeiro e um feed legado de 2021 e
+    // ficou excessivamente pesado. Para a rotina recorrente usamos somente o feed
+    // mais recente retornado pela AWIN (C&A BR - 2024), mantendo origem oficial e
+    // reduzindo o risco de a coleta morrer antes de atualizar o catalogo.
     const patchFeed = await comando(sandbox, "node", [
       "-e",
-      `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');const a='const feeds = feedsDaLoja(listaFeeds, loja);';const b='const feedsEncontrados = feedsDaLoja(listaFeeds, loja);\\n      const feeds = loja.slug === "cea" ? feedsEncontrados.slice(0, 1) : feedsEncontrados;';if(!c.includes(a))process.exit(2);c=c.replace(a,b);fs.writeFileSync(p,c);`,
+      `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');const a='const feeds = feedsDaLoja(listaFeeds, loja);';const b='const feedsEncontrados = feedsDaLoja(listaFeeds, loja);\\n      const feeds = loja.slug === "cea" ? feedsEncontrados.slice(-1) : feedsEncontrados;';if(!c.includes(a))process.exit(2);c=c.replace(a,b);fs.writeFileSync(p,c);`,
     ]);
     if (patchFeed.resultado.exitCode !== 0) {
-      throw new Error(patchFeed.stderr || "Falha ao limitar feeds redundantes da C&A.");
+      throw new Error(patchFeed.stderr || "Falha ao selecionar feed atual da C&A.");
     }
 
     const anterior = await lerJson(sandbox, STATUS_PATH);
@@ -155,9 +154,10 @@ async function executar(request: NextRequest) {
     return NextResponse.json({
       sucesso: true,
       iniciado: true,
-      modo: "varredura_catalogo_cea_um_feed_oficial",
+      modo: "varredura_catalogo_cea_feed_atual",
       lojas: ["cea"],
       feeds_por_execucao: 1,
+      feed_preferido: "mais_recente_retornado_pela_awin",
       limite_publicacao_por_loja: 180,
       desconto_minimo_percentual_quando_verificavel: 10,
       catalogo_sem_desconto_inventado: ["cea"],
