@@ -4,6 +4,7 @@ const { spawnSync } = require("child_process");
 
 const legacy = path.join(__dirname, "varrer-produtos-awin-legacy.cjs");
 const nikeSeguro = path.join(__dirname, "varrer-produtos-awin-nike-seguro.cjs");
+const legacyNikeTemporario = path.join(__dirname, ".varrer-produtos-awin-legacy-nike-ampliado.cjs");
 
 if (!fs.existsSync(legacy) || !fs.existsSync(nikeSeguro)) {
   throw new Error("Scripts AWIN Nike nao encontrados.");
@@ -83,13 +84,17 @@ codigo = codigo.replace(
   'selecionados: loja.slug === "nike" ? selecionarMixNike(top) : top.slice(0, LIMITE_POR_LOJA),',
 );
 
-fs.writeFileSync(legacy, codigo, "utf8");
+// Antes este script sobrescrevia o coletor Legacy compartilhado dentro do Sandbox.
+// C&A, Nike e KaBuM usam o mesmo Sandbox e podiam se atropelar. Agora a Nike usa
+// uma copia privada e o coletor base nunca e alterado em disco.
+fs.writeFileSync(legacyNikeTemporario, codigo, "utf8");
 
 try {
   const resultado = spawnSync(process.execPath, [nikeSeguro, ...process.argv.slice(2)], {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      AWIN_NIKE_BASE_SCRIPT: legacyNikeTemporario,
       NIKE_AWIN_LIMITE_PRODUTOS: process.env.NIKE_AWIN_LIMITE_PRODUTOS || "120",
       NIKE_AWIN_DESCONTO_MINIMO: process.env.NIKE_AWIN_DESCONTO_MINIMO || "10",
     },
@@ -98,5 +103,5 @@ try {
 
   process.exitCode = Number.isInteger(resultado.status) ? resultado.status : 1;
 } finally {
-  fs.writeFileSync(legacy, original, "utf8");
+  try { fs.unlinkSync(legacyNikeTemporario); } catch {}
 }
