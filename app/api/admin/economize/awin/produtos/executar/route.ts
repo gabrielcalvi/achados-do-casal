@@ -112,16 +112,24 @@ async function executar(request: NextRequest) {
       throw new Error(timeoutPatch.stderr || "Falha ao ampliar timeout do feed C&A.");
     }
 
-    // A C&A oferece dois feeds sobrepostos. O primeiro e um feed legado de 2021 e
-    // ficou excessivamente pesado. Para a rotina recorrente usamos somente o feed
-    // mais recente retornado pela AWIN (C&A BR - 2024), mantendo origem oficial e
-    // reduzindo o risco de a coleta morrer antes de atualizar o catalogo.
     const patchFeed = await comando(sandbox, "node", [
       "-e",
       `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');const a='const feeds = feedsDaLoja(listaFeeds, loja);';const b='const feedsEncontrados = feedsDaLoja(listaFeeds, loja);\\n      const feeds = loja.slug === "cea" ? feedsEncontrados.slice(-1) : feedsEncontrados;';if(!c.includes(a))process.exit(2);c=c.replace(a,b);fs.writeFileSync(p,c);`,
     ]);
     if (patchFeed.resultado.exitCode !== 0) {
       throw new Error(patchFeed.stderr || "Falha ao selecionar feed atual da C&A.");
+    }
+
+    // O feed atual da C&A ainda e muito grande. Para a vitrine nao precisamos percorrer
+    // centenas de milhares de linhas toda vez: coletamos uma amostra ampla de 30 mil
+    // linhas, mantemos os melhores/diversificados e encerramos o download de forma limpa.
+    // Isso reduz uma coleta de varios minutos para uma rotina recorrente previsivel.
+    const patchLimite = await comando(sandbox, "node", [
+      "-e",
+      `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');const a='      onRow(obj);';const b='      const continuar = onRow(obj);\\n      if (continuar === false) throw new Error("__AWIN_STOP_STREAM__");';if(!c.includes(a))process.exit(2);c=c.replace(a,b);const x='    await lerCsvStreaming(stream, delimitador, (row) => {\\n      total += 1;\\n      const produto = normalizarProdutoLegacy(row, loja);\\n      if (!produto) return;\\n      elegiveis += 1;\\n      inserirTop(top, produto);\\n    });';const y='    try {\\n      await lerCsvStreaming(stream, delimitador, (row) => {\\n        total += 1;\\n        const produto = normalizarProdutoLegacy(row, loja);\\n        if (produto) {\\n          elegiveis += 1;\\n          inserirTop(top, produto);\\n        }\\n        if (loja.slug === "cea" && total >= 30000) return false;\\n        return true;\\n      });\\n    } catch (erro) {\\n      if (erro?.message !== "__AWIN_STOP_STREAM__") throw erro;\\n      console.log(`Amostra C&A concluida com ${'${total}'} linhas lidas.`);\\n    }';if(!c.includes(x))process.exit(3);c=c.replace(x,y);fs.writeFileSync(p,c);`,
+    ]);
+    if (patchLimite.resultado.exitCode !== 0) {
+      throw new Error(patchLimite.stderr || "Falha ao limitar leitura do feed C&A.");
     }
 
     const anterior = await lerJson(sandbox, STATUS_PATH);
@@ -154,9 +162,10 @@ async function executar(request: NextRequest) {
     return NextResponse.json({
       sucesso: true,
       iniciado: true,
-      modo: "varredura_catalogo_cea_feed_atual",
+      modo: "varredura_catalogo_cea_feed_atual_amostrado",
       lojas: ["cea"],
       feeds_por_execucao: 1,
+      max_linhas_feed: 30000,
       feed_preferido: "mais_recente_retornado_pela_awin",
       limite_publicacao_por_loja: 180,
       desconto_minimo_percentual_quando_verificavel: 10,
