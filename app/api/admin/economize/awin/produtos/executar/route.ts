@@ -112,6 +112,19 @@ async function executar(request: NextRequest) {
       throw new Error(timeoutPatch.stderr || "Falha ao ampliar timeout do feed C&A.");
     }
 
+    // A C&A disponibiliza dois feeds muito grandes e com forte sobreposicao. A rotina
+    // estava terminando o primeiro e morrendo durante o segundo, deixando o status
+    // eternamente como "executando". Um unico feed oficial ja oferece catalogo mais
+    // do que suficiente para a curadoria; limitar a um elimina a duplicacao e reduz
+    // drasticamente tempo/memoria sem publicar dado que nao venha da AWIN.
+    const patchFeed = await comando(sandbox, "node", [
+      "-e",
+      `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');const a='const feeds = feedsDaLoja(listaFeeds, loja);';const b='const feedsEncontrados = feedsDaLoja(listaFeeds, loja);\\n      const feeds = loja.slug === "cea" ? feedsEncontrados.slice(0, 1) : feedsEncontrados;';if(!c.includes(a))process.exit(2);c=c.replace(a,b);fs.writeFileSync(p,c);`,
+    ]);
+    if (patchFeed.resultado.exitCode !== 0) {
+      throw new Error(patchFeed.stderr || "Falha ao limitar feeds redundantes da C&A.");
+    }
+
     const anterior = await lerJson(sandbox, STATUS_PATH);
     if (anterior?.executando === true && await processoVarreduraAtivo(sandbox)) {
       return NextResponse.json({ sucesso: true, iniciado: false, motivo: "execucao_em_andamento", status: anterior }, { status: 202 });
@@ -142,8 +155,9 @@ async function executar(request: NextRequest) {
     return NextResponse.json({
       sucesso: true,
       iniciado: true,
-      modo: "varredura_catalogo_cea_diversificado_com_baratos",
+      modo: "varredura_catalogo_cea_um_feed_oficial",
       lojas: ["cea"],
+      feeds_por_execucao: 1,
       limite_publicacao_por_loja: 180,
       desconto_minimo_percentual_quando_verificavel: 10,
       catalogo_sem_desconto_inventado: ["cea"],
