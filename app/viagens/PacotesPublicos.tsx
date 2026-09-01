@@ -187,13 +187,70 @@ export default async function PacotesPublicos() {
         {demais.length > 0 ? (
           <div className="mt-6 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
             {demais.map((pacote) => (
-              <article key={pacote.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="aspect-[16/9] bg-slate-100">{pacote.imagem_url ? <img src={pacote.imagem_url} alt={pacote.titulo} className="h-full w-full object-cover" /> : null}</div>
-                <div className="p-5">
-                  <p className="text-xs font-black uppercase tracking-wide text-sky-700">{pacote.origem_codigo} → {pacote.destino_codigo}</p>
-                  <h3 className="mt-2 text-xl font-black">{pacote.titulo}</h3>
-                  <p className="mt-4 text-2xl font-black text-emerald-700">{moeda(pacote.preco_por_pessoa || pacote.preco_total, pacote.moeda)}</p>
-                  <a href={`/viagens/pacote/${pacote.id}`} className="mt-5 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white">Ver pacote</a>
+              <article key={pacote.id} className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="relative aspect-[16/9] bg-gradient-to-br from-sky-100 to-blue-100">
+                  {pacote.imagem_url ? (
+                    <img src={pacote.imagem_url} alt={pacote.titulo} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-5xl">✈️🏨</div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent p-5 text-white">
+                    <div className="flex flex-wrap gap-2">
+                      {pacote.radar_slug ? <span className="rounded-full bg-violet-700 px-2.5 py-1 text-[11px] font-black text-white">Janela do Radar</span> : null}
+                    </div>
+                    <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-sky-100">{pacote.origem_codigo} → {pacote.destino_codigo}</p>
+                    <h3 className="mt-1 text-xl font-black leading-tight">{pacote.titulo}</h3>
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-wide text-slate-400">Oferta parceira • {pacote.parceiro}</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">{pacote.noites} noites</span>
+                  </div>
+
+                  <p className="mt-4 text-base font-black text-slate-900">
+                    {pacote.hotel_nome}{pacote.hotel_categoria ? ` • ${pacote.hotel_categoria}` : ""}
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <span className="block text-[10px] font-bold uppercase text-slate-400">Datas</span>
+                      <strong className="mt-1 block leading-5 text-slate-800">{dataCurta(pacote.data_ida)} a {dataCurta(pacote.data_volta)}</strong>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <span className="block text-[10px] font-bold uppercase text-slate-400">Viajantes</span>
+                      <strong className="mt-1 block leading-5 text-slate-800">{passageiros(pacote)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-1.5 text-xs leading-5 text-slate-600">
+                    {pacote.companhia_aerea ? <p>Companhia: <strong className="text-slate-800">{pacote.companhia_aerea}</strong></p> : null}
+                    {pacote.regime_hospedagem ? <p>Hospedagem: <strong className="text-slate-800">{pacote.regime_hospedagem}</strong></p> : null}
+                    {pacote.bagagem ? <p>Bagagem: <strong className="text-slate-800">{pacote.bagagem}</strong></p> : null}
+                  </div>
+
+                  {pacote.radar_slug && pacote.radar_preco_referencia ? (
+                    <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-violet-700">Por que entrou na curadoria?</p>
+                      <p className="mt-1.5 text-xs font-bold leading-5 text-violet-950">
+                        O Radar encontrou voo nesta janela a {moeda(pacote.radar_preco_referencia, pacote.moeda)} por pessoa. Aqui comparamos com o pacote de aéreo + hotel.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-slate-500">{pacote.preco_por_pessoa ? "Pacote por pessoa" : "Pacote total"}</p>
+                    <p className="mt-1 text-3xl font-black text-emerald-700">{moeda(pacote.preco_por_pessoa || pacote.preco_total, pacote.moeda)}</p>
+                    {pacote.preco_por_pessoa ? <p className="mt-1 text-xs text-slate-500">Total informado: {moeda(pacote.preco_total, pacote.moeda)}</p> : null}
+                  </div>
+
+                  {pacote.observacoes ? <p className="mt-3 text-xs leading-5 text-slate-500">{pacote.observacoes}</p> : null}
+
+                  <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
+                    <a href={`/viagens/pacote/${pacote.id}`} className="flex items-center justify-center rounded-xl border-2 border-sky-700 bg-white px-4 py-3 text-center text-sm font-black text-sky-800 transition hover:bg-sky-50">Ver e compartilhar</a>
+                    <a href={pacote.link_afiliado} target="_blank" rel="sponsored noopener noreferrer" className="flex items-center justify-center rounded-xl bg-amber-400 px-4 py-3 text-center text-sm font-black text-slate-950 transition hover:bg-amber-300">Ver na {pacote.parceiro} ↗</a>
+                  </div>
                 </div>
               </article>
             ))}
