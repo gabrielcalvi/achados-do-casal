@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import CorrigirLinkProduto from "./CorrigirLinkProduto";
+import ExecutarWatchdog from "./ExecutarWatchdog";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export default async function AdminSaudePage() {
     radaresResponse,
     precos24hResponse,
     ultimaExecucaoViagemResponse,
+    watchdogStatusResponse,
+    watchdogExecucaoResponse,
   ] = await Promise.all([
     supabaseAdmin
       .from("economize_lojas")
@@ -114,6 +117,16 @@ export default async function AdminSaudePage() {
       .order("iniciada_em", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabaseAdmin
+      .from("sistema_watchdog_status")
+      .select("chave,titulo,status,mensagem,metricas,verificado_em,recuperacao_tentada_em,recuperacao_resultado")
+      .order("titulo", { ascending: true }),
+    supabaseAdmin
+      .from("sistema_watchdog_execucoes")
+      .select("status,problemas,recuperacoes,created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const lojas = lojasResponse.data ?? [];
@@ -122,6 +135,8 @@ export default async function AdminSaudePage() {
   const falhasMonitor = falhasMonitorResponse.data ?? [];
   const candidatosMl = mlV2Response.data ?? [];
   const radares = radaresResponse.data ?? [];
+  const watchdogChecks = watchdogStatusResponse.data ?? [];
+  const watchdogUltimo = watchdogExecucaoResponse.data;
 
   const ofertasValidas = ofertas.filter((oferta) => {
     if (!oferta.validade) return true;
@@ -198,6 +213,15 @@ export default async function AdminSaudePage() {
   const qualidadeStatus: "ok" | "atencao" =
     semImagem + semCategoria + produtosSemCategoria + produtosSemImagem === 0 ? "ok" : "atencao";
 
+  const watchdogGeral: "ok" | "atencao" | "erro" =
+    watchdogUltimo?.status === "erro"
+      ? "erro"
+      : watchdogUltimo?.status === "atencao"
+        ? "atencao"
+        : watchdogUltimo?.status === "ok"
+          ? "ok"
+          : "atencao";
+
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-950 sm:px-8">
       <div className="mx-auto max-w-7xl">
@@ -215,6 +239,55 @@ export default async function AdminSaudePage() {
             </div>
           </div>
         </header>
+
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">Watchdog automático</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h2 className="text-2xl font-black">Fiscal do sistema</h2>
+                <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusClasse(watchdogGeral)}`}>{statusRotulo(watchdogGeral)}</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                {watchdogUltimo
+                  ? `${watchdogUltimo.problemas ?? 0} ponto(s) com atenção · ${watchdogUltimo.recuperacoes ?? 0} recuperação(ões) tentada(s)`
+                  : "Ainda sem rodada registrada. O cron roda de hora em hora."}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Última rodada: {formatarData(watchdogUltimo?.created_at)}</p>
+            </div>
+            <ExecutarWatchdog />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {watchdogChecks.length ? watchdogChecks.map((check) => {
+              const status = (check.status === "ok" || check.status === "erro" ? check.status : "atencao") as "ok" | "atencao" | "erro";
+              const metricas = (check.metricas || {}) as Record<string, unknown>;
+              const ativos = typeof metricas.ativos === "number" ? metricas.ativos : null;
+              const pendentes = typeof metricas.pendentes === "number" ? metricas.pendentes : null;
+
+              return (
+                <article key={check.chave} className={`rounded-2xl border p-4 ${statusClasse(status)}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-black">{check.titulo}</p>
+                    <span className="text-xs font-black">{statusRotulo(status)}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-bold">{check.mensagem}</p>
+                  {ativos !== null || pendentes !== null ? (
+                    <p className="mt-2 text-xs opacity-80">{ativos ?? 0} ativos · {pendentes ?? 0} pendentes</p>
+                  ) : null}
+                  <p className="mt-1 text-xs opacity-70">Verificado: {formatarData(check.verificado_em)}</p>
+                  {check.recuperacao_tentada_em ? (
+                    <p className="mt-1 text-xs font-bold">Recuperação tentada: {formatarData(check.recuperacao_tentada_em)}</p>
+                  ) : null}
+                </article>
+              );
+            }) : (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900 md:col-span-2 xl:col-span-3">
+                Nenhum diagnóstico registrado ainda. Use “Rodar diagnóstico agora” para criar a primeira fotografia do sistema.
+              </div>
+            )}
+          </div>
+        </section>
 
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className={`rounded-2xl border p-5 ${statusClasse(monitorStatus)}`}>
