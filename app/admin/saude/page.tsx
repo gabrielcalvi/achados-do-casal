@@ -37,8 +37,10 @@ function ofertaPublicaExibivel(oferta: { imagem_url?: string | null; codigo?: st
   return temImagem(oferta) || temCodigo(oferta);
 }
 
-function exigeCategoria(oferta: { imagem_url?: string | null }) {
-  return temImagem(oferta);
+function exigeCategoria(oferta: { imagem_url?: string | null; origem?: string | null }) {
+  if (!temImagem(oferta)) return false;
+  const origem = String(oferta.origem || "").trim();
+  return origem === "agente" || origem.startsWith("agente_produtos_awin_");
 }
 
 function erroDeLinkOriginal(erro: string | null | undefined) {
@@ -315,7 +317,7 @@ export default async function AdminSaudePage() {
             <p className="text-xs font-black uppercase tracking-wide">Qualidade dos dados</p>
             <p className="mt-2 text-2xl font-black">{statusRotulo(qualidadeStatus)}</p>
             <p className="mt-2 text-sm font-bold">{semImagem + produtosSemImagem} sem imagem · {semCategoria + produtosSemCategoria} sem categoria</p>
-            <p className="mt-1 text-xs opacity-70">Cupons gerais sem produto não contam como falha visual</p>
+            <p className="mt-1 text-xs opacity-70">Só produtos de catálogo entram na exigência de categoria; cupons gerais ficam fora.</p>
           </article>
         </section>
 
