@@ -17,14 +17,48 @@ async function ler(sandbox: Awaited<ReturnType<typeof Sandbox.get>>, path: strin
   return resultado.exitCode === 0 ? stdout : null;
 }
 
+async function candidatosFeeds() {
+  const chave = process.env.AWIN_DATAFEED_API_KEY?.trim();
+  if (!chave) return { erro: "AWIN_DATAFEED_API_KEY ausente", candidatos: [] };
+
+  const resposta = await fetch(
+    `https://productdata.awin.com/datafeed/list/apikey/${encodeURIComponent(chave)}`,
+    {
+      cache: "no-store",
+      headers: { Accept: "text/csv,text/plain,*/*" },
+      signal: AbortSignal.timeout(30000),
+    }
+  );
+
+  const texto = await resposta.text();
+  if (!resposta.ok) {
+    return { erro: `HTTP ${resposta.status}`, candidatos: [] };
+  }
+
+  const linhas = texto.split(/\r?\n/).filter(Boolean);
+  const cabecalho = linhas[0] || "";
+  const termos = /casas\s*bahia|casasbahia|grupo\s*casas\s*bahia|via\s*varejo|banqi|extra\.com|pontofrio|ponto\s*frio/i;
+  const candidatos = linhas
+    .slice(1)
+    .filter((linha) => termos.test(linha))
+    .slice(0, 50);
+
+  return {
+    total_linhas: Math.max(0, linhas.length - 1),
+    cabecalho,
+    candidatos,
+  };
+}
+
 export async function GET() {
   try {
     const sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-    const [statusRaw, resultRaw, logRaw, exitRaw] = await Promise.all([
+    const [statusRaw, resultRaw, logRaw, exitRaw, feeds] = await Promise.all([
       ler(sandbox, STATUS_PATH),
       ler(sandbox, RESULT_PATH),
       ler(sandbox, LOG_PATH),
       ler(sandbox, EXIT_PATH),
+      candidatosFeeds(),
     ]);
 
     const parse = (raw: string | null) => {
@@ -38,6 +72,7 @@ export async function GET() {
       resultado: parse(resultRaw),
       exit: exitRaw,
       log: logRaw ? logRaw.slice(-12000) : null,
+      feeds,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (erro) {
     return NextResponse.json({ sucesso: false, erro: erro instanceof Error ? erro.message : String(erro) }, { status: 500 });
