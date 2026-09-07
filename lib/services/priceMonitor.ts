@@ -1,6 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
-import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
+import {
+  criarSessaoMonitorMercadoLivre,
+  type SessaoMonitorMercadoLivre,
+} from "@/lib/services/mercadoLivreSandboxMonitor";
 
 type DadosAtuaisMonitor = {
   nome?: string;
@@ -148,15 +151,11 @@ async function obterDadosAtuais(
     } catch (erroApi) {
       const mensagemApi = erroApi instanceof Error ? erroApi.message : String(erroApi);
 
-      // O fluxo automático não abre Sandbox preventivamente. Isso evita que o
-      // monitor inteiro fique dependente de sessão/browser e das verificações
-      // de segurança do Mercado Livre. O fallback só existe para chamadas que
-      // explicitamente entregarem uma sessão já aberta.
       if (!sessaoMl) {
         throw new Error(`Mercado Livre API: ${mensagemApi}`);
       }
 
-      console.warn("[MONITOR ML] API pública falhou; usando sessão já disponível:", mensagemApi);
+      console.warn("[MONITOR ML] API pública falhou; usando Sandbox:", mensagemApi);
       const dados = await sessaoMl.extrair(produto.link);
       return {
         nome: dados.nome,
@@ -358,6 +357,20 @@ export async function monitorarTodosProdutos(modoLocal = false) {
 
   const produtosAtivos = produtos ?? [];
   const LIMITE_CONCORRENCIA = 5;
+  const possuiMercadoLivre = produtosAtivos.some((produto) => ehMercadoLivre(produto));
+
+  let sessaoMl: SessaoMonitorMercadoLivre | null = null;
+  if (!modoLocal && possuiMercadoLivre) {
+    try {
+      sessaoMl = await criarSessaoMonitorMercadoLivre();
+      console.log("[MONITOR ML] Sandbox disponível como fallback compartilhado.");
+    } catch (erro) {
+      console.error(
+        "[MONITOR ML] Não foi possível preparar o Sandbox; seguindo apenas com API pública:",
+        erro instanceof Error ? erro.message : erro
+      );
+    }
+  }
 
   for (let indice = 0; indice < produtosAtivos.length; indice += LIMITE_CONCORRENCIA) {
     const lote = produtosAtivos.slice(indice, indice + LIMITE_CONCORRENCIA);
@@ -365,7 +378,7 @@ export async function monitorarTodosProdutos(modoLocal = false) {
     const resultadosLote = await Promise.all(
       lote.map(async (produto) => {
         try {
-          const resultado = await consultarPrecoProduto(produto.id, null, modoLocal);
+          const resultado = await consultarPrecoProduto(produto.id, sessaoMl, modoLocal);
           return {
             id: produto.id,
             nome: produto.nome,
