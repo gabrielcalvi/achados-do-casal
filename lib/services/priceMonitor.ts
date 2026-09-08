@@ -1,9 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
 import {
-  criarSessaoMonitorMercadoLivre,
-  type SessaoMonitorMercadoLivre,
-} from "@/lib/services/mercadoLivreSandboxMonitor";
+  buscarItemIdDoCatalogo,
+  buscarProdutoMercadoLivre,
+} from "@/lib/mercadolivre/api";
+import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
 
 type DadosAtuaisMonitor = {
   nome?: string;
@@ -24,117 +25,131 @@ function ehMercadoLivre(produto: { loja?: string | null; link?: string | null })
   );
 }
 
-function extrairItemIdMercadoLivre(link: string) {
+function normalizarIdMercadoLivre(valor: string | null | undefined) {
+  const texto = String(valor || "").trim().toUpperCase().replace(/-/g, "");
+  return /^MLB\d{8,}$/.test(texto) ? texto : null;
+}
+
+function extrairItemIdAnuncioMercadoLivre(link: string) {
   try {
     const url = new URL(link);
+    const hashDecodificada = decodeURIComponent(url.hash || "");
+    const filtros = url.searchParams.get("pdp_filters") || "";
     const candidatos = [
       url.searchParams.get("wid") || "",
       url.searchParams.get("item_id") || "",
-      url.searchParams.get("pdp_filters") || "",
-      url.pathname,
-      link,
+      filtros,
+      hashDecodificada,
+      decodeURIComponent(link),
     ];
 
     for (const candidato of candidatos) {
-      const match = candidato.match(/MLB[-:]?(\d{8,})/i);
-      if (match?.[1]) return `MLB${match[1]}`;
+      const porChave = candidato.match(/(?:wid|item_id)\s*(?:=|:|%3A)\s*(MLB-?\d{8,})/i);
+      const idChave = normalizarIdMercadoLivre(porChave?.[1]);
+      if (idChave) return idChave;
+    }
+
+    const host = url.hostname.toLowerCase();
+    if (host.startsWith("produto.mercadolivre.")) {
+      const direto = url.pathname.match(/\/(MLB-?\d{8,})(?:-|\/|$)/i);
+      const idDireto = normalizarIdMercadoLivre(direto?.[1]);
+      if (idDireto) return idDireto;
     }
   } catch {
-    const match = link.match(/MLB[-:]?(\d{8,})/i);
-    if (match?.[1]) return `MLB${match[1]}`;
+    const decodificado = decodeURIComponent(link);
+    const porChave = decodificado.match(/(?:wid|item_id)\s*(?:=|:)\s*(MLB-?\d{8,})/i);
+    return normalizarIdMercadoLivre(porChave?.[1]);
   }
 
   return null;
 }
 
-async function resolverItemIdMercadoLivre(link: string) {
-  const direto = extrairItemIdMercadoLivre(link);
-  if (direto) return direto;
-
-  if (!link.toLowerCase().includes("meli.la")) return null;
-
+function extrairProductIdCatalogoMercadoLivre(link: string) {
   try {
-    const resposta = await fetch(link, {
-      method: "HEAD",
-      redirect: "follow",
-      cache: "no-store",
-      signal: AbortSignal.timeout(12000),
-    });
-    const resolvido = extrairItemIdMercadoLivre(resposta.url);
-    if (resolvido) return resolvido;
+    const url = new URL(link);
+    const match = url.pathname.match(/\/p\/(MLB\d{8,})(?:\/|$)/i);
+    return normalizarIdMercadoLivre(match?.[1]);
   } catch {
-    // Tenta GET abaixo.
-  }
-
-  try {
-    const resposta = await fetch(link, {
-      redirect: "follow",
-      cache: "no-store",
-      headers: {
-        accept: "text/html,application/xhtml+xml",
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0.0.0 Safari/537.36",
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-    return extrairItemIdMercadoLivre(resposta.url);
-  } catch {
-    return null;
+    const match = link.match(/\/p\/(MLB\d{8,})(?:[/?#]|$)/i);
+    return normalizarIdMercadoLivre(match?.[1]);
   }
 }
 
-async function extrairMercadoLivreApi(
+async function resolverItemIdMercadoLivre(link: string) {
+  const anuncioDireto = extrairItemIdAnuncioMercadoLivre(link);
+  if (anuncioDireto) return anuncioDireto;
+
+  const catalogoDireto = extrairProductIdCatalogoMercadoLivre(link);
+  if (catalogoDireto) {
+    try {
+      return await buscarItemIdDoCatalogo(catalogoDireto);
+    } catch (erro) {
+      console.warn(
+        `[MONITOR ML] Falha resolvendo catálogo ${catalogoDireto}:`,
+        erro instanceof Error ? erro.message : erro
+      );
+    }
+  }
+
+  if (!link.toLowerCase().includes("meli.la")) return null;
+
+  for (const metodo of ["HEAD", "GET"] as const) {
+    try {
+      const resposta = await fetch(link, {
+        method: metodo,
+        redirect: "follow",
+        cache: "no-store",
+        headers:
+          metodo === "GET"
+            ? {
+                accept: "text/html,application/xhtml+xml",
+                "user-agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0.0.0 Safari/537.36",
+              }
+            : undefined,
+        signal: AbortSignal.timeout(metodo === "HEAD" ? 12000 : 15000),
+      });
+
+      const anuncio = extrairItemIdAnuncioMercadoLivre(resposta.url);
+      if (anuncio) return anuncio;
+
+      const catalogo = extrairProductIdCatalogoMercadoLivre(resposta.url);
+      if (catalogo) return await buscarItemIdDoCatalogo(catalogo);
+    } catch {
+      // Tenta a próxima estratégia.
+    }
+  }
+
+  return null;
+}
+
+async function extrairMercadoLivreApiAutenticada(
   link: string,
   categoriaAtual?: string | null
 ): Promise<DadosAtuaisMonitor> {
   const itemId = await resolverItemIdMercadoLivre(link);
 
   if (!itemId) {
-    throw new Error("Não foi possível identificar o item do Mercado Livre pela URL.");
+    throw new Error("Não foi possível identificar o anúncio do Mercado Livre pela URL.");
   }
 
-  const resposta = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
-    cache: "no-store",
-    headers: {
-      accept: "application/json",
-    },
-    signal: AbortSignal.timeout(20000),
-  });
+  const produto = await buscarProdutoMercadoLivre(itemId);
+  const preco = Number(produto.price);
 
-  const texto = await resposta.text();
-  let json: Record<string, any> | null = null;
-
-  try {
-    json = JSON.parse(texto) as Record<string, any>;
-  } catch {
-    json = null;
-  }
-
-  if (!resposta.ok || !json) {
-    const detalhe = json?.message || json?.error || texto.slice(0, 160);
-    throw new Error(
-      `API pública do Mercado Livre respondeu ${resposta.status}${detalhe ? `: ${detalhe}` : ""}`
-    );
-  }
-
-  const preco = Number(json.price);
   if (!Number.isFinite(preco) || preco <= 0) {
-    throw new Error("API pública do Mercado Livre não retornou preço válido.");
+    throw new Error("API autenticada do Mercado Livre não retornou preço válido.");
   }
 
   const imagem =
-    String(json.secure_thumbnail || json.thumbnail || "").trim() ||
-    (Array.isArray(json.pictures)
-      ? String(json.pictures[0]?.secure_url || json.pictures[0]?.url || "").trim()
-      : "");
+    String(produto.pictures?.[0]?.secure_url || produto.pictures?.[0]?.url || produto.thumbnail || "").trim();
 
   return {
-    nome: String(json.title || "").trim() || undefined,
+    nome: String(produto.title || "").trim() || undefined,
     categoria: categoriaAtual || undefined,
     precoAtual: preco,
     imagem: imagem || undefined,
     urlFinal: link,
-    fonte: "mercado_livre_api_publica",
+    fonte: "mercado_livre_api_oauth",
   };
 }
 
@@ -147,15 +162,15 @@ async function obterDadosAtuais(
 
   if (ehMercadoLivre(produto)) {
     try {
-      return await extrairMercadoLivreApi(produto.link, produto.categoria);
+      return await extrairMercadoLivreApiAutenticada(produto.link, produto.categoria);
     } catch (erroApi) {
       const mensagemApi = erroApi instanceof Error ? erroApi.message : String(erroApi);
 
       if (!sessaoMl) {
-        throw new Error(`Mercado Livre API: ${mensagemApi}`);
+        throw new Error(`Mercado Livre API OAuth: ${mensagemApi}`);
       }
 
-      console.warn("[MONITOR ML] API pública falhou; usando Sandbox:", mensagemApi);
+      console.warn("[MONITOR ML] API OAuth falhou; usando Sandbox já disponível:", mensagemApi);
       const dados = await sessaoMl.extrair(produto.link);
       return {
         nome: dados.nome,
@@ -357,20 +372,6 @@ export async function monitorarTodosProdutos(modoLocal = false) {
 
   const produtosAtivos = produtos ?? [];
   const LIMITE_CONCORRENCIA = 5;
-  const possuiMercadoLivre = produtosAtivos.some((produto) => ehMercadoLivre(produto));
-
-  let sessaoMl: SessaoMonitorMercadoLivre | null = null;
-  if (!modoLocal && possuiMercadoLivre) {
-    try {
-      sessaoMl = await criarSessaoMonitorMercadoLivre();
-      console.log("[MONITOR ML] Sandbox disponível como fallback compartilhado.");
-    } catch (erro) {
-      console.error(
-        "[MONITOR ML] Não foi possível preparar o Sandbox; seguindo apenas com API pública:",
-        erro instanceof Error ? erro.message : erro
-      );
-    }
-  }
 
   for (let indice = 0; indice < produtosAtivos.length; indice += LIMITE_CONCORRENCIA) {
     const lote = produtosAtivos.slice(indice, indice + LIMITE_CONCORRENCIA);
@@ -378,7 +379,7 @@ export async function monitorarTodosProdutos(modoLocal = false) {
     const resultadosLote = await Promise.all(
       lote.map(async (produto) => {
         try {
-          const resultado = await consultarPrecoProduto(produto.id, sessaoMl, modoLocal);
+          const resultado = await consultarPrecoProduto(produto.id, null, modoLocal);
           return {
             id: produto.id,
             nome: produto.nome,
