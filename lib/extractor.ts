@@ -213,9 +213,9 @@ function normalizarTextoComparacao(texto: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\banti\s+faiscante\b/g, "antifaiscante")
     .replace(/\b(pvc|plastica|plastico)\b/g, "plastico")
-    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
