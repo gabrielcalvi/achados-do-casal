@@ -1,5 +1,6 @@
 import {
   buscarItensDoCatalogoMercadoLivre,
+  buscarItensDoUserProductMercadoLivre,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutosCatalogoMercadoLivre,
   type ItemCatalogoMercadoLivre,
@@ -148,6 +149,39 @@ function montarProdutoMercadoLivre(
   };
 }
 
+function montarProdutoUserProduct(
+  item: ItemCatalogoMercadoLivre,
+  termoUrl: string,
+  linkOriginal: string
+) {
+  const precoAtual = normalizarPreco(item.price);
+  let precoAntigo = normalizarPreco(item.original_price);
+
+  if (precoAntigo && Number(precoAntigo) <= Number(precoAtual)) {
+    precoAntigo = "";
+  }
+
+  const nome = termoUrl
+    .replace(/\bpa\s+enxada\b/i, "Pá Enxada")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    nome: nome || "Produto Mercado Livre",
+    categoria: "",
+    loja: "Mercado Livre",
+    precoAntigo,
+    precoAtual,
+    parcelas: "",
+    freteGratis: Boolean(item.shipping?.free_shipping),
+    imagem: "",
+    imagensGaleria: [] as string[],
+    avaliacao: null,
+    vendas: "",
+    urlFinal: linkOriginal,
+  };
+}
+
 async function extrairPorCatalogo(
   link: string,
   productId: string,
@@ -173,58 +207,34 @@ async function extrairPorCatalogo(
   return montarProdutoMercadoLivre(produto, item, link);
 }
 
-function pontuarCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: string): number {
-  const normalizar = (texto: string) =>
-    texto
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const alvo = normalizar(termo);
-  const nome = normalizar(String(produto.name || ""));
-
-  if (!alvo || !nome) return 0;
-  if (alvo === nome) return 1000;
-
-  const tokens = alvo.split(" ").filter((token) => token.length > 1);
-  const tokensNome = new Set(nome.split(" "));
-  const comuns = tokens.filter((token) => tokensNome.has(token)).length;
-
-  return tokens.length ? (comuns / tokens.length) * 100 : 0;
-}
-
 async function extrairUserProduct(
   link: string,
   userProductId: string,
   termoUrl: string,
   itemId: string | null
 ) {
+  const listaDireta = await buscarItensDoUserProductMercadoLivre(userProductId);
+  const itemDireto = escolherItem(
+    listaDireta.results || [],
+    itemId,
+    userProductId,
+    null
+  );
+
+  if (itemDireto) {
+    return montarProdutoUserProduct(itemDireto, termoUrl, link);
+  }
+
   if (!termoUrl) {
     throw new Error("Não foi possível identificar o nome do produto no link do Mercado Livre.");
   }
 
   const candidatos = await buscarProdutosCatalogoMercadoLivre(termoUrl, 20);
-  candidatos.sort((a, b) => pontuarCatalogo(b, termoUrl) - pontuarCatalogo(a, termoUrl));
-
-  let melhorFallback:
-    | {
-        produto: ProdutoCatalogoMercadoLivre;
-        item: ItemCatalogoMercadoLivre;
-        pontuacao: number;
-      }
-    | null = null;
 
   for (const produto of candidatos) {
-    const pontuacao = pontuarCatalogo(produto, termoUrl);
-
     try {
       const lista = await buscarItensDoCatalogoMercadoLivre(produto.id);
-      const itens = lista.results || [];
-
-      const exato = itens.find((item) => {
+      const exato = (lista.results || []).find((item) => {
         if (!itemTemPreco(item)) return false;
         if (itemId && normalizarId(item.item_id) === itemId) return true;
         return normalizarId(item.user_product_id || "") === userProductId;
@@ -233,41 +243,13 @@ async function extrairUserProduct(
       if (exato) {
         return montarProdutoMercadoLivre(produto, exato, link);
       }
-
-      if (pontuacao >= 75) {
-        const itemFallback = escolherItem(
-          itens,
-          null,
-          null,
-          produto.buy_box_winner?.item_id || null
-        );
-
-        if (
-          itemFallback &&
-          (!melhorFallback || pontuacao > melhorFallback.pontuacao)
-        ) {
-          melhorFallback = {
-            produto,
-            item: itemFallback,
-            pontuacao,
-          };
-        }
-      }
     } catch {
       // Continua nos proximos catalogos caso um candidato nao possa ser consultado.
     }
   }
 
-  if (melhorFallback) {
-    return montarProdutoMercadoLivre(
-      melhorFallback.produto,
-      melhorFallback.item,
-      link
-    );
-  }
-
   throw new Error(
-    `O produto ${userProductId} foi reconhecido, mas não foi localizado com confiança entre os catálogos ativos do Mercado Livre.`
+    `O produto ${userProductId} foi reconhecido, mas não possui uma oferta ativa acessível.`
   );
 }
 
@@ -315,7 +297,7 @@ async function extrairMercadoLivre(link: string) {
   }
 
   throw new Error(
-    "Não foi possível identificar o catálogo do Mercado Livre nesse link. Copie o link completo do produto."
+    "Não foi possível identificar o catálogo ou User Product do Mercado Livre nesse link."
   );
 }
 
