@@ -9,6 +9,8 @@ const TESTES = {
     "https://www.mercadolivre.com.br/p/MLB26264031?matt_tool=38524122&pdp_filters=item_id:MLB5982398014&ua=42KcEQXIE2GA0k4kB0RnrMHoRWBJJpjTKNUd5fJv6vxi-kI#origin=share&sid=share&wid=MLB5982398014&action=whatsapp",
   userProduct:
     "https://www.mercadolivre.com.br/kit-saude-oral-virbac-pasta-cet-com-necessaire-e-escova-sabor-frango/up/MLBU749693303",
+  expositor:
+    "https://www.mercadolivre.com.br/kit-2expositor-de-esmaltes-de-parede-com-led-mdf-preto/up/MLBU999999999",
 };
 
 export async function GET() {
