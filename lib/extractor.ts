@@ -6,6 +6,10 @@ import {
   type ItemCatalogoMercadoLivre,
   type ProdutoCatalogoMercadoLivre,
 } from "@/lib/mercadolivre/api";
+import {
+  buscarGaleriaMercadoLivreZenRows,
+  zenRowsGaleriaConfigurada,
+} from "@/lib/mercadolivre/zenRowsGallery";
 import { extrairAmazonWorker } from "@/lib/workers/amazonWorker";
 import { extrairMagaluWorker } from "@/lib/workers/magaluWorker";
 import { extrairCeaWorker } from "@/lib/workers/ceaWorker";
@@ -149,7 +153,7 @@ function montarProdutoMercadoLivre(
   };
 }
 
-function montarProdutoUserProduct(
+async function montarProdutoUserProduct(
   item: ItemCatalogoMercadoLivre,
   termoUrl: string,
   linkOriginal: string
@@ -166,6 +170,19 @@ function montarProdutoUserProduct(
     .replace(/\s+/g, " ")
     .trim();
 
+  let imagensGaleria: string[] = [];
+
+  if (zenRowsGaleriaConfigurada()) {
+    try {
+      imagensGaleria = await buscarGaleriaMercadoLivreZenRows(linkOriginal);
+    } catch (error) {
+      console.warn(
+        "Falha ao buscar galeria MLBU via ZenRows:",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
   return {
     nome: nome || "Produto Mercado Livre",
     categoria: "",
@@ -174,8 +191,8 @@ function montarProdutoUserProduct(
     precoAtual,
     parcelas: "",
     freteGratis: Boolean(item.shipping?.free_shipping),
-    imagem: "",
-    imagensGaleria: [] as string[],
+    imagem: imagensGaleria[0] || "",
+    imagensGaleria,
     avaliacao: null,
     vendas: "",
     urlFinal: linkOriginal,
