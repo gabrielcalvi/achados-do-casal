@@ -34,6 +34,12 @@ export default function PartnerPromoBar() {
         >
           C&A · VER OFERTAS
         </Link>
+        <Link
+          href="/cobasi"
+          className="inline-flex items-center rounded-full bg-[#f58220] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#db7018]"
+        >
+          COBASI · VER OFERTAS
+        </Link>
       </div>
     </div>
   );
