@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const ITEM_ID = "MLB5982398014";
 const PRODUCT_ID = "MLB26264031";
+const USER_PRODUCT_ID = "MLBU749693303";
 
 export async function GET() {
   const token = await obterAccessTokenMercadoLivre();
@@ -16,6 +17,7 @@ export async function GET() {
     `https://api.mercadolibre.com/products/${PRODUCT_ID}`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}/items`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}/items?status=active`,
+    `https://api.mercadolibre.com/user-products/${USER_PRODUCT_ID}`,
     `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent("Kit 2 expositor de esmaltes de parede com led mdf preto")}&limit=5`,
   ];
 
@@ -36,7 +38,7 @@ export async function GET() {
         url,
         status: resposta.status,
         ok: resposta.ok,
-        corpo: texto.slice(0, 15000),
+        corpo: texto.slice(0, 20000),
       });
     } catch (error) {
       resultados.push({
