@@ -54,6 +54,24 @@ const statusClasse: Record<Parceiro["status"], string> = {
   recusado: "border-rose-200 bg-rose-50 text-rose-800",
 };
 
+const statusRapidoClasse: Record<Parceiro["status"], string> = {
+  ativo: "border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600",
+  pendente: "border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-500",
+  acao: "border-red-600 bg-red-500 text-white hover:bg-red-600",
+  alvo: "border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-500",
+  pausado: "border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-500",
+  recusado: "border-red-600 bg-red-500 text-white hover:bg-red-600",
+};
+
+const ordemStatusRapido: Record<Parceiro["status"], number> = {
+  acao: 0,
+  recusado: 1,
+  pendente: 2,
+  pausado: 3,
+  alvo: 4,
+  ativo: 5,
+};
+
 function comissao(parceiro: Parceiro) {
   if (parceiro.comissao_texto) return parceiro.comissao_texto;
   if (parceiro.comissao_valor === null) return "A confirmar";
@@ -96,6 +114,16 @@ export default function AdminParceirosPage() {
     pendentes: parceiros.filter((p) => p.status === "pendente").length,
     alvos: parceiros.filter((p) => p.status === "alvo").length,
   }), [parceiros]);
+
+  const parceirosVisaoRapida = useMemo(() => (
+    [...parceiros].sort((a, b) => {
+      const porStatus = ordemStatusRapido[a.status] - ordemStatusRapido[b.status];
+      if (porStatus !== 0) return porStatus;
+      const porPrioridade = a.prioridade - b.prioridade;
+      if (porPrioridade !== 0) return porPrioridade;
+      return a.nome.localeCompare(b.nome, "pt-BR");
+    })
+  ), [parceiros]);
 
   async function alternarEtapa(etapa: Etapa) {
     const resposta = await fetch("/api/admin/parceiros/checklist", {
@@ -141,6 +169,42 @@ export default function AdminParceirosPage() {
             <Resumo titulo="Próximos alvos" valor={resumo.alvos} detalhe="Fila de expansão" />
           </div>
         </header>
+
+        {!carregando && parceiros.length ? (
+          <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Visão rápida</p>
+                <h2 className="mt-1 text-xl font-black">Status geral dos parceiros</h2>
+                <p className="mt-1 text-sm text-slate-500">Todos os afiliados em uma única foto. Clique no status para abrir o parceiro.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs font-black text-slate-600">
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Ativo</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" />Aguardando / andamento</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-500" />Ação / problema</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {parceirosVisaoRapida.map((parceiro) => (
+                <div key={parceiro.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-900" title={parceiro.nome}>{parceiro.nome}</p>
+                    <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400" title={parceiro.rede || ""}>{parceiro.rede || "Rede a confirmar"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditando(parceiro)}
+                    className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[10px] font-black transition ${statusRapidoClasse[parceiro.status]}`}
+                    title={`Abrir ${parceiro.nome}`}
+                  >
+                    {statusRotulos[parceiro.status]}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {erro ? <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-800">{erro}</div> : null}
 
@@ -225,9 +289,9 @@ function Editor({ parceiro, criando, onCancelar, onSalvar }: { parceiro: Parceir
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Campo rotulo="Parceiro" valor={String(form.nome || "")} onChange={(v) => alterar("nome", v)} />
           <Campo rotulo="Rede / plataforma" valor={String(form.rede || "")} onChange={(v) => alterar("rede", v)} />
-          <Select rotulo="Status" valor={String(form.status || "alvo")} onChange={(v) => alterar("status", v)} opcoes={[['ativo','Ativo'],['pendente','Aguardando'],['acao','Precisa de ação'],['alvo','Próximo alvo'],['pausado','Pausado'],['recusado','Recusado']]} />
-          <Select rotulo="Automação" valor={String(form.automacao_status || "nao_integrada")} onChange={(v) => alterar("automacao_status", v)} opcoes={[['ativa','Ativa'],['parcial','Parcial'],['manual','Manual'],['nao_integrada','Não integrada']]} />
-          <Select rotulo="Tipo de comissão" valor={String(form.comissao_tipo || "desconhecida")} onChange={(v) => alterar("comissao_tipo", v)} opcoes={[['percentual','Percentual'],['fixa','Fixa'],['variavel','Variável'],['desconhecida','Desconhecida']]} />
+          <Select rotulo="Status" valor={String(form.status || "alvo")} onChange={(v) => alterar("status", v)} opcoes={[["ativo","Ativo"],["pendente","Aguardando"],["acao","Precisa de ação"],["alvo","Próximo alvo"],["pausado","Pausado"],["recusado","Recusado"]]} />
+          <Select rotulo="Automação" valor={String(form.automacao_status || "nao_integrada")} onChange={(v) => alterar("automacao_status", v)} opcoes={[["ativa","Ativa"],["parcial","Parcial"],["manual","Manual"],["nao_integrada","Não integrada"]]} />
+          <Select rotulo="Tipo de comissão" valor={String(form.comissao_tipo || "desconhecida")} onChange={(v) => alterar("comissao_tipo", v)} opcoes={[["percentual","Percentual"],["fixa","Fixa"],["variavel","Variável"],["desconhecida","Desconhecida"]]} />
           <Campo rotulo="Comissão / regra" valor={String(form.comissao_texto || "")} onChange={(v) => alterar("comissao_texto", v)} />
           <Campo rotulo="Prioridade (1 a 5)" tipo="number" valor={String(form.prioridade || 3)} onChange={(v) => alterar("prioridade", Number(v))} />
           <Campo rotulo="Integrações (separadas por vírgula)" valor={(form.integracoes || []).join(", ")} onChange={(v) => alterar("integracoes", v.split(",").map((x) => x.trim()).filter(Boolean))} />
