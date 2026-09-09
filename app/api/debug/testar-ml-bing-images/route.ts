@@ -4,15 +4,34 @@ import { load } from "cheerio";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const ALVO = "Kit Pá Enxada Anti-faiscante Plástica Cabo De Madeira 50cm";
 const QUERIES = [
   '"MLB5652208776"',
   '"MLBU3388038385"',
-  '"Kit Pá Enxada Anti-faiscante Plástica Cabo De Madeira 50cm" Mercado Livre',
+  `"${ALVO}"`,
+  `${ALVO} PLASTCOR`,
 ];
 
 function normalizarUrl(valor: unknown) {
   const url = String(valor || "").replace(/\\u002f/gi, "/").replace(/\\\//g, "/").trim();
   return /^https?:\/\//i.test(url) ? url : "";
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function similaridade(titulo: string) {
+  const alvo = normalizarTexto(ALVO).split(" ").filter((t) => t.length > 2);
+  const teste = new Set(normalizarTexto(titulo).split(" ").filter(Boolean));
+  const comuns = alvo.filter((t) => teste.has(t)).length;
+  return alvo.length ? Math.round((comuns / alvo.length) * 100) : 0;
 }
 
 export async function GET() {
@@ -33,7 +52,7 @@ export async function GET() {
       });
       const html = await resposta.text();
       const $ = load(html);
-      const imagens: Array<{ murl: string; purl: string; turl: string; title: string }> = [];
+      const imagens: Array<{ murl: string; purl: string; turl: string; title: string; score: number }> = [];
 
       $("a.iusc").each((_, elemento) => {
         const bruto = $(elemento).attr("m");
@@ -44,28 +63,26 @@ export async function GET() {
           const purl = normalizarUrl(meta.purl);
           const turl = normalizarUrl(meta.turl);
           const title = String(meta.t || "").trim();
-          if (murl || turl) imagens.push({ murl, purl, turl, title });
+          if (murl || turl) imagens.push({ murl, purl, turl, title, score: similaridade(title) });
         } catch {
           // ignora cards sem JSON valido
         }
       });
 
-      const mlstatic = imagens.filter((item) =>
-        /mlstatic\.com|mercadolivre\.com\.br|mercadolibre\.com/i.test(`${item.murl} ${item.purl} ${item.turl}`)
-      );
+      const candidatos = imagens
+        .filter((item) => item.score >= 55)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 30);
 
       saida.push({
         query,
         status: resposta.status,
-        bytes: html.length,
         total: imagens.length,
-        mlstatic: mlstatic.slice(0, 50),
+        candidatos,
+        amostra: imagens.slice(0, 12),
       });
     } catch (error) {
-      saida.push({
-        query,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      saida.push({ query, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
