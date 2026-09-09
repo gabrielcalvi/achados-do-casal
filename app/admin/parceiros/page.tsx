@@ -80,6 +80,18 @@ function comissao(parceiro: Parceiro) {
   return String(parceiro.comissao_valor);
 }
 
+function comissaoPercentualRapida(parceiro: Parceiro) {
+  const texto = String(parceiro.comissao_texto || "");
+  const encontrada = texto.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  if (encontrada?.[1]) return `${encontrada[1].replace(".", ",")}%`;
+
+  if (parceiro.comissao_tipo === "percentual" && parceiro.comissao_valor !== null) {
+    return `${String(parceiro.comissao_valor).replace(".", ",")}%`;
+  }
+
+  return null;
+}
+
 export default function AdminParceirosPage() {
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
   const [checklist, setChecklist] = useState<Etapa[]>([]);
@@ -186,22 +198,33 @@ export default function AdminParceirosPage() {
             </div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {parceirosVisaoRapida.map((parceiro) => (
-                <div key={parceiro.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-slate-900" title={parceiro.nome}>{parceiro.nome}</p>
-                    <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400" title={parceiro.rede || ""}>{parceiro.rede || "Rede a confirmar"}</p>
+              {parceirosVisaoRapida.map((parceiro) => {
+                const percentualComissao = comissaoPercentualRapida(parceiro);
+
+                return (
+                  <div key={parceiro.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-900" title={parceiro.nome}>{parceiro.nome}</p>
+                      <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400" title={parceiro.rede || ""}>{parceiro.rede || "Rede a confirmar"}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {percentualComissao ? (
+                        <span className="rounded-full border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-black text-slate-700" title="Comissão cadastrada">
+                          {percentualComissao}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setEditando(parceiro)}
+                        className={`rounded-full border px-2.5 py-1.5 text-[10px] font-black transition ${statusRapidoClasse[parceiro.status]}`}
+                        title={`Abrir ${parceiro.nome}`}
+                      >
+                        {statusRotulos[parceiro.status]}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditando(parceiro)}
-                    className={`shrink-0 rounded-full border px-2.5 py-1.5 text-[10px] font-black transition ${statusRapidoClasse[parceiro.status]}`}
-                    title={`Abrir ${parceiro.nome}`}
-                  >
-                    {statusRotulos[parceiro.status]}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         ) : null}
