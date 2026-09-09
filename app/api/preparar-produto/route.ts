@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { extrairProduto } from "@/lib/extractor";
+import { extrairMercadoLivrePaginaPublica } from "@/lib/mercadolivre/publicPage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +66,15 @@ async function executarComTimeout<T>(
   }
 }
 
+function ehLinkMercadoLivre(link: string) {
+  const valor = link.toLowerCase();
+  return (
+    valor.includes("mercadolivre") ||
+    valor.includes("mercadolibre") ||
+    valor.includes("meli.la")
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const corpo = await request.json();
@@ -80,7 +90,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "O link informado não é válido." }, { status: 400 });
     }
 
-    const dados = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
+    const operacao = ehLinkMercadoLivre(link)
+      ? extrairMercadoLivrePaginaPublica(link)
+      : extrairProduto(link);
+
+    const dados = await executarComTimeout(operacao, TEMPO_LIMITE);
     const categoriaNormalizada = normalizarCategoria(dados.categoria, dados.nome);
 
     return NextResponse.json({
