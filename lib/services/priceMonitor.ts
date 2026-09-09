@@ -6,6 +6,7 @@ import {
   buscarItensMercadoLivrePorTexto,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutoMercadoLivre,
+  buscarProdutoMercadoLivreBulk,
   buscarProdutosCatalogoMercadoLivre,
 } from "@/lib/mercadolivre/api";
 import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
@@ -309,6 +310,27 @@ async function extrairMercadoLivreApiAutenticada(
 
   if (!itemId) {
     throw new Error("Não foi possível identificar o anúncio do Mercado Livre pela URL.");
+  }
+
+  try {
+    const produtoBulk = await buscarProdutoMercadoLivreBulk(itemId);
+    const precoBulk = Number(produtoBulk?.price);
+
+    if (produtoBulk && Number.isFinite(precoBulk) && precoBulk > 0) {
+      return {
+        nome: String(produtoBulk.title || "").trim() || nomeAtual || undefined,
+        categoria: categoriaAtual || undefined,
+        precoAtual: precoBulk,
+        imagem: String(produtoBulk.thumbnail || "").trim() || undefined,
+        urlFinal: link,
+        fonte: "mercado_livre_items_bulk",
+      };
+    }
+  } catch (erroBulk) {
+    console.warn(
+      `[MONITOR ML] Bulk falhou para ${itemId}:`,
+      erroBulk instanceof Error ? erroBulk.message : erroBulk
+    );
   }
 
   const produto = await buscarProdutoMercadoLivre(itemId);
