@@ -152,7 +152,8 @@ function montarProdutoMercadoLivre(
 function montarProdutoUserProduct(
   item: ItemCatalogoMercadoLivre,
   termoUrl: string,
-  linkOriginal: string
+  linkOriginal: string,
+  imagensGaleria: string[] = []
 ) {
   const precoAtual = normalizarPreco(item.price);
   let precoAntigo = normalizarPreco(item.original_price);
@@ -174,8 +175,8 @@ function montarProdutoUserProduct(
     precoAtual,
     parcelas: "",
     freteGratis: Boolean(item.shipping?.free_shipping),
-    imagem: "",
-    imagensGaleria: [] as string[],
+    imagem: imagensGaleria[0] || "",
+    imagensGaleria,
     avaliacao: null,
     vendas: "",
     urlFinal: linkOriginal,
@@ -207,27 +208,59 @@ async function extrairPorCatalogo(
   return montarProdutoMercadoLivre(produto, item, link);
 }
 
-function pontuarCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: string): number {
-  const normalizar = (texto: string) =>
-    texto
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+function normalizarTextoComparacao(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\banti\s+faiscante\b/g, "antifaiscante")
+    .replace(/\b(pvc|plastica|plastico)\b/g, "plastico")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  const alvo = normalizar(termo);
-  const nome = normalizar(String(produto.name || ""));
+const STOPWORDS_COMPARACAO = new Set([
+  "de",
+  "da",
+  "do",
+  "das",
+  "dos",
+  "com",
+  "para",
+  "por",
+  "em",
+  "e",
+]);
+
+function tokensComparacao(texto: string): string[] {
+  return normalizarTextoComparacao(texto)
+    .split(" ")
+    .filter((token) => token.length > 1 && !STOPWORDS_COMPARACAO.has(token));
+}
+
+function pontuarCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: string): number {
+  const alvo = normalizarTextoComparacao(termo);
+  const nome = normalizarTextoComparacao(String(produto.name || ""));
 
   if (!alvo || !nome) return 0;
   if (alvo === nome) return 1000;
 
-  const tokens = alvo.split(" ").filter((token) => token.length > 1);
-  const tokensNome = new Set(nome.split(" "));
+  const tokens = tokensComparacao(alvo);
+  const tokensNome = new Set(tokensComparacao(nome));
   const comuns = tokens.filter((token) => tokensNome.has(token)).length;
 
   return tokens.length ? (comuns / tokens.length) * 100 : 0;
+}
+
+function pontuarImagemCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: string): number {
+  const alvo = Array.from(new Set(tokensComparacao(termo)));
+  const nome = new Set(tokensComparacao(String(produto.name || "")));
+
+  if (alvo.length < 4 || nome.size < 4) return 0;
+
+  const comuns = alvo.filter((token) => nome.has(token)).length;
+  return (comuns / alvo.length) * 100;
 }
 
 async function extrairUserProduct(
@@ -275,8 +308,24 @@ async function extrairUserProduct(
       }
     | null = null;
 
+  let melhorCatalogoImagem:
+    | {
+        produto: ProdutoCatalogoMercadoLivre;
+        pontuacao: number;
+      }
+    | null = null;
+
   for (const produto of candidatos) {
     const pontuacao = pontuarCatalogo(produto, termoUrl);
+    const pontuacaoImagem = pontuarImagemCatalogo(produto, termoUrl);
+
+    if (
+      itemDireto &&
+      pontuacaoImagem >= 90 &&
+      (!melhorCatalogoImagem || pontuacaoImagem > melhorCatalogoImagem.pontuacao)
+    ) {
+      melhorCatalogoImagem = { produto, pontuacao: pontuacaoImagem };
+    }
 
     try {
       const lista = await buscarItensDoCatalogoMercadoLivre(produto.id);
@@ -292,8 +341,6 @@ async function extrairUserProduct(
         return montarProdutoMercadoLivre(produto, exato, link);
       }
 
-      // Só usamos aproximação por título quando o endpoint direto do MLBU
-      // não entregou uma oferta. Se temos itemDireto, ele é a fonte exata.
       if (!itemDireto && pontuacao >= 75) {
         const itemFallback = escolherItem(
           itens,
@@ -319,7 +366,25 @@ async function extrairUserProduct(
   }
 
   if (itemDireto) {
-    return montarProdutoUserProduct(itemDireto, termoUrl, link);
+    let imagensGaleria: string[] = [];
+
+    if (melhorCatalogoImagem) {
+      try {
+        const detalhe = await buscarProdutoCatalogoMercadoLivre(
+          melhorCatalogoImagem.produto.id
+        );
+        imagensGaleria = imagensDoCatalogo(detalhe);
+      } catch {
+        // Se o catálogo de imagem falhar, preservamos o produto exato sem imagem.
+      }
+    }
+
+    return montarProdutoUserProduct(
+      itemDireto,
+      termoUrl,
+      link,
+      imagensGaleria
+    );
   }
 
   if (melhorFallback) {
