@@ -11,14 +11,13 @@ const USER_PRODUCT_ID = "MLBU749693303";
 export async function GET() {
   const token = await obterAccessTokenMercadoLivre();
   const urls = [
-    `https://api.mercadolibre.com/items/bulk?ids=${ITEM_ID}`,
-    `https://api.mercadolibre.com/items/${ITEM_ID}/prices`,
-    `https://api.mercadolibre.com/items/${ITEM_ID}/sale_price`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}/items`,
-    `https://api.mercadolibre.com/products/${PRODUCT_ID}/items?status=active`,
     `https://api.mercadolibre.com/user-products/${USER_PRODUCT_ID}`,
+    `https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent("Kit Saude Oral Virbac Pasta Cet Com Necessaire E Escova sabor frango")}&limit=8`,
+    `https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent("Kit 2 expositor de esmaltes de parede com led mdf preto")}&limit=8`,
     `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent("Kit 2 expositor de esmaltes de parede com led mdf preto")}&limit=5`,
+    `https://api.mercadolibre.com/items/${ITEM_ID}`,
   ];
 
   const resultados = [];
