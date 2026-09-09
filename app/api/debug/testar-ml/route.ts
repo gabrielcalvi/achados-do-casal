@@ -9,8 +9,8 @@ const TESTES = {
     "https://www.mercadolivre.com.br/p/MLB26264031?matt_tool=38524122&pdp_filters=item_id:MLB5982398014&ua=42KcEQXIE2GA0k4kB0RnrMHoRWBJJpjTKNUd5fJv6vxi-kI#origin=share&sid=share&wid=MLB5982398014&action=whatsapp",
   userProduct:
     "https://www.mercadolivre.com.br/kit-saude-oral-virbac-pasta-cet-com-necessaire-e-escova-sabor-frango/up/MLBU749693303",
-  expositor:
-    "https://www.mercadolivre.com.br/kit-2expositor-de-esmaltes-de-parede-com-led-mdf-preto/up/MLBU999999999",
+  realComWid:
+    "https://www.mercadolivre.com.br/kit-pa--enxada-antifaiscante-plastica-cabo-de-madeira-50cm/up/MLBU3388038385?pdp_filters=price%3A*-45#polycard_client=search-desktop&be_origin=backend&overlay_label=not_apply&search_layout=grid&position=58&type=product&tracking_id=0270a58f-d59f-4cd0-9888-ab256e1bc161&wid=MLB5652208776&sid=search",
 };
 
 export async function GET() {
