@@ -219,7 +219,7 @@ export async function buscarItensDoCatalogoMercadoLivre(
   }
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
-    `https://api.mercadolibre.com/products/${idNormalizado}/items?status=active`
+    `https://api.mercadolibre.com/products/${idNormalizado}/items`
   );
 }
 
