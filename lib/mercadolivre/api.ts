@@ -20,10 +20,21 @@ export type ProdutoMercadoLivre = {
   };
 };
 
-type ProdutoCatalogoMercadoLivre = {
+export type ProdutoCatalogoMercadoLivre = {
   id: string;
+  name?: string | null;
+  permalink?: string | null;
+  pictures?: Array<{
+    id?: string;
+    url?: string;
+    secure_url?: string;
+  }>;
   buy_box_winner?: {
     item_id?: string;
+    price?: number;
+    currency_id?: string;
+    seller_id?: number;
+    available_quantity?: number;
   } | null;
 };
 
@@ -31,7 +42,7 @@ function normalizarIdMercadoLivre(id: string): string {
   return id
     .trim()
     .toUpperCase()
-    .replace("-", "");
+    .replace(/-/g, "");
 }
 
 export async function buscarProdutoMercadoLivre(
@@ -52,6 +63,7 @@ export async function buscarProdutoMercadoLivre(
         Authorization: `Bearer ${accessToken}`,
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(30000),
     }
   );
 
@@ -72,9 +84,9 @@ export async function buscarProdutoMercadoLivre(
   }
 }
 
-export async function buscarItemIdDoCatalogo(
+export async function buscarProdutoCatalogoMercadoLivre(
   productId: string
-): Promise<string> {
+): Promise<ProdutoCatalogoMercadoLivre> {
   const accessToken = await obterAccessTokenMercadoLivre();
   const idNormalizado = normalizarIdMercadoLivre(productId);
 
@@ -90,6 +102,7 @@ export async function buscarItemIdDoCatalogo(
         Authorization: `Bearer ${accessToken}`,
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(30000),
     }
   );
 
@@ -101,17 +114,19 @@ export async function buscarItemIdDoCatalogo(
     );
   }
 
-  let produtoCatalogo: ProdutoCatalogoMercadoLivre;
-
   try {
-    produtoCatalogo =
-      JSON.parse(texto) as ProdutoCatalogoMercadoLivre;
+    return JSON.parse(texto) as ProdutoCatalogoMercadoLivre;
   } catch {
     throw new Error(
       "O Mercado Livre retornou uma resposta inválida para o produto de catálogo."
     );
   }
+}
 
+export async function buscarItemIdDoCatalogo(
+  productId: string
+): Promise<string> {
+  const produtoCatalogo = await buscarProdutoCatalogoMercadoLivre(productId);
   const itemId = produtoCatalogo.buy_box_winner?.item_id;
 
   if (!itemId) {
