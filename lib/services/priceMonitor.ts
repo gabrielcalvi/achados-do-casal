@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { extrairProduto } from "@/lib/extractor";
 import {
   buscarItemIdDoCatalogo,
+  buscarProdutoCatalogoMercadoLivre,
   buscarProdutoMercadoLivre,
 } from "@/lib/mercadolivre/api";
 import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
@@ -127,6 +128,35 @@ async function extrairMercadoLivreApiAutenticada(
   link: string,
   categoriaAtual?: string | null
 ): Promise<DadosAtuaisMonitor> {
+  const productId = extrairProductIdCatalogoMercadoLivre(link);
+
+  if (productId) {
+    try {
+      const catalogo = await buscarProdutoCatalogoMercadoLivre(productId);
+      const precoBuyBox = Number(catalogo.buy_box_winner?.price);
+
+      if (Number.isFinite(precoBuyBox) && precoBuyBox > 0) {
+        const imagem = String(
+          catalogo.pictures?.[0]?.secure_url || catalogo.pictures?.[0]?.url || ""
+        ).trim();
+
+        return {
+          nome: String(catalogo.name || "").trim() || undefined,
+          categoria: categoriaAtual || undefined,
+          precoAtual: precoBuyBox,
+          imagem: imagem || undefined,
+          urlFinal: link,
+          fonte: "mercado_livre_catalogo_buy_box",
+        };
+      }
+    } catch (erroCatalogo) {
+      console.warn(
+        `[MONITOR ML] Catálogo ${productId} não forneceu preço utilizável:`,
+        erroCatalogo instanceof Error ? erroCatalogo.message : erroCatalogo
+      );
+    }
+  }
+
   const itemId = await resolverItemIdMercadoLivre(link);
 
   if (!itemId) {
@@ -140,8 +170,9 @@ async function extrairMercadoLivreApiAutenticada(
     throw new Error("API autenticada do Mercado Livre não retornou preço válido.");
   }
 
-  const imagem =
-    String(produto.pictures?.[0]?.secure_url || produto.pictures?.[0]?.url || produto.thumbnail || "").trim();
+  const imagem = String(
+    produto.pictures?.[0]?.secure_url || produto.pictures?.[0]?.url || produto.thumbnail || ""
+  ).trim();
 
   return {
     nome: String(produto.title || "").trim() || undefined,
