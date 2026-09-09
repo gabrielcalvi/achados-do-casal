@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim();
   if (!segredo) return NextResponse.json({ sucesso: false, erro: "CRON_SECRET ausente." }, { status: 500 });
 
-  const resposta = await fetch(`${request.nextUrl.origin}/api/admin/economize/awin/cobasi/produtos/executar`, {
+  const status = request.nextUrl.searchParams.get("s") === "1" ? "?status=1" : "";
+  const resposta = await fetch(`${request.nextUrl.origin}/api/admin/economize/awin/cobasi/produtos/executar${status}`, {
     headers: { Authorization: `Bearer ${segredo}` },
     cache: "no-store",
   });
