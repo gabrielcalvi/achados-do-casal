@@ -36,7 +36,7 @@ export default function PartnerPromoBar() {
         </Link>
         <Link
           href="/cobasi"
-          className="inline-flex items-center rounded-full bg-[#f58220] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#db7018]"
+          className="inline-flex items-center rounded-full bg-[#0f766e] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0b5f59]"
         >
           COBASI · VER OFERTAS
         </Link>
