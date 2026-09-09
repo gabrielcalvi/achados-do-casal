@@ -3,6 +3,7 @@ import { extrairProduto } from "@/lib/extractor";
 import {
   buscarItemIdDoCatalogo,
   buscarItensDoCatalogoMercadoLivre,
+  buscarItensMercadoLivrePorTexto,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutoMercadoLivre,
   buscarProdutosCatalogoMercadoLivre,
@@ -120,6 +121,29 @@ async function encontrarItemExatoEmCatalogos(
   }
 
   return null;
+}
+
+async function encontrarItemExatoNaBusca(
+  itemOriginal: string,
+  nomeAtual: string
+): Promise<{ nome?: string; imagem?: string; preco: number } | null> {
+  const resultados = await buscarItensMercadoLivrePorTexto(nomeAtual, 50);
+  const item = resultados.find(
+    (resultado) => normalizarIdMercadoLivre(resultado.id) === itemOriginal
+  );
+  const preco = Number(item?.price);
+
+  if (!item || !Number.isFinite(preco) || preco <= 0) return null;
+
+  const imagem = String(
+    item.pictures?.[0]?.secure_url || item.pictures?.[0]?.url || item.thumbnail || ""
+  ).trim();
+
+  return {
+    nome: String(item.title || "").trim() || undefined,
+    imagem: imagem || undefined,
+    preco,
+  };
 }
 
 async function resolverItemIdMercadoLivre(link: string) {
@@ -252,6 +276,25 @@ async function extrairMercadoLivreApiAutenticada(
       console.warn(
         `[MONITOR ML] Busca de catálogo pelo título falhou para ${itemOriginal}:`,
         erroBusca instanceof Error ? erroBusca.message : erroBusca
+      );
+    }
+
+    try {
+      const itemBusca = await encontrarItemExatoNaBusca(itemOriginal, nomeAtual);
+      if (itemBusca) {
+        return {
+          nome: itemBusca.nome || nomeAtual,
+          categoria: categoriaAtual || undefined,
+          precoAtual: itemBusca.preco,
+          imagem: itemBusca.imagem,
+          urlFinal: link,
+          fonte: "mercado_livre_busca_item_original",
+        };
+      }
+    } catch (erroBuscaItem) {
+      console.warn(
+        `[MONITOR ML] Busca de anúncio pelo título falhou para ${itemOriginal}:`,
+        erroBuscaItem instanceof Error ? erroBuscaItem.message : erroBuscaItem
       );
     }
   }
