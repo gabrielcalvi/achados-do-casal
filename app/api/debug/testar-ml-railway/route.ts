@@ -1,33 +1,77 @@
 import { NextResponse } from "next/server";
+import { obterAccessTokenMercadoLivre } from "@/lib/mercadolivre/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const BASE = "https://heroic-benevolence-production-1ccf.up.railway.app";
-const LINK = "https://www.mercadolivre.com.br/p/MLB26264031?matt_tool=38524122&pdp_filters=item_id:MLB5982398014&ua=42KcEQXIE2GA0k4kB0RnrMHoRWBJJpjTKNUd5fJv6vxi-kI#origin=share&sid=share&wid=MLB5982398014&action=whatsapp";
+const SELLER_ID = "394062031";
+const USER_PRODUCT_ID = "MLBU3388038385";
+
+const LINKS = {
+  uppLimpa:
+    "https://www.mercadolivre.com.br/kit-pa--enxada-antifaiscante-plastica-cabo-de-madeira-50cm/up/MLBU3388038385",
+  itemCanonico:
+    "https://produto.mercadolivre.com.br/MLB-5652208776-_JM",
+  itemSemHifen:
+    "https://produto.mercadolivre.com.br/MLB5652208776",
+};
+
+async function ler(url: string, timeout = 30000, headers?: HeadersInit) {
+  try {
+    const resposta = await fetch(url, {
+      cache: "no-store",
+      redirect: "follow",
+      headers,
+      signal: AbortSignal.timeout(timeout),
+    });
+    return {
+      status: resposta.status,
+      urlFinal: resposta.url,
+      corpo: (await resposta.text()).slice(0, 20000),
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 export async function GET() {
   const resultado: Record<string, unknown> = {};
 
-  try {
-    const health = await fetch(`${BASE}/health`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
-    resultado.healthStatus = health.status;
-    resultado.health = (await health.text()).slice(0, 2000);
-  } catch (error) {
-    resultado.healthError = error instanceof Error ? error.message : String(error);
-  }
+  resultado.health = await ler(`${BASE}/health`, 15000);
 
-  try {
-    const resposta = await fetch(`${BASE}/extrair?url=${encodeURIComponent(LINK)}`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(90000),
-    });
-    resultado.extrairStatus = resposta.status;
-    resultado.extrair = (await resposta.text()).slice(0, 10000);
-  } catch (error) {
-    resultado.extrairError = error instanceof Error ? error.message : String(error);
+  // A rota antiga aquecia/reutilizava um perfil persistente do navegador.
+  resultado.loginWarmup = await ler(`${BASE}/login`, 45000);
+
+  const worker: Record<string, unknown> = {};
+  for (const [nome, link] of Object.entries(LINKS)) {
+    worker[nome] = await ler(
+      `${BASE}/extrair?url=${encodeURIComponent(link)}`,
+      90000
+    );
   }
+  resultado.worker = worker;
+
+  const token = await obterAccessTokenMercadoLivre();
+  const auth = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  const endpointsOficiais = [
+    `https://api.mercadolibre.com/users/${SELLER_ID}/items/search?user_product_id=${USER_PRODUCT_ID}`,
+    `https://api.mercadolibre.com/users/${SELLER_ID}/items/search?status=active&user_product_id=${USER_PRODUCT_ID}`,
+    `https://api.mercadolibre.com/users/${SELLER_ID}/items/search?user_product_id=${USER_PRODUCT_ID}&attributes=results,paging,orders` ,
+    `https://api.mercadolibre.com/items/MLB5652208776/description`,
+  ];
+
+  resultado.oficial = await Promise.all(
+    endpointsOficiais.map(async (url) => ({
+      url,
+      resposta: await ler(url, 30000, auth),
+    }))
+  );
 
   return NextResponse.json(resultado);
 }
