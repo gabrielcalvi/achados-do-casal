@@ -62,6 +62,15 @@ type ListaItensCatalogoMercadoLivre = {
   results?: ItemCatalogoMercadoLivre[];
 };
 
+type BuscaProdutosCatalogoMercadoLivre = {
+  paging?: {
+    total?: number;
+    offset?: number;
+    limit?: number;
+  };
+  results?: ProdutoCatalogoMercadoLivre[];
+};
+
 function normalizarIdMercadoLivre(id: string): string {
   return id
     .trim()
@@ -118,6 +127,20 @@ export async function buscarProdutoCatalogoMercadoLivre(
   return fetchJsonMercadoLivre<ProdutoCatalogoMercadoLivre>(
     `https://api.mercadolibre.com/products/${idNormalizado}`
   );
+}
+
+export async function buscarProdutosCatalogoMercadoLivre(
+  texto: string,
+  limite = 8
+): Promise<ProdutoCatalogoMercadoLivre[]> {
+  const termo = String(texto || "").trim();
+  if (!termo) return [];
+
+  const resposta = await fetchJsonMercadoLivre<BuscaProdutosCatalogoMercadoLivre>(
+    `https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent(termo)}&limit=${Math.max(1, Math.min(20, limite))}`
+  );
+
+  return Array.isArray(resposta.results) ? resposta.results : [];
 }
 
 export async function buscarItensDoCatalogoMercadoLivre(
