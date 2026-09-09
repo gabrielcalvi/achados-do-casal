@@ -223,6 +223,20 @@ export async function buscarItensDoCatalogoMercadoLivre(
   );
 }
 
+export async function buscarItensDoUserProductMercadoLivre(
+  userProductId: string
+): Promise<ListaItensCatalogoMercadoLivre> {
+  const idNormalizado = normalizarIdMercadoLivre(userProductId);
+
+  if (!/^MLBU\d+$/.test(idNormalizado)) {
+    throw new Error(`USER_PRODUCT_ID inválido: ${userProductId}`);
+  }
+
+  return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
+    `https://api.mercadolibre.com/products/${idNormalizado}/items`
+  );
+}
+
 export async function buscarItemIdDoCatalogo(
   productId: string
 ): Promise<string> {
