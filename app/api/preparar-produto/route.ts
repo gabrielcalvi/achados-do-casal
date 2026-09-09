@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { extrairProduto } from "@/lib/extractor";
-import { extrairMercadoLivrePaginaPublica } from "@/lib/mercadolivre/publicPage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +32,7 @@ function normalizarCategoria(categoria: unknown, nome: unknown) {
 
   if (/(iphone|galaxy|smartphone|celular|telefone)/.test(texto)) return "Celulares";
   if (/(computador|informatica|notebook|monitor|mouse|teclado|headset|gaming|gamer|playstation|xbox|ssd|memoria|processador|placa de video|roteador)/.test(texto)) return "Tecnologia";
-  if (/(furadeira|parafusadeira|ferramenta|serra|chave|broca|compressor)/.test(texto)) return "Ferramentas";
+  if (/(furadeira|parafusadeira|ferramenta|serra|chave|broca|compressor|enxada|pa |pá |martelo|alicate)/.test(texto)) return "Ferramentas";
   if (/(bebe|infantil|crianca|menino|menina|kids)/.test(texto)) return "Infantil";
   if (/(brinquedo|lego|hot wheels|boneca|jogo de tabuleiro|pista)/.test(texto)) return "Brinquedos";
   if (/(pet|cachorro|gato|racao|arranhador)/.test(texto)) return "Pet";
@@ -66,15 +65,6 @@ async function executarComTimeout<T>(
   }
 }
 
-function ehLinkMercadoLivre(link: string) {
-  const valor = link.toLowerCase();
-  return (
-    valor.includes("mercadolivre") ||
-    valor.includes("mercadolibre") ||
-    valor.includes("meli.la")
-  );
-}
-
 export async function POST(request: Request) {
   try {
     const corpo = await request.json();
@@ -90,11 +80,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "O link informado não é válido." }, { status: 400 });
     }
 
-    const operacao = ehLinkMercadoLivre(link)
-      ? extrairMercadoLivrePaginaPublica(link)
-      : extrairProduto(link);
-
-    const dados = await executarComTimeout(operacao, TEMPO_LIMITE);
+    const dados = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
     const categoriaNormalizada = normalizarCategoria(dados.categoria, dados.nome);
 
     return NextResponse.json({
