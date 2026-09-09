@@ -7,6 +7,52 @@ import {
   diagnosticarMercadoLivreHttp,
   diagnosticarMercadoLivrePrecoOficial,
 } from "@/lib/services/mercadoLivreHttpMonitor";
+import { buscarProdutoCatalogoMercadoLivre } from "@/lib/mercadolivre/api";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+function extrairProductIdCatalogo(link: string) {
+  try {
+    const url = new URL(link);
+    const match = url.pathname.match(/\/p\/(MLB\d{8,})(?:\/|$)/i);
+    return match?.[1]?.toUpperCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function diagnosticarCatalogo(produtoId: number) {
+  const { data: produto, error } = await supabaseAdmin
+    .from("produtos")
+    .select("id,nome,link,preco_atual")
+    .eq("id", produtoId)
+    .single();
+
+  if (error || !produto) throw new Error("Produto nao encontrado.");
+
+  const productId = extrairProductIdCatalogo(String(produto.link || ""));
+  if (!productId) throw new Error("Produto nao possui product_id de catalogo na URL.");
+
+  const catalogo = await buscarProdutoCatalogoMercadoLivre(productId);
+
+  return {
+    produto_id: produto.id,
+    produto: produto.nome,
+    preco_banco: Number(produto.preco_atual),
+    product_id: productId,
+    catalogo_id: catalogo.id,
+    catalogo_nome: catalogo.name || null,
+    buy_box: catalogo.buy_box_winner
+      ? {
+          item_id: catalogo.buy_box_winner.item_id || null,
+          price: Number.isFinite(Number(catalogo.buy_box_winner.price))
+            ? Number(catalogo.buy_box_winner.price)
+            : null,
+          currency_id: catalogo.buy_box_winner.currency_id || null,
+          available_quantity: catalogo.buy_box_winner.available_quantity ?? null,
+        }
+      : null,
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -54,6 +100,16 @@ export async function GET(request: Request) {
         return Response.json({
           sucesso: true,
           modo: "diagnostico_preco_oficial_ml",
+          resultado,
+        });
+      }
+
+      if (modo === "catalogo-ml") {
+        const resultado = await diagnosticarCatalogo(id);
+
+        return Response.json({
+          sucesso: true,
+          modo: "diagnostico_catalogo_ml",
           resultado,
         });
       }
