@@ -5,6 +5,7 @@ import {
   buscarItensDoCatalogoMercadoLivre,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutoMercadoLivre,
+  buscarProdutosCatalogoMercadoLivre,
 } from "@/lib/mercadolivre/api";
 import type { SessaoMonitorMercadoLivre } from "@/lib/services/mercadoLivreSandboxMonitor";
 
@@ -49,6 +50,12 @@ function extrairItemIdAnuncioMercadoLivre(link: string) {
       const porChave = candidato.match(/(?:wid|item_id)\s*(?:=|:|%3A)\s*(MLB-?\d{8,})/i);
       const idChave = normalizarIdMercadoLivre(porChave?.[1]);
       if (idChave) return idChave;
+
+      const qualquer = candidato.match(/MLB-?(\d{8,})/i);
+      const idQualquer = normalizarIdMercadoLivre(qualquer?.[0]);
+      if (idQualquer && (candidato === url.searchParams.get("wid") || candidato === url.searchParams.get("item_id"))) {
+        return idQualquer;
+      }
     }
 
     const host = url.hostname.toLowerCase();
@@ -75,6 +82,44 @@ function extrairProductIdCatalogoMercadoLivre(link: string) {
     const match = link.match(/\/p\/(MLB\d{8,})(?:[/?#]|$)/i);
     return normalizarIdMercadoLivre(match?.[1]);
   }
+}
+
+async function encontrarItemExatoEmCatalogos(
+  itemOriginal: string,
+  nomeAtual: string,
+  excluirProductId?: string | null
+): Promise<{ nome?: string; imagem?: string; preco: number; productId: string } | null> {
+  const candidatos = await buscarProdutosCatalogoMercadoLivre(nomeAtual, 6);
+
+  for (const candidato of candidatos) {
+    const productId = normalizarIdMercadoLivre(candidato.id);
+    if (!productId || productId === excluirProductId) continue;
+
+    try {
+      const lista = await buscarItensDoCatalogoMercadoLivre(productId);
+      const itens = Array.isArray(lista.results) ? lista.results : [];
+      const item = itens.find(
+        (oferta) => normalizarIdMercadoLivre(oferta.item_id) === itemOriginal
+      );
+      const preco = Number(item?.price);
+
+      if (item && Number.isFinite(preco) && preco > 0) {
+        const imagem = String(
+          candidato.pictures?.[0]?.secure_url || candidato.pictures?.[0]?.url || ""
+        ).trim();
+        return {
+          nome: String(candidato.name || "").trim() || undefined,
+          imagem: imagem || undefined,
+          preco,
+          productId,
+        };
+      }
+    } catch {
+      // Um candidato inválido não bloqueia os demais.
+    }
+  }
+
+  return null;
 }
 
 async function resolverItemIdMercadoLivre(link: string) {
@@ -127,10 +172,12 @@ async function resolverItemIdMercadoLivre(link: string) {
 
 async function extrairMercadoLivreApiAutenticada(
   link: string,
-  categoriaAtual?: string | null
+  categoriaAtual?: string | null,
+  nomeAtual?: string | null
 ): Promise<DadosAtuaisMonitor> {
   const productId = extrairProductIdCatalogoMercadoLivre(link);
   const itemOriginal = extrairItemIdAnuncioMercadoLivre(link);
+  let catalogoSemItemOriginal = false;
 
   if (productId) {
     try {
@@ -161,27 +208,58 @@ async function extrairMercadoLivreApiAutenticada(
           };
         }
 
-        throw new Error(
-          `Anúncio original ${itemOriginal} não aparece mais entre as ofertas ativas do catálogo ${productId}; preço mantido por segurança.`
-        );
-      }
-
-      const precoBuyBox = Number(catalogo.buy_box_winner?.price);
-      if (Number.isFinite(precoBuyBox) && precoBuyBox > 0) {
-        return {
-          nome: String(catalogo.name || "").trim() || undefined,
-          categoria: categoriaAtual || undefined,
-          precoAtual: precoBuyBox,
-          imagem: imagem || undefined,
-          urlFinal: link,
-          fonte: "mercado_livre_catalogo_buy_box",
-        };
+        catalogoSemItemOriginal = true;
+      } else {
+        const precoBuyBox = Number(catalogo.buy_box_winner?.price);
+        if (Number.isFinite(precoBuyBox) && precoBuyBox > 0) {
+          return {
+            nome: String(catalogo.name || "").trim() || undefined,
+            categoria: categoriaAtual || undefined,
+            precoAtual: precoBuyBox,
+            imagem: imagem || undefined,
+            urlFinal: link,
+            fonte: "mercado_livre_catalogo_buy_box",
+          };
+        }
       }
     } catch (erroCatalogo) {
-      const mensagem = erroCatalogo instanceof Error ? erroCatalogo.message : String(erroCatalogo);
-      if (mensagem.includes("Anúncio original")) throw erroCatalogo;
-      console.warn(`[MONITOR ML] Catálogo ${productId} não forneceu preço utilizável:`, mensagem);
+      console.warn(
+        `[MONITOR ML] Catálogo ${productId} não forneceu preço utilizável:`,
+        erroCatalogo instanceof Error ? erroCatalogo.message : erroCatalogo
+      );
     }
+  }
+
+  if (itemOriginal && nomeAtual) {
+    try {
+      const redescoberto = await encontrarItemExatoEmCatalogos(
+        itemOriginal,
+        nomeAtual,
+        productId
+      );
+
+      if (redescoberto) {
+        return {
+          nome: redescoberto.nome || nomeAtual,
+          categoria: categoriaAtual || undefined,
+          precoAtual: redescoberto.preco,
+          imagem: redescoberto.imagem,
+          urlFinal: link,
+          fonte: "mercado_livre_catalogo_redescoberto_item_original",
+        };
+      }
+    } catch (erroBusca) {
+      console.warn(
+        `[MONITOR ML] Busca de catálogo pelo título falhou para ${itemOriginal}:`,
+        erroBusca instanceof Error ? erroBusca.message : erroBusca
+      );
+    }
+  }
+
+  if (catalogoSemItemOriginal && itemOriginal && productId) {
+    throw new Error(
+      `Anúncio original ${itemOriginal} não aparece mais entre as ofertas ativas do catálogo ${productId}; preço mantido por segurança.`
+    );
   }
 
   const itemId = await resolverItemIdMercadoLivre(link);
@@ -212,7 +290,7 @@ async function extrairMercadoLivreApiAutenticada(
 }
 
 async function obterDadosAtuais(
-  produto: { loja?: string | null; link: string; categoria?: string | null },
+  produto: { loja?: string | null; link: string; categoria?: string | null; nome?: string | null },
   sessaoMl?: SessaoMonitorMercadoLivre | null,
   modoLocal = false
 ): Promise<DadosAtuaisMonitor> {
@@ -220,7 +298,11 @@ async function obterDadosAtuais(
 
   if (ehMercadoLivre(produto)) {
     try {
-      return await extrairMercadoLivreApiAutenticada(produto.link, produto.categoria);
+      return await extrairMercadoLivreApiAutenticada(
+        produto.link,
+        produto.categoria,
+        produto.nome
+      );
     } catch (erroApi) {
       const mensagemApi = erroApi instanceof Error ? erroApi.message : String(erroApi);
 
@@ -332,7 +414,12 @@ export async function consultarPrecoProduto(
   if (!link) throw new Error("Produto sem link original para monitoramento.");
 
   const dadosAtuais = await obterDadosAtuais(
-    { loja: produto.loja, link, categoria: produto.categoria },
+    {
+      loja: produto.loja,
+      link,
+      categoria: produto.categoria,
+      nome: produto.nome,
+    },
     sessaoMl ?? null,
     modoLocal
   );
