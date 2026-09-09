@@ -86,7 +86,22 @@ async function executar(request: NextRequest) {
       if (dl.resultado.exitCode !== 0) throw new Error(dl.stderr || `Falha sincronizando ${destino}.`);
     }
 
-    const patch = await comando(sandbox, "node", ["-e", `const fs=require('fs');const p=${JSON.stringify(SCRIPT_PATH)};let c=fs.readFileSync(p,'utf8');c=c.replace('Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))','Math.min(150, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))');c=c.replace('[\"cea\", \"renner\", \"calvin-klein\", \"stanley\", \"casas-bahia\"]','[\"cea\", \"renner\", \"calvin-klein\", \"stanley\", \"casas-bahia\", \"cobasi\"]');c=c.replace('categoria: categoria || null,','categoria: loja.slug === \"cobasi\" ? \"Pet\" : (categoria || null),');c=c.replace('/vercel/tmp/awin-produtos-status.json',${JSON.stringify(STATUS_PATH)}).replace('/vercel/tmp/awin-produtos-resultado.json',${JSON.stringify(RESULT_PATH)}).replace('AbortSignal.timeout(240000)','AbortSignal.timeout(900000)');fs.writeFileSync(p,c);`]);
+    const patchScript = `
+const fs=require('fs');
+const p=${JSON.stringify(SCRIPT_PATH)};
+let c=fs.readFileSync(p,'utf8');
+c=c.replace('Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))','Math.min(150, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))');
+c=c.replace('["cea", "renner", "calvin-klein", "stanley", "casas-bahia"]','["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "cobasi"]');
+c=c.replace('categoria: categoria || null,','categoria: loja.slug === "cobasi" ? "Pet" : (categoria || null),');
+c=c.replace('/vercel/tmp/awin-produtos-status.json',${JSON.stringify(STATUS_PATH)}).replace('/vercel/tmp/awin-produtos-resultado.json',${JSON.stringify(RESULT_PATH)}).replace('AbortSignal.timeout(240000)','AbortSignal.timeout(900000)');
+const marcador='async function gerarLinksAfiliados(loja, produtos) {';
+const direto='function linkAfiliadoCobasiDireto(loja, destino) {\\n  const params = new URLSearchParams({ awinmid: String(loja.advertiserId), awinaffid: PUBLISHER_ID, campaign: "achados-economize-produtos", ued: destino, platform: "pl" });\\n  return `https://www.awin1.com/cread.php?${'${params.toString()}'}`;\\n}\\n\\nasync function gerarLinksAfiliados(loja, produtos) {\\n  if (loja.slug === "cobasi") {\\n    const prontos = produtos.map((produto) => ({ ...produto, linkAfiliado: linkAfiliadoCobasiDireto(loja, produto.link) }));\\n    return { produtos: prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };\\n  }';
+if(!c.includes(marcador)) throw new Error('Gerador de links afiliados nao encontrado para Cobasi.');
+c=c.replace(marcador,direto);
+fs.writeFileSync(p,c);
+`;
+
+    const patch = await comando(sandbox, "node", ["-e", patchScript]);
     if (patch.resultado.exitCode !== 0) throw new Error(patch.stderr || "Falha preparando coletor Cobasi.");
 
     await comando(sandbox, "rm", ["-f", LOG_PATH, EXIT_PATH]);
@@ -110,7 +125,7 @@ async function executar(request: NextRequest) {
       detached: true,
     });
 
-    return NextResponse.json({ sucesso: true, iniciado: true, loja: "cobasi", advertiser_id: "17870", feed_id: "48117", limite: 120, categoria: "Pet", iniciadoEm: new Date().toISOString() }, { status: 202 });
+    return NextResponse.json({ sucesso: true, iniciado: true, loja: "cobasi", advertiser_id: "17870", feed_id: "48117", limite: 120, categoria: "Pet", tracking: "awin_direto", iniciadoEm: new Date().toISOString() }, { status: 202 });
   } catch (erro) {
     return NextResponse.json({ sucesso: false, erro: erro instanceof Error ? erro.message : String(erro) }, { status: 500 });
   }
