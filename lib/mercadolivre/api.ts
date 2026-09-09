@@ -27,6 +27,7 @@ export type ProdutoCatalogoMercadoLivre = {
   status?: string | null;
   parent_id?: string | null;
   children_ids?: string[];
+  domain_id?: string | null;
   pictures?: Array<{
     id?: string;
     url?: string;
@@ -35,9 +36,14 @@ export type ProdutoCatalogoMercadoLivre = {
   buy_box_winner?: {
     item_id?: string;
     price?: number;
+    original_price?: number | null;
     currency_id?: string;
     seller_id?: number;
     available_quantity?: number;
+    sold_quantity?: number;
+    shipping?: {
+      free_shipping?: boolean;
+    };
   } | null;
 };
 
@@ -49,8 +55,14 @@ export type ItemCatalogoMercadoLivre = {
   currency_id?: string;
   available_quantity?: number;
   original_price?: number | null;
+  category_id?: string;
+  user_product_id?: string;
   condition?: string;
   listing_type_id?: string;
+  shipping?: {
+    free_shipping?: boolean;
+    cost?: number;
+  };
 };
 
 type ListaItensCatalogoMercadoLivre = {
@@ -91,10 +103,7 @@ type RespostaBulkItemMercadoLivre = {
 };
 
 function normalizarIdMercadoLivre(id: string): string {
-  return id
-    .trim()
-    .toUpperCase()
-    .replace(/-/g, "");
+  return id.trim().toUpperCase().replace(/-/g, "");
 }
 
 async function fetchJsonMercadoLivre<T>(url: string): Promise<T> {
@@ -136,7 +145,14 @@ export async function buscarProdutoMercadoLivre(
 
 export async function buscarProdutoMercadoLivreBulk(
   itemId: string
-): Promise<(ProdutoMercadoLivre & { status?: string; available_quantity?: number; catalog_product_id?: string | null }) | null> {
+): Promise<
+  | (ProdutoMercadoLivre & {
+      status?: string;
+      available_quantity?: number;
+      catalog_product_id?: string | null;
+    })
+  | null
+> {
   const idNormalizado = normalizarIdMercadoLivre(itemId);
   if (!/^MLB\d+$/.test(idNormalizado)) {
     throw new Error(`ITEM_ID inválido: ${itemId}`);
@@ -203,7 +219,7 @@ export async function buscarItensDoCatalogoMercadoLivre(
   }
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
-    `https://api.mercadolibre.com/products/${idNormalizado}/items`
+    `https://api.mercadolibre.com/products/${idNormalizado}/items?status=active`
   );
 }
 
