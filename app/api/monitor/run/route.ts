@@ -7,7 +7,10 @@ import {
   diagnosticarMercadoLivreHttp,
   diagnosticarMercadoLivrePrecoOficial,
 } from "@/lib/services/mercadoLivreHttpMonitor";
-import { buscarProdutoCatalogoMercadoLivre } from "@/lib/mercadolivre/api";
+import {
+  buscarItensDoCatalogoMercadoLivre,
+  buscarProdutoCatalogoMercadoLivre,
+} from "@/lib/mercadolivre/api";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function extrairProductIdCatalogo(link: string) {
@@ -20,6 +23,28 @@ function extrairProductIdCatalogo(link: string) {
   }
 }
 
+function extrairItemIdDoLink(link: string) {
+  try {
+    const url = new URL(link);
+    const candidatos = [
+      url.searchParams.get("wid") || "",
+      url.searchParams.get("item_id") || "",
+      url.searchParams.get("pdp_filters") || "",
+      decodeURIComponent(url.hash || ""),
+      decodeURIComponent(link),
+    ];
+
+    for (const candidato of candidatos) {
+      const match = candidato.match(/MLB-?(\d{8,})/i);
+      if (match?.[1]) return `MLB${match[1]}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 async function diagnosticarCatalogo(produtoId: number) {
   const { data: produto, error } = await supabaseAdmin
     .from("produtos")
@@ -29,18 +54,32 @@ async function diagnosticarCatalogo(produtoId: number) {
 
   if (error || !produto) throw new Error("Produto nao encontrado.");
 
-  const productId = extrairProductIdCatalogo(String(produto.link || ""));
+  const link = String(produto.link || "");
+  const productId = extrairProductIdCatalogo(link);
   if (!productId) throw new Error("Produto nao possui product_id de catalogo na URL.");
 
-  const catalogo = await buscarProdutoCatalogoMercadoLivre(productId);
+  const [catalogo, itens] = await Promise.all([
+    buscarProdutoCatalogoMercadoLivre(productId),
+    buscarItensDoCatalogoMercadoLivre(productId),
+  ]);
+
+  const itemOriginal = extrairItemIdDoLink(link);
+  const resultados = Array.isArray(itens.results) ? itens.results : [];
+  const encontradoOriginal = itemOriginal
+    ? resultados.find((item) => String(item.item_id || "").toUpperCase() === itemOriginal)
+    : null;
 
   return {
     produto_id: produto.id,
     produto: produto.nome,
     preco_banco: Number(produto.preco_atual),
     product_id: productId,
+    item_original: itemOriginal,
     catalogo_id: catalogo.id,
+    catalogo_status: catalogo.status || null,
     catalogo_nome: catalogo.name || null,
+    parent_id: catalogo.parent_id || null,
+    children_ids: catalogo.children_ids || [],
     buy_box: catalogo.buy_box_winner
       ? {
           item_id: catalogo.buy_box_winner.item_id || null,
@@ -51,6 +90,23 @@ async function diagnosticarCatalogo(produtoId: number) {
           available_quantity: catalogo.buy_box_winner.available_quantity ?? null,
         }
       : null,
+    itens_total: Number(itens.paging?.total || resultados.length),
+    item_original_na_lista: encontradoOriginal
+      ? {
+          item_id: encontradoOriginal.item_id,
+          price: Number.isFinite(Number(encontradoOriginal.price))
+            ? Number(encontradoOriginal.price)
+            : null,
+          currency_id: encontradoOriginal.currency_id || null,
+          available_quantity: encontradoOriginal.available_quantity ?? null,
+        }
+      : null,
+    amostra_itens: resultados.slice(0, 5).map((item) => ({
+      item_id: item.item_id,
+      price: Number.isFinite(Number(item.price)) ? Number(item.price) : null,
+      currency_id: item.currency_id || null,
+      available_quantity: item.available_quantity ?? null,
+    })),
   };
 }
 
