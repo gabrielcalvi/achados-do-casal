@@ -12,6 +12,9 @@ export async function GET() {
     `https://api.mercadolibre.com/items/${ITEM_ID}?attributes=id,title,price,original_price,currency_id,permalink,thumbnail,pictures,shipping,sold_quantity,category_id`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}`,
     `https://api.mercadolibre.com/products/${PRODUCT_ID}/items`,
+    `https://api.mercadolibre.com/sites/MLB/search?q=${ITEM_ID}`,
+    `https://api.mercadolibre.com/sites/MLB/search?q=${PRODUCT_ID}`,
+    `https://api.mercadolibre.com/sites/MLB/search?catalog_product_id=${PRODUCT_ID}`,
   ];
 
   const resultados = [];
@@ -24,7 +27,7 @@ export async function GET() {
         signal: AbortSignal.timeout(30000),
       });
       const texto = await resposta.text();
-      resultados.push({ url, status: resposta.status, ok: resposta.ok, corpo: texto.slice(0, 15000) });
+      resultados.push({ url, status: resposta.status, ok: resposta.ok, corpo: texto.slice(0, 25000) });
     } catch (error) {
       resultados.push({ url, error: error instanceof Error ? error.message : String(error) });
     }
