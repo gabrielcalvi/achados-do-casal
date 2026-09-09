@@ -209,7 +209,17 @@ async function extrairUserProduct(
   const candidatos = await buscarProdutosCatalogoMercadoLivre(termoUrl, 20);
   candidatos.sort((a, b) => pontuarCatalogo(b, termoUrl) - pontuarCatalogo(a, termoUrl));
 
+  let melhorFallback:
+    | {
+        produto: ProdutoCatalogoMercadoLivre;
+        item: ItemCatalogoMercadoLivre;
+        pontuacao: number;
+      }
+    | null = null;
+
   for (const produto of candidatos) {
+    const pontuacao = pontuarCatalogo(produto, termoUrl);
+
     try {
       const lista = await buscarItensDoCatalogoMercadoLivre(produto.id);
       const itens = lista.results || [];
@@ -223,13 +233,41 @@ async function extrairUserProduct(
       if (exato) {
         return montarProdutoMercadoLivre(produto, exato, link);
       }
+
+      if (pontuacao >= 75) {
+        const itemFallback = escolherItem(
+          itens,
+          null,
+          null,
+          produto.buy_box_winner?.item_id || null
+        );
+
+        if (
+          itemFallback &&
+          (!melhorFallback || pontuacao > melhorFallback.pontuacao)
+        ) {
+          melhorFallback = {
+            produto,
+            item: itemFallback,
+            pontuacao,
+          };
+        }
+      }
     } catch {
       // Continua nos proximos catalogos caso um candidato nao possa ser consultado.
     }
   }
 
+  if (melhorFallback) {
+    return montarProdutoMercadoLivre(
+      melhorFallback.produto,
+      melhorFallback.item,
+      link
+    );
+  }
+
   throw new Error(
-    `O produto ${userProductId} foi reconhecido, mas não foi localizado entre os catálogos ativos do Mercado Livre.`
+    `O produto ${userProductId} foi reconhecido, mas não foi localizado com confiança entre os catálogos ativos do Mercado Livre.`
   );
 }
 
