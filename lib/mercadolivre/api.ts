@@ -80,6 +80,16 @@ type BuscaItensMercadoLivre = {
   results?: ProdutoMercadoLivre[];
 };
 
+type RespostaBulkItemMercadoLivre = {
+  id?: string;
+  status_code?: number;
+  body?: ProdutoMercadoLivre & {
+    status?: string;
+    available_quantity?: number;
+    catalog_product_id?: string | null;
+  };
+};
+
 function normalizarIdMercadoLivre(id: string): string {
   return id
     .trim()
@@ -122,6 +132,23 @@ export async function buscarProdutoMercadoLivre(
   return fetchJsonMercadoLivre<ProdutoMercadoLivre>(
     `https://api.mercadolibre.com/items/${idNormalizado}`
   );
+}
+
+export async function buscarProdutoMercadoLivreBulk(
+  itemId: string
+): Promise<(ProdutoMercadoLivre & { status?: string; available_quantity?: number; catalog_product_id?: string | null }) | null> {
+  const idNormalizado = normalizarIdMercadoLivre(itemId);
+  if (!/^MLB\d+$/.test(idNormalizado)) {
+    throw new Error(`ITEM_ID inválido: ${itemId}`);
+  }
+
+  const resposta = await fetchJsonMercadoLivre<RespostaBulkItemMercadoLivre[]>(
+    `https://api.mercadolibre.com/items/bulk?ids=${idNormalizado}&attributes=body.id,body.title,body.price,body.original_price,body.currency_id,body.permalink,body.thumbnail,body.status,body.available_quantity,body.catalog_product_id`
+  );
+
+  const entrada = Array.isArray(resposta) ? resposta[0] : null;
+  if (!entrada || entrada.status_code !== 200 || !entrada.body) return null;
+  return entrada.body;
 }
 
 export async function buscarItensMercadoLivrePorTexto(
