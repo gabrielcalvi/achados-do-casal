@@ -48,6 +48,14 @@ const lojas = [
     logoUrl: null
   },
   {
+    slug: "cobasi",
+    dbSlug: "cobasi",
+    nome: "Cobasi",
+    advertiserId: "17870",
+    dominio: "cobasi.com.br",
+    logoUrl: null
+  },
+  {
     slug: "casas-bahia",
     dbSlug: "casas-bahia",
     nome: "Casas Bahia",
