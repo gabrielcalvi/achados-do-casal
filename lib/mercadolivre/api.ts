@@ -24,6 +24,9 @@ export type ProdutoCatalogoMercadoLivre = {
   id: string;
   name?: string | null;
   permalink?: string | null;
+  status?: string | null;
+  parent_id?: string | null;
+  children_ids?: string[];
   pictures?: Array<{
     id?: string;
     url?: string;
@@ -38,6 +41,27 @@ export type ProdutoCatalogoMercadoLivre = {
   } | null;
 };
 
+export type ItemCatalogoMercadoLivre = {
+  item_id: string;
+  site_id?: string;
+  seller_id?: number;
+  price?: number;
+  currency_id?: string;
+  available_quantity?: number;
+  original_price?: number | null;
+  condition?: string;
+  listing_type_id?: string;
+};
+
+type ListaItensCatalogoMercadoLivre = {
+  paging?: {
+    total?: number;
+    offset?: number;
+    limit?: number;
+  };
+  results?: ItemCatalogoMercadoLivre[];
+};
+
 function normalizarIdMercadoLivre(id: string): string {
   return id
     .trim()
@@ -45,82 +69,69 @@ function normalizarIdMercadoLivre(id: string): string {
     .replace(/-/g, "");
 }
 
+async function fetchJsonMercadoLivre<T>(url: string): Promise<T> {
+  const accessToken = await obterAccessTokenMercadoLivre();
+  const resposta = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const texto = await resposta.text();
+  if (!resposta.ok) {
+    throw new Error(`Mercado Livre respondeu ${resposta.status}: ${texto}`);
+  }
+
+  try {
+    return JSON.parse(texto) as T;
+  } catch {
+    throw new Error("O Mercado Livre retornou uma resposta inválida.");
+  }
+}
+
 export async function buscarProdutoMercadoLivre(
   itemId: string
 ): Promise<ProdutoMercadoLivre> {
-  const accessToken = await obterAccessTokenMercadoLivre();
   const idNormalizado = normalizarIdMercadoLivre(itemId);
 
   if (!/^MLB\d+$/.test(idNormalizado)) {
     throw new Error(`ITEM_ID inválido: ${itemId}`);
   }
 
-  const resposta = await fetch(
-    `https://api.mercadolibre.com/items/${idNormalizado}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(30000),
-    }
+  return fetchJsonMercadoLivre<ProdutoMercadoLivre>(
+    `https://api.mercadolibre.com/items/${idNormalizado}`
   );
-
-  const texto = await resposta.text();
-
-  if (!resposta.ok) {
-    throw new Error(
-      `Mercado Livre respondeu ${resposta.status}: ${texto}`
-    );
-  }
-
-  try {
-    return JSON.parse(texto) as ProdutoMercadoLivre;
-  } catch {
-    throw new Error(
-      "O Mercado Livre retornou uma resposta inválida."
-    );
-  }
 }
 
 export async function buscarProdutoCatalogoMercadoLivre(
   productId: string
 ): Promise<ProdutoCatalogoMercadoLivre> {
-  const accessToken = await obterAccessTokenMercadoLivre();
   const idNormalizado = normalizarIdMercadoLivre(productId);
 
   if (!/^MLB\d+$/.test(idNormalizado)) {
     throw new Error(`PRODUCT_ID inválido: ${productId}`);
   }
 
-  const resposta = await fetch(
-    `https://api.mercadolibre.com/products/${idNormalizado}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(30000),
-    }
+  return fetchJsonMercadoLivre<ProdutoCatalogoMercadoLivre>(
+    `https://api.mercadolibre.com/products/${idNormalizado}`
   );
+}
 
-  const texto = await resposta.text();
+export async function buscarItensDoCatalogoMercadoLivre(
+  productId: string
+): Promise<ListaItensCatalogoMercadoLivre> {
+  const idNormalizado = normalizarIdMercadoLivre(productId);
 
-  if (!resposta.ok) {
-    throw new Error(
-      `Mercado Livre respondeu ${resposta.status}: ${texto}`
-    );
+  if (!/^MLB\d+$/.test(idNormalizado)) {
+    throw new Error(`PRODUCT_ID inválido: ${productId}`);
   }
 
-  try {
-    return JSON.parse(texto) as ProdutoCatalogoMercadoLivre;
-  } catch {
-    throw new Error(
-      "O Mercado Livre retornou uma resposta inválida para o produto de catálogo."
-    );
-  }
+  return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
+    `https://api.mercadolibre.com/products/${idNormalizado}/items`
+  );
 }
 
 export async function buscarItemIdDoCatalogo(
