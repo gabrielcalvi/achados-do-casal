@@ -40,12 +40,6 @@ export default function PartnerPromoBar() {
         >
           COBASI · VER OFERTAS
         </Link>
-        <Link
-          href="/kappesberg"
-          className="inline-flex items-center rounded-full bg-[#d71920] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#b9141a]"
-        >
-          KAPPESBERG · VER OFERTAS
-        </Link>
       </div>
     </div>
   );
