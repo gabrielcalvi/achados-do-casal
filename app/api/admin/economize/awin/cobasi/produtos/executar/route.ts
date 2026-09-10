@@ -90,12 +90,15 @@ async function executar(request: NextRequest) {
 const fs=require('fs');
 const p=${JSON.stringify(SCRIPT_PATH)};
 let c=fs.readFileSync(p,'utf8');
-c=c.replace('Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))','Math.min(150, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))');
+c=c.replace('Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))','Math.min(300, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))');
 c=c.replace('["cea", "renner", "calvin-klein", "stanley", "casas-bahia"]','["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "cobasi"]');
-c=c.replace('categoria: categoria || null,','categoria: loja.slug === "cobasi" ? "Pet" : (categoria || null),');
 c=c.replace('/vercel/tmp/awin-produtos-status.json',${JSON.stringify(STATUS_PATH)}).replace('/vercel/tmp/awin-produtos-resultado.json',${JSON.stringify(RESULT_PATH)}).replace('AbortSignal.timeout(240000)','AbortSignal.timeout(900000)');
+
 const marcador='async function gerarLinksAfiliados(loja, produtos) {';
-const direto='function linkAfiliadoCobasiDireto(loja, destino) {\\n  const params = new URLSearchParams({ awinmid: String(loja.advertiserId), awinaffid: PUBLISHER_ID, campaign: "achados-economize-produtos", ued: destino, platform: "pl" });\\n  return "https://www.awin1.com/cread.php?" + params.toString();\\n}\\n\\nasync function gerarLinksAfiliados(loja, produtos) {\\n  if (loja.slug === "cobasi") {\\n    const prontos = produtos.map((produto) => ({ ...produto, linkAfiliado: linkAfiliadoCobasiDireto(loja, produto.link) }));\\n    return { produtos: prontos.sort(ordenarProdutos).slice(0, LIMITE_POR_LOJA), falhas: 0, nativos: prontos.length };\\n  }';
+const helpers='function textoCobasi(produto) {\\n  return String((produto.titulo || "") + " " + (produto.categoria || "") + " " + (produto.marca || "")).toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");\\n}\\n\\nfunction grupoCobasi(produto) {\\n  const t = textoCobasi(produto);\\n  if (t.includes("friskies gatos adultos")) return "bloquear";\\n  if (["coleira", "peitoral", "guia ", "guia para", "cinto de seguranca", "passeio"].some((v) => t.includes(v))) return "passeio";\\n  if (["brinquedo", "mordedor", "bolinha", "arranhador", "pelucia", "varinha"].some((v) => t.includes(v))) return "brinquedos";\\n  if (["tapete higienico", "areia", "granulado", "shampoo", "condicionador", "higiene", "limpador", "escova", "pente", "banho", "eliminador", "sanitario"].some((v) => t.includes(v))) return "higiene";\\n  if (["petisco", "bifinho", "snack", "osso", "biscoito", "palito", "dentastix"].some((v) => t.includes(v))) return "petiscos";\\n  if (["sache", "racao umida", "pate", "ao molho", "molho -"].some((v) => t.includes(v))) return "umidos";\\n  if (["racao", "alimento seco"].some((v) => t.includes(v))) return "racao_seca";\\n  if (["comedouro", "bebedouro", "cama", "casinha", "caixa de transporte", "transportadora", "pote", "fonte", "tapete coletor", "roupa", "roupinha"].some((v) => t.includes(v))) return "acessorios";\\n  return "outros";\\n}\\n\\nfunction categoriaCobasi(produto) {\\n  const grupo = grupoCobasi(produto);\\n  return ({ racao_seca: "Ração", umidos: "Ração úmida", petiscos: "Petiscos", higiene: "Higiene", passeio: "Passeio", brinquedos: "Brinquedos", acessorios: "Acessórios", outros: "Pet" })[grupo] || "Pet";\\n}\\n\\nfunction selecionarDiversificadoCobasi(produtos, limite) {\\n  const ordem = ["racao_seca", "higiene", "passeio", "brinquedos", "petiscos", "acessorios", "outros", "umidos"];\\n  const validos = produtos.filter((produto) => grupoCobasi(produto) !== "bloquear" && produto.imagem);\\n  const grupos = new Map(ordem.map((grupo) => [grupo, []]));\\n  for (const produto of validos) {\\n    const grupo = grupoCobasi(produto);\\n    if (!grupos.has(grupo)) grupos.set(grupo, []);\\n    grupos.get(grupo).push(produto);\\n  }\\n  for (const lista of grupos.values()) lista.sort(ordenarProdutos);\\n  const saida = [];\\n  const usados = new Set();\\n  let indice = 0;\\n  while (saida.length < limite) {\\n    let adicionou = false;\\n    for (const grupo of ordem) {\\n      const lista = grupos.get(grupo) || [];\\n      const produto = lista[indice];\\n      if (!produto) continue;\\n      const chave = String(produto.id || produto.link || produto.titulo);\\n      if (usados.has(chave)) continue;\\n      usados.add(chave);\\n      saida.push({ ...produto, categoria: categoriaCobasi(produto) });\\n      adicionou = true;\\n      if (saida.length >= limite) break;\\n    }\\n    if (!adicionou) break;\\n    indice += 1;\\n  }\\n  if (saida.length < limite) {\\n    for (const produto of [...validos].sort(ordenarProdutos)) {\\n      const chave = String(produto.id || produto.link || produto.titulo);\\n      if (usados.has(chave)) continue;\\n      usados.add(chave);\\n      saida.push({ ...produto, categoria: categoriaCobasi(produto) });\\n      if (saida.length >= limite) break;\\n    }\\n  }\\n  return saida.slice(0, limite);\\n}\\n\\n';
+
+c=c.replace('selecionados: top.slice(0, LIMITE_POR_LOJA),','selecionados: loja.slug === "cobasi" ? selecionarDiversificadoCobasi(top, LIMITE_POR_LOJA) : top.slice(0, LIMITE_POR_LOJA),');
+const direto=helpers+'function linkAfiliadoCobasiDireto(loja, destino) {\\n  const params = new URLSearchParams({ awinmid: String(loja.advertiserId), awinaffid: PUBLISHER_ID, campaign: "achados-economize-produtos", ued: destino, platform: "pl" });\\n  return "https://www.awin1.com/cread.php?" + params.toString();\\n}\\n\\nasync function gerarLinksAfiliados(loja, produtos) {\\n  if (loja.slug === "cobasi") {\\n    const prontos = selecionarDiversificadoCobasi(produtos, LIMITE_POR_LOJA).map((produto) => ({ ...produto, linkAfiliado: linkAfiliadoCobasiDireto(loja, produto.link) }));\\n    return { produtos: prontos, falhas: 0, nativos: prontos.length };\\n  }';
 if(!c.includes(marcador)) throw new Error('Gerador de links afiliados nao encontrado para Cobasi.');
 c=c.replace(marcador,direto);
 fs.writeFileSync(p,c);
@@ -112,7 +115,7 @@ fs.writeFileSync(p,c);
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       SUPABASE_SERVICE_ROLE_KEY: serviceKey,
       AWIN_PRODUTOS_LOJAS: "cobasi",
-      AWIN_PRODUTOS_LIMITE_POR_LOJA: "120",
+      AWIN_PRODUTOS_LIMITE_POR_LOJA: "240",
       AWIN_PRODUTOS_DESCONTO_MINIMO: "10",
       AWIN_PRODUTOS_CATALOGO_LOJAS: "cobasi",
     };
@@ -125,7 +128,7 @@ fs.writeFileSync(p,c);
       detached: true,
     });
 
-    return NextResponse.json({ sucesso: true, iniciado: true, loja: "cobasi", advertiser_id: "17870", feed_id: "48117", limite: 120, categoria: "Pet", tracking: "awin_direto", iniciadoEm: new Date().toISOString() }, { status: 202 });
+    return NextResponse.json({ sucesso: true, iniciado: true, loja: "cobasi", advertiser_id: "17870", feed_id: "48117", limite: 240, categoria: "Pet diversificado", tracking: "awin_direto", iniciadoEm: new Date().toISOString() }, { status: 202 });
   } catch (erro) {
     return NextResponse.json({ sucesso: false, erro: erro instanceof Error ? erro.message : String(erro) }, { status: 500 });
   }
