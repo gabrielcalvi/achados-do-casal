@@ -24,6 +24,7 @@ type Props = {
   descricao: string;
   placeholder: string;
   cor: string;
+  rede?: string;
 };
 
 function moeda(valor: number | null) {
@@ -36,7 +37,7 @@ function precoValido(oferta: Oferta) {
   return Number.isFinite(preco) && preco > 0 ? preco : null;
 }
 
-export default function PartnerStorefront({ slug, nome, descricao, placeholder, cor }: Props) {
+export default function PartnerStorefront({ slug, nome, descricao, placeholder, cor, rede = "AWIN" }: Props) {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("relevancia");
@@ -112,7 +113,7 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
       <section className="bg-[#101010] text-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:py-20">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: cor }}>Parceiro AWIN · seleção do Achados</p>
+            <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: cor }}>Parceiro {rede} · seleção do Achados</p>
             <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">{nome}</h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-zinc-300">{descricao}</p>
           </div>
@@ -129,7 +130,7 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: cor }}>Achados {nome}</p>
-              <h2 className="mt-1 text-2xl font-black">Produtos selecionados</h2>
+              <h2 className="mt-1 text-2xl font-black">Produtos e cupons selecionados</h2>
             </div>
             <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_220px] lg:max-w-2xl">
               <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={placeholder} className="h-12 w-full rounded-full border border-zinc-300 bg-zinc-50 px-5 outline-none" />
@@ -163,16 +164,23 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
                   <Link href={`/achado/${oferta.id}`} className="relative flex h-64 items-center justify-center bg-zinc-50 p-5">
                     {desconto > 0 ? <span className="absolute left-4 top-4 rounded-full px-3 py-2 text-xs font-black text-white" style={{ backgroundColor: cor }}>-{Math.round(desconto)}%</span> : null}
                     {oferta.codigo ? <span className="absolute right-4 top-4 rounded-full bg-black px-3 py-2 text-[11px] font-black uppercase text-white">Cupom</span> : null}
-                    {oferta.imagem_url ? <img src={oferta.imagem_url} alt={oferta.titulo} className="h-full w-full object-contain transition group-hover:scale-[1.03]" /> : null}
+                    {oferta.imagem_url ? (
+                      <img src={oferta.imagem_url} alt={oferta.titulo} className="h-full w-full object-contain transition group-hover:scale-[1.03]" />
+                    ) : oferta.codigo ? (
+                      <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full border-4 text-center" style={{ borderColor: cor, color: cor }}>
+                        <span className="text-4xl font-black">{desconto > 0 ? `${Math.round(desconto)}%` : "OFF"}</span>
+                        <span className="mt-1 text-xs font-black uppercase">cupom</span>
+                      </div>
+                    ) : null}
                   </Link>
                   <div className="flex flex-1 flex-col p-5">
                     <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: cor }}>{nome}{oferta.categoria ? ` · ${oferta.categoria}` : ""}</p>
                     <h3 className="mt-2 line-clamp-3 text-lg font-black leading-6">{oferta.titulo}</h3>
                     <div className="mt-auto pt-5">
                       {anterior && oferta.preco_original && oferta.preco_oferta && Number(oferta.preco_original) > Number(oferta.preco_oferta) ? <p className="text-sm text-zinc-400 line-through">{anterior}</p> : null}
-                      <p className="mt-1 text-2xl font-black">{atual || "Ver condição"}</p>
+                      <p className="mt-1 text-2xl font-black">{atual || (oferta.codigo ? `${Math.round(desconto)}% OFF` : "Ver condição")}</p>
                       {oferta.codigo ? <p className="mt-2 rounded-xl bg-zinc-100 px-3 py-2 text-center text-xs font-black">Cupom: {oferta.codigo}</p> : null}
-                      <Link href={`/achado/${oferta.id}`} className="mt-4 flex h-12 items-center justify-center rounded-full px-5 font-black text-white" style={{ backgroundColor: cor }}>Ver produto</Link>
+                      <Link href={`/achado/${oferta.id}`} className="mt-4 flex h-12 items-center justify-center rounded-full px-5 font-black text-white" style={{ backgroundColor: cor }}>Ver oferta</Link>
                     </div>
                   </div>
                 </article>
