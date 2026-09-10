@@ -10,6 +10,7 @@ const links = [
   { href: "/admin/monitor", label: "Monitor" },
   { href: "/admin/saude", label: "Saúde" },
   { href: "/admin/parceiros", label: "Parceiros" },
+  { href: "/admin/lomadee", label: "Lomadee" },
   { href: "/admin/economize", label: "Economize" },
   { href: "/admin/economize/ml-v2", label: "Cupons ML V2" },
   { href: "/admin/viagens", label: "Viagens / Radar" },
