@@ -1,4 +1,4 @@
-const BASE_URL = "https://api-beta.lomadee.com.br";
+const BASE_URL = "https://api.lomadee.com.br";
 
 export type LomadeeBrand = {
   id: string;
@@ -63,7 +63,7 @@ export async function buscarMarcaLomadee(nome: string) {
 }
 
 export async function buscarProdutosLomadee(organizationId: string, limit = 8) {
-  const qs = new URLSearchParams({ organizationIds: organizationId, page: "1", limit: String(Math.min(Math.max(limit, 1), 8)), isAvailable: "true" });
+  const qs = new URLSearchParams({ organizationIds: organizationId, page: "1", limit: String(Math.min(Math.max(limit, 1), 100)), isAvailable: "true" });
   const resposta = await lomadeeFetch<{ data?: LomadeeProduct[] }>(`/affiliate/products?${qs}`);
   return resposta.data || [];
 }
