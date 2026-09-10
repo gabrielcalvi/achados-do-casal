@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/admin/economize/awin/cobasi/produtos/executar",
-      "schedule": "10 20 * * *"
+      "schedule": "8 20 * * *"
     },
     {
       "path": "/api/admin/economize/catalogo/revisar",
