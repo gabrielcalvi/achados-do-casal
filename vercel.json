@@ -34,7 +34,7 @@
     },
     {
       "path": "/api/monitor/run",
-      "schedule": "20 1,7,13,19 * * *"
+      "schedule": "20 * * * *"
     },
     {
       "path": "/api/admin/viagens/radar/rodada",
