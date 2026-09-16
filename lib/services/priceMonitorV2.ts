@@ -31,24 +31,99 @@ function ehMercadoLivre(produto: Pick<ProdutoBanco, "loja" | "link">) {
   );
 }
 
+function extrairItemIdMercadoLivre(link: string): string | null {
+  let texto = link;
+
+  try {
+    texto = decodeURIComponent(link);
+  } catch {
+    // Mantém o link original quando houver codificação incompleta.
+  }
+
+  const candidatos = [
+    texto.match(/[?&#]wid=(MLB-?\d{8,})/i)?.[1],
+    texto.match(/(?:^|[?&#])item_id=(MLB-?\d{8,})/i)?.[1],
+    texto.match(/item_id(?::|%3A)(MLB-?\d{8,})/i)?.[1],
+    texto.match(/produto\.mercadolivre\.com\.br\/(MLB-?\d{8,})/i)?.[1],
+  ];
+
+  const encontrado = candidatos.find(Boolean);
+  return encontrado
+    ? String(encontrado).toUpperCase().replace(/-/g, "")
+    : null;
+}
+
+function linkDiretoMercadoLivre(link: string): string {
+  const itemId = extrairItemIdMercadoLivre(link);
+  if (!itemId) return link;
+
+  const numero = itemId.replace(/^MLB/i, "");
+  return `https://produto.mercadolivre.com.br/MLB-${numero}-_JM`;
+}
+
 async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
   const link = String(produto.link || "").trim();
   if (!link) throw new Error("Produto sem link original para monitoramento.");
 
   if (ehMercadoLivre(produto)) {
+    const linkWorker = linkDiretoMercadoLivre(link);
+
     try {
-      const dados = await extrairMercadoLivreWorker(link);
+      const dados = await extrairMercadoLivreWorker(linkWorker);
       return {
         nome: dados.nome,
         categoria: dados.categoria,
         precoAtual: dados.precoAtual,
         imagem: dados.imagem,
         urlFinal: link,
-        fonte: "mercado_livre_playwright_worker",
+        fonte:
+          linkWorker === link
+            ? "mercado_livre_playwright_worker"
+            : "mercado_livre_playwright_worker_url_direta",
       };
-    } catch (erroWorker) {
-      const mensagemWorker =
-        erroWorker instanceof Error ? erroWorker.message : String(erroWorker);
+    } catch (erroWorkerDireto) {
+      const mensagemDireta =
+        erroWorkerDireto instanceof Error
+          ? erroWorkerDireto.message
+          : String(erroWorkerDireto);
+
+      if (linkWorker !== link) {
+        try {
+          const dados = await extrairMercadoLivreWorker(link);
+          return {
+            nome: dados.nome,
+            categoria: dados.categoria,
+            precoAtual: dados.precoAtual,
+            imagem: dados.imagem,
+            urlFinal: link,
+            fonte: "mercado_livre_playwright_worker_link_original",
+          };
+        } catch (erroWorkerOriginal) {
+          const mensagemOriginal =
+            erroWorkerOriginal instanceof Error
+              ? erroWorkerOriginal.message
+              : String(erroWorkerOriginal);
+
+          try {
+            const dados = await extrairProduto(link);
+            return {
+              nome: dados.nome,
+              categoria: dados.categoria,
+              precoAtual: dados.precoAtual,
+              imagem: dados.imagem,
+              urlFinal: link,
+              fonte: "mercado_livre_api_fallback",
+            };
+          } catch (erroApi) {
+            const mensagemApi =
+              erroApi instanceof Error ? erroApi.message : String(erroApi);
+
+            throw new Error(
+              `Mercado Livre falhou na URL direta (${mensagemDireta}), no link original (${mensagemOriginal}) e na API (${mensagemApi}).`
+            );
+          }
+        }
+      }
 
       try {
         const dados = await extrairProduto(link);
@@ -65,7 +140,7 @@ async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
           erroApi instanceof Error ? erroApi.message : String(erroApi);
 
         throw new Error(
-          `Mercado Livre falhou no Worker (${mensagemWorker}) e na API (${mensagemApi}).`
+          `Mercado Livre falhou no Worker (${mensagemDireta}) e na API (${mensagemApi}).`
         );
       }
     }
@@ -282,52 +357,61 @@ export async function monitorarTodosProdutosV2() {
   if (error) throw new Error(`Erro ao buscar produtos: ${error.message}`);
 
   const produtos = (data || []) as ProdutoBanco[];
+  const produtosMl = produtos.filter(ehMercadoLivre);
+  const produtosOutros = produtos.filter((produto) => !ehMercadoLivre(produto));
   const resultados: Array<Record<string, unknown>> = [];
   let alterados = 0;
   let erros = 0;
   let indisponiveis = 0;
 
-  const LIMITE_CONCORRENCIA = 3;
+  async function processar(produto: ProdutoBanco) {
+    try {
+      const resultado = await consultarPrecoProdutoV2(produto.id);
+      return {
+        id: produto.id,
+        nome: produto.nome,
+        loja: produto.loja,
+        sucesso: true as const,
+        precoMudou: resultado.precoMudou,
+        indisponivel: Boolean(resultado.indisponivel),
+        fonte: resultado.dadosAtuais?.fonte || null,
+      };
+    } catch (erroProduto) {
+      const mensagem =
+        erroProduto instanceof Error ? erroProduto.message : "Erro desconhecido";
+      await registrarErro(produto, mensagem);
+      return {
+        id: produto.id,
+        nome: produto.nome,
+        loja: produto.loja,
+        sucesso: false as const,
+        erro: mensagem,
+      };
+    }
+  }
 
-  for (let indice = 0; indice < produtos.length; indice += LIMITE_CONCORRENCIA) {
-    const lote = produtos.slice(indice, indice + LIMITE_CONCORRENCIA);
+  // Mercado Livre roda sequencialmente para reduzir bloqueios/captcha.
+  for (const produto of produtosMl) {
+    resultados.push(await processar(produto));
+  }
 
-    const resultadosLote = await Promise.all(
-      lote.map(async (produto) => {
-        try {
-          const resultado = await consultarPrecoProdutoV2(produto.id);
-          return {
-            id: produto.id,
-            nome: produto.nome,
-            loja: produto.loja,
-            sucesso: true as const,
-            precoMudou: resultado.precoMudou,
-            indisponivel: Boolean(resultado.indisponivel),
-            fonte: resultado.dadosAtuais?.fonte || null,
-          };
-        } catch (erroProduto) {
-          const mensagem =
-            erroProduto instanceof Error ? erroProduto.message : "Erro desconhecido";
-          await registrarErro(produto, mensagem);
-          return {
-            id: produto.id,
-            nome: produto.nome,
-            loja: produto.loja,
-            sucesso: false as const,
-            erro: mensagem,
-          };
-        }
-      })
-    );
+  const LIMITE_OUTRAS_LOJAS = 3;
+  for (
+    let indice = 0;
+    indice < produtosOutros.length;
+    indice += LIMITE_OUTRAS_LOJAS
+  ) {
+    const lote = produtosOutros.slice(indice, indice + LIMITE_OUTRAS_LOJAS);
+    const resultadosLote = await Promise.all(lote.map(processar));
+    resultados.push(...resultadosLote);
+  }
 
-    for (const resultado of resultadosLote) {
-      if (resultado.sucesso) {
-        if (resultado.precoMudou) alterados += 1;
-        if (resultado.indisponivel) indisponiveis += 1;
-      } else {
-        erros += 1;
-      }
-      resultados.push(resultado);
+  for (const resultado of resultados) {
+    if (resultado.sucesso) {
+      if (resultado.precoMudou) alterados += 1;
+      if (resultado.indisponivel) indisponiveis += 1;
+    } else {
+      erros += 1;
     }
   }
 
