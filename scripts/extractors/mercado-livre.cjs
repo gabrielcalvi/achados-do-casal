@@ -26,6 +26,99 @@ async function extrairValorMonetario(page, seletorBase) {
   );
 }
 
+async function extrairPrecoPrincipalVisivel(page) {
+  const precoSegundaLinha = await extrairValorMonetario(
+    page,
+    ".ui-pdp-price__second-line"
+  );
+
+  if (precoSegundaLinha) {
+    return {
+      preco: precoSegundaLinha,
+      origem: "dom_second_line",
+    };
+  }
+
+  const candidatos = await page
+    .locator(".ui-pdp-price__main-container .andes-money-amount")
+    .evaluateAll((elementos) => {
+      function valorDoElemento(elemento) {
+        const inteiro =
+          elemento.querySelector(".andes-money-amount__fraction")?.textContent || "";
+        const centavos =
+          elemento.querySelector(".andes-money-amount__cents")?.textContent || "";
+
+        return {
+          inteiro: inteiro.replace(/\s+/g, " ").trim(),
+          centavos: centavos.replace(/\s+/g, " ").trim(),
+        };
+      }
+
+      return elementos.map((elemento, indice) => {
+        const valor = valorDoElemento(elemento);
+        const original = Boolean(
+          elemento.closest(".ui-pdp-price__original-value, del, s")
+        );
+        const segundaLinha = Boolean(
+          elemento.closest(".ui-pdp-price__second-line")
+        );
+
+        const linha =
+          elemento.closest(".ui-pdp-price__second-line") ||
+          elemento.parentElement?.parentElement ||
+          elemento.parentElement ||
+          elemento;
+
+        const contexto = String(linha.textContent || "")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        return {
+          ...valor,
+          indice,
+          original,
+          segundaLinha,
+          pix: /\bpix\b/i.test(contexto),
+          parcelado: /\b\d+\s*x\b/i.test(contexto),
+          contexto,
+        };
+      });
+    })
+    .catch(() => []);
+
+  const validos = candidatos
+    .map((item) => ({
+      ...item,
+      preco: normalizarPreco(
+        item.centavos
+          ? `${item.inteiro},${item.centavos}`
+          : item.inteiro
+      ),
+    }))
+    .filter(
+      (item) =>
+        item.preco &&
+        !item.original &&
+        !item.parcelado &&
+        Number(item.preco) > 0
+    );
+
+  const escolhido =
+    validos.find((item) => item.pix) ||
+    validos.find((item) => item.segundaLinha) ||
+    validos[0];
+
+  return escolhido
+    ? {
+        preco: escolhido.preco,
+        origem: escolhido.pix ? "dom_pix" : "dom_main_price",
+      }
+    : {
+        preco: "",
+        origem: "",
+      };
+}
+
 async function extrairMercadoLivre(page, urlProduto) {
   console.log("[WORKER] Extraindo Mercado Livre:", urlProduto);
 
@@ -33,25 +126,28 @@ async function extrairMercadoLivre(page, urlProduto) {
 
   await page.goto(urlProduto, {
     waitUntil: "domcontentloaded",
-    timeout: 30000,
+    timeout: 45000,
   });
 
   console.log("[WORKER] page.goto() concluído");
 
   await page
     .locator(
-      'h1.ui-pdp-title, script[type="application/ld+json"]'
+      'h1.ui-pdp-title, .ui-pdp-price__main-container, script[type="application/ld+json"]'
     )
     .first()
     .waitFor({
       state: "attached",
-      timeout: 15000,
+      timeout: 20000,
     })
     .catch(() => undefined);
 
+  const urlFinal = page.url();
+
   if (
-    page.url().includes("/gz/account-verification") ||
-    page.url().includes("/captcha/")
+    urlFinal.includes("/gz/account-verification") ||
+    urlFinal.includes("/captcha/") ||
+    urlFinal.includes("/account-verification")
   ) {
     throw new Error(
       "O Mercado Livre solicitou uma nova verificação de segurança."
@@ -77,20 +173,24 @@ async function extrairMercadoLivre(page, urlProduto) {
       )
     );
 
-  const precoAtual =
+  const precoVisivel = await extrairPrecoPrincipalVisivel(page);
+  const precoJson =
     normalizarPreco(oferta?.price) ||
-    normalizarPreco(oferta?.lowPrice) ||
-    (await extrairValorMonetario(
-      page,
-      ".ui-pdp-price__second-line"
-    ));
+    normalizarPreco(oferta?.lowPrice);
+
+  const precoAtual = precoVisivel.preco || precoJson;
+  const precoOrigem = precoVisivel.preco
+    ? precoVisivel.origem
+    : precoJson
+      ? "json_ld"
+      : "";
 
   let precoAntigo =
-    normalizarPreco(oferta?.highPrice) ||
     (await extrairValorMonetario(
       page,
       ".ui-pdp-price__original-value"
-    ));
+    )) ||
+    normalizarPreco(oferta?.highPrice);
 
   if (
     precoAntigo &&
@@ -219,13 +319,13 @@ async function extrairMercadoLivre(page, urlProduto) {
 
   if (!nome) {
     throw new Error(
-      `Nome do produto não encontrado. URL final: ${page.url()}`
+      `Nome do produto não encontrado. URL final: ${urlFinal}`
     );
   }
 
   if (!precoAtual) {
     throw new Error(
-      `Preço do produto não encontrado. URL final: ${page.url()}`
+      `Preço do produto não encontrado. URL final: ${urlFinal}`
     );
   }
 
@@ -235,13 +335,14 @@ async function extrairMercadoLivre(page, urlProduto) {
     loja: "Mercado Livre",
     precoAntigo,
     precoAtual,
+    precoOrigem,
     parcelas,
     freteGratis,
     imagem,
     imagensGaleria,
     avaliacao,
     vendas,
-    urlFinal: page.url(),
+    urlFinal,
   };
 
   console.log("[WORKER] Produto Mercado Livre extraído:", dados);
