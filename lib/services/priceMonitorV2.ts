@@ -37,7 +37,7 @@ function extrairItemIdMercadoLivre(link: string): string | null {
   try {
     texto = decodeURIComponent(link);
   } catch {
-    // Mantém o link original quando houver codificação incompleta.
+    // Mantem o link original se a codificacao estiver incompleta.
   }
 
   const candidatos = [
@@ -53,12 +53,73 @@ function extrairItemIdMercadoLivre(link: string): string | null {
     : null;
 }
 
-function linkDiretoMercadoLivre(link: string): string {
+function linkDiretoMercadoLivre(link: string): string | null {
   const itemId = extrairItemIdMercadoLivre(link);
-  if (!itemId) return link;
+  if (!itemId) return null;
 
   const numero = itemId.replace(/^MLB/i, "");
   return `https://produto.mercadolivre.com.br/MLB-${numero}-_JM`;
+}
+
+async function extrairMercadoLivreSeguro(
+  produto: ProdutoBanco,
+  link: string
+): Promise<DadosMonitor> {
+  const erros: string[] = [];
+
+  // Primeiro tenta exatamente o link salvo no produto. Isso preserva WID,
+  // variacao e contexto promocional do anuncio que o usuario realmente abre.
+  try {
+    const dados = await extrairMercadoLivreWorker(link);
+    return {
+      nome: dados.nome,
+      categoria: dados.categoria,
+      precoAtual: dados.precoAtual,
+      imagem: dados.imagem,
+      urlFinal: dados.urlFinal || link,
+      fonte: "mercado_livre_playwright_link_original",
+    };
+  } catch (erroOriginal) {
+    erros.push(
+      `link original: ${
+        erroOriginal instanceof Error ? erroOriginal.message : String(erroOriginal)
+      }`
+    );
+  }
+
+  // Se houver WID, tenta o anuncio direto como segunda chance.
+  const linkDireto = linkDiretoMercadoLivre(link);
+  if (linkDireto && linkDireto !== link) {
+    try {
+      const dados = await extrairMercadoLivreWorker(linkDireto);
+      return {
+        nome: dados.nome,
+        categoria: dados.categoria,
+        precoAtual: dados.precoAtual,
+        imagem: dados.imagem,
+        urlFinal: dados.urlFinal || linkDireto,
+        fonte: "mercado_livre_playwright_url_direta",
+      };
+    } catch (erroDireto) {
+      erros.push(
+        `URL direta: ${
+          erroDireto instanceof Error ? erroDireto.message : String(erroDireto)
+        }`
+      );
+    }
+  }
+
+  // REGRA CRITICA:
+  // a API/catalogo do Mercado Livre pode devolver o preco base/parcelado e nao
+  // o preco promocional/Pix que aparece para o consumidor. Por isso, quando o
+  // Playwright falha, NAO usamos a API para sobrescrever preco_atual.
+  // E melhor manter o ultimo preco confirmado e marcar erro do que publicar
+  // um valor incorreto como aconteceu no Moto G17 (799 -> 887,78).
+  throw new Error(
+    `Mercado Livre sem preco visual confirmado para o produto ${produto.id}. ${erros.join(
+      " | "
+    )}`
+  );
 }
 
 async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
@@ -66,84 +127,7 @@ async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
   if (!link) throw new Error("Produto sem link original para monitoramento.");
 
   if (ehMercadoLivre(produto)) {
-    const linkWorker = linkDiretoMercadoLivre(link);
-
-    try {
-      const dados = await extrairMercadoLivreWorker(linkWorker);
-      return {
-        nome: dados.nome,
-        categoria: dados.categoria,
-        precoAtual: dados.precoAtual,
-        imagem: dados.imagem,
-        urlFinal: link,
-        fonte:
-          linkWorker === link
-            ? "mercado_livre_playwright_worker"
-            : "mercado_livre_playwright_worker_url_direta",
-      };
-    } catch (erroWorkerDireto) {
-      const mensagemDireta =
-        erroWorkerDireto instanceof Error
-          ? erroWorkerDireto.message
-          : String(erroWorkerDireto);
-
-      if (linkWorker !== link) {
-        try {
-          const dados = await extrairMercadoLivreWorker(link);
-          return {
-            nome: dados.nome,
-            categoria: dados.categoria,
-            precoAtual: dados.precoAtual,
-            imagem: dados.imagem,
-            urlFinal: link,
-            fonte: "mercado_livre_playwright_worker_link_original",
-          };
-        } catch (erroWorkerOriginal) {
-          const mensagemOriginal =
-            erroWorkerOriginal instanceof Error
-              ? erroWorkerOriginal.message
-              : String(erroWorkerOriginal);
-
-          try {
-            const dados = await extrairProduto(link);
-            return {
-              nome: dados.nome,
-              categoria: dados.categoria,
-              precoAtual: dados.precoAtual,
-              imagem: dados.imagem,
-              urlFinal: link,
-              fonte: "mercado_livre_api_fallback",
-            };
-          } catch (erroApi) {
-            const mensagemApi =
-              erroApi instanceof Error ? erroApi.message : String(erroApi);
-
-            throw new Error(
-              `Mercado Livre falhou na URL direta (${mensagemDireta}), no link original (${mensagemOriginal}) e na API (${mensagemApi}).`
-            );
-          }
-        }
-      }
-
-      try {
-        const dados = await extrairProduto(link);
-        return {
-          nome: dados.nome,
-          categoria: dados.categoria,
-          precoAtual: dados.precoAtual,
-          imagem: dados.imagem,
-          urlFinal: link,
-          fonte: "mercado_livre_api_fallback",
-        };
-      } catch (erroApi) {
-        const mensagemApi =
-          erroApi instanceof Error ? erroApi.message : String(erroApi);
-
-        throw new Error(
-          `Mercado Livre falhou no Worker (${mensagemDireta}) e na API (${mensagemApi}).`
-        );
-      }
-    }
+    return extrairMercadoLivreSeguro(produto, link);
   }
 
   const dados = await extrairProduto(link);
@@ -153,24 +137,28 @@ async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
     precoAtual: dados.precoAtual,
     imagem: dados.imagem,
     urlFinal: link,
-    fonte: `${String(produto.loja || "loja").toLowerCase().replace(/\s+/g, "_")}_worker`,
+    fonte: `${String(produto.loja || "loja")
+      .toLowerCase()
+      .replace(/\s+/g, "_")}_worker`,
   };
 }
 
 function validarPreco(precoBanco: number, precoNovo: number) {
   if (!Number.isFinite(precoNovo)) {
-    throw new Error("A consulta retornou um preço inválido.");
+    throw new Error("A consulta retornou um preco invalido.");
   }
 
   if (precoNovo < 0) {
-    throw new Error("A consulta retornou um preço negativo.");
+    throw new Error("A consulta retornou um preco negativo.");
   }
 
   if (precoBanco > 0 && precoNovo > 0) {
     const proporcao = precoNovo / precoBanco;
     if (proporcao < 0.05 || proporcao > 20) {
       throw new Error(
-        `Preço suspeito bloqueado: R$ ${precoNovo.toFixed(2)} para produto publicado a R$ ${precoBanco.toFixed(2)}.`
+        `Preco suspeito bloqueado: R$ ${precoNovo.toFixed(
+          2
+        )} para produto publicado a R$ ${precoBanco.toFixed(2)}.`
       );
     }
   }
@@ -185,7 +173,7 @@ async function limparPendenciasAntigas(produtoId: number, agora: string) {
     .eq("status", "pendente");
 
   if (error) {
-    console.error(`Erro ao limpar pendências antigas do produto ${produtoId}:`, error);
+    console.error(`Erro ao limpar pendencias antigas do produto ${produtoId}:`, error);
   }
 }
 
@@ -198,7 +186,7 @@ async function limparTodasPendenciasPreco() {
     .eq("status", "pendente");
 
   if (error) {
-    console.error("Erro ao limpar pendências antigas do monitor:", error);
+    console.error("Erro ao limpar pendencias antigas do monitor:", error);
   }
 }
 
@@ -206,10 +194,12 @@ async function registrarErro(produto: ProdutoBanco, mensagem: string) {
   const agora = new Date().toISOString();
   const falhas = Math.max(0, Number(produto.monitor_falhas_consecutivas) || 0) + 1;
 
+  // ultima_verificacao representa verificacao DE PRECO BEM-SUCEDIDA.
+  // Em erro, nao atualizamos esse campo; assim o sistema nao finge que um
+  // preco antigo foi conferido agora.
   const { error } = await supabaseAdmin
     .from("produtos")
     .update({
-      ultima_verificacao: agora,
       monitor_erro: mensagem.slice(0, 1000),
       monitor_erro_em: agora,
       monitor_falhas_consecutivas: falhas,
@@ -238,7 +228,7 @@ async function desativarIndisponivel(produto: ProdutoBanco, agora: string) {
     .eq("id", produto.id);
 
   if (error) {
-    throw new Error(`Erro ao desativar produto indisponível: ${error.message}`);
+    throw new Error(`Erro ao desativar produto indisponivel: ${error.message}`);
   }
 }
 
@@ -251,7 +241,7 @@ async function carregarProduto(id: number): Promise<ProdutoBanco> {
     .eq("id", id)
     .single();
 
-  if (error || !data) throw new Error("Produto não encontrado.");
+  if (error || !data) throw new Error("Produto nao encontrado.");
   return data as ProdutoBanco;
 }
 
@@ -263,7 +253,7 @@ export async function consultarPrecoProdutoV2(id: number) {
   const precoTexto = String(dadosAtuais.precoAtual ?? "").trim();
 
   if (!precoTexto) {
-    throw new Error("A consulta não retornou preço para o produto.");
+    throw new Error("A consulta nao retornou preco para o produto.");
   }
 
   const precoNovo = Number(precoTexto);
@@ -318,7 +308,7 @@ export async function consultarPrecoProdutoV2(id: number) {
       });
 
     if (historicoError) {
-      console.error("Erro ao registrar histórico de preço:", historicoError);
+      console.error("Erro ao registrar historico de preco:", historicoError);
     }
   }
 
@@ -390,7 +380,7 @@ export async function monitorarTodosProdutosV2() {
     }
   }
 
-  // Mercado Livre roda sequencialmente para reduzir bloqueios/captcha.
+  // ML sequencial: menos captcha e nenhum bombardeio de requisicoes.
   for (const produto of produtosMl) {
     resultados.push(await processar(produto));
   }
