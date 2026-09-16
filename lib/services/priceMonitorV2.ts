@@ -10,6 +10,8 @@ type ProdutoBanco = {
   categoria: string | null;
   preco_atual: string | number | null;
   monitor_falhas_consecutivas: number | null;
+  monitor_erro?: string | null;
+  ativo?: boolean | null;
 };
 
 type DadosMonitor = {
@@ -67,8 +69,6 @@ async function extrairMercadoLivreSeguro(
 ): Promise<DadosMonitor> {
   const erros: string[] = [];
 
-  // Primeiro tenta exatamente o link salvo no produto. Isso preserva WID,
-  // variacao e contexto promocional do anuncio que o usuario realmente abre.
   try {
     const dados = await extrairMercadoLivreWorker(link);
     return {
@@ -87,7 +87,6 @@ async function extrairMercadoLivreSeguro(
     );
   }
 
-  // Se houver WID, tenta o anuncio direto como segunda chance.
   const linkDireto = linkDiretoMercadoLivre(link);
   if (linkDireto && linkDireto !== link) {
     try {
@@ -109,12 +108,6 @@ async function extrairMercadoLivreSeguro(
     }
   }
 
-  // REGRA CRITICA:
-  // a API/catalogo do Mercado Livre pode devolver o preco base/parcelado e nao
-  // o preco promocional/Pix que aparece para o consumidor. Por isso, quando o
-  // Playwright falha, NAO usamos a API para sobrescrever preco_atual.
-  // E melhor manter o ultimo preco confirmado e marcar erro do que publicar
-  // um valor incorreto como aconteceu no Moto G17 (799 -> 887,78).
   throw new Error(
     `Mercado Livre sem preco visual confirmado para o produto ${produto.id}. ${erros.join(
       " | "
@@ -194,16 +187,22 @@ async function registrarErro(produto: ProdutoBanco, mensagem: string) {
   const agora = new Date().toISOString();
   const falhas = Math.max(0, Number(produto.monitor_falhas_consecutivas) || 0) + 1;
 
-  // ultima_verificacao representa verificacao DE PRECO BEM-SUCEDIDA.
-  // Em erro, nao atualizamos esse campo; assim o sistema nao finge que um
-  // preco antigo foi conferido agora.
+  const atualizacao: Record<string, unknown> = {
+    monitor_erro: mensagem.slice(0, 1000),
+    monitor_erro_em: agora,
+    monitor_falhas_consecutivas: falhas,
+  };
+
+  // No Mercado Livre, preco nao confirmado sai imediatamente da vitrine.
+  // O produto continua sendo tentado pelo monitor e volta sozinho assim que
+  // uma leitura visual confiavel tiver sucesso.
+  if (ehMercadoLivre(produto)) {
+    atualizacao.ativo = false;
+  }
+
   const { error } = await supabaseAdmin
     .from("produtos")
-    .update({
-      monitor_erro: mensagem.slice(0, 1000),
-      monitor_erro_em: agora,
-      monitor_falhas_consecutivas: falhas,
-    })
+    .update(atualizacao)
     .eq("id", produto.id);
 
   if (error) {
@@ -236,7 +235,7 @@ async function carregarProduto(id: number): Promise<ProdutoBanco> {
   const { data, error } = await supabaseAdmin
     .from("produtos")
     .select(
-      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas"
+      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo"
     )
     .eq("id", id)
     .single();
@@ -280,6 +279,7 @@ export async function consultarPrecoProdutoV2(id: number) {
   await limparPendenciasAntigas(produto.id, agora);
 
   const atualizacao: Record<string, unknown> = {
+    ativo: true,
     ultima_verificacao: agora,
     preco_monitorado: precoNovo,
     preco_alterado: false,
@@ -339,14 +339,20 @@ export async function monitorarTodosProdutosV2() {
   const { data, error } = await supabaseAdmin
     .from("produtos")
     .select(
-      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas"
+      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo"
     )
-    .eq("ativo", true)
     .order("id");
 
   if (error) throw new Error(`Erro ao buscar produtos: ${error.message}`);
 
-  const produtos = (data || []) as ProdutoBanco[];
+  // Produtos ativos sempre sao monitorados. Produtos ML em quarentena tambem,
+  // para poderem voltar automaticamente quando a leitura visual funcionar.
+  const produtos = ((data || []) as ProdutoBanco[]).filter(
+    (produto) =>
+      produto.ativo === true ||
+      (ehMercadoLivre(produto) && Boolean(produto.monitor_erro))
+  );
+
   const produtosMl = produtos.filter(ehMercadoLivre);
   const produtosOutros = produtos.filter((produto) => !ehMercadoLivre(produto));
   const resultados: Array<Record<string, unknown>> = [];
@@ -380,7 +386,6 @@ export async function monitorarTodosProdutosV2() {
     }
   }
 
-  // ML sequencial: menos captcha e nenhum bombardeio de requisicoes.
   for (const produto of produtosMl) {
     resultados.push(await processar(produto));
   }
