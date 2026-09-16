@@ -1,7 +1,7 @@
 import {
-  consultarPrecoProduto,
-  monitorarTodosProdutos,
-} from "@/lib/services/priceMonitor";
+  consultarPrecoProdutoV2,
+  monitorarTodosProdutosV2,
+} from "@/lib/services/priceMonitorV2";
 import {
   diagnosticarMercadoLivreApiPublica,
   diagnosticarMercadoLivreHttp,
@@ -115,7 +115,6 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const idParam = url.searchParams.get("id");
     const modo = url.searchParams.get("modo");
-    const modoLocal = modo === "local";
 
     if (idParam) {
       const id = Number(idParam);
@@ -132,68 +131,45 @@ export async function GET(request: Request) {
 
       if (modo === "http-ml") {
         const resultado = await diagnosticarMercadoLivreHttp(id);
-
-        return Response.json({
-          sucesso: true,
-          modo: "diagnostico_http_ml",
-          resultado,
-        });
+        return Response.json({ sucesso: true, modo: "diagnostico_http_ml", resultado });
       }
 
       if (modo === "api-publica-ml") {
         const resultado = await diagnosticarMercadoLivreApiPublica(id);
-
-        return Response.json({
-          sucesso: true,
-          modo: "diagnostico_api_publica_ml",
-          resultado,
-        });
+        return Response.json({ sucesso: true, modo: "diagnostico_api_publica_ml", resultado });
       }
 
       if (modo === "preco-oficial-ml") {
         const resultado = await diagnosticarMercadoLivrePrecoOficial(id);
-
-        return Response.json({
-          sucesso: true,
-          modo: "diagnostico_preco_oficial_ml",
-          resultado,
-        });
+        return Response.json({ sucesso: true, modo: "diagnostico_preco_oficial_ml", resultado });
       }
 
       if (modo === "catalogo-ml") {
         const resultado = await diagnosticarCatalogo(id);
-
-        return Response.json({
-          sucesso: true,
-          modo: "diagnostico_catalogo_ml",
-          resultado,
-        });
+        return Response.json({ sucesso: true, modo: "diagnostico_catalogo_ml", resultado });
       }
 
-      const resultado = await consultarPrecoProduto(id, null, modoLocal);
+      const resultado = await consultarPrecoProdutoV2(id);
 
       return Response.json({
         sucesso: true,
-        modo: modoLocal ? "produto_individual_local" : "produto_individual",
+        modo: "produto_individual_v2",
         resultado,
       });
     }
 
-    const resultado = await monitorarTodosProdutos(modoLocal);
+    const resultado = await monitorarTodosProdutosV2();
 
     return Response.json({
       sucesso: true,
-      modo: modoLocal ? "monitor_local" : "monitor_remoto",
+      modo: "monitor_v2",
       ...resultado,
     });
   } catch (erro) {
     return Response.json(
       {
         sucesso: false,
-        erro:
-          erro instanceof Error
-            ? erro.message
-            : "Erro desconhecido",
+        erro: erro instanceof Error ? erro.message : "Erro desconhecido",
       },
       { status: 500 }
     );
