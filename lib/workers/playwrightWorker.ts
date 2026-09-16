@@ -1,7 +1,4 @@
-const WORKER_URL = (
-  process.env.PLAYWRIGHT_WORKER_URL ||
-  "http://127.0.0.1:4317"
-).replace(/\/$/, "");
+import { WORKER_URL } from "@/lib/workers/workerUrl";
 
 export type ProdutoExtraidoWorker = {
   nome: string;
@@ -37,7 +34,7 @@ export async function extrairMercadoLivreWorker(
 
     throw new Error(
       `O Playwright Worker não está acessível em ${WORKER_URL}. ` +
-        `Inicie-o com \"npm run playwright\". Detalhe: ${detalhe}`
+        `Detalhe: ${detalhe}`
     );
   }
 
