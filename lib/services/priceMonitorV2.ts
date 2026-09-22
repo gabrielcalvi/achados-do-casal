@@ -404,10 +404,18 @@ export async function monitorarTodosProdutosV2() {
     resultados.push(...resultadosLote);
   }
 
-  // Mercado Livre fica por ultimo e sequencial. Assim Amazon/KaBuM sao
-  // atualizados mesmo se o ML estiver com captcha ou verificacao de seguranca.
-  for (const produto of produtosMl) {
-    resultados.push(await processar(produto));
+  // Mercado Livre fica por ultimo e em lotes pequenos. Assim Amazon/KaBuM sao
+  // atualizados mesmo se o ML estiver com captcha, sem deixar a rota passar
+  // do limite de execucao da Vercel.
+  const LIMITE_MERCADO_LIVRE = 2;
+  for (
+    let indice = 0;
+    indice < produtosMl.length;
+    indice += LIMITE_MERCADO_LIVRE
+  ) {
+    const loteMl = produtosMl.slice(indice, indice + LIMITE_MERCADO_LIVRE);
+    const resultadosMl = await Promise.all(loteMl.map(processar));
+    resultados.push(...resultadosMl);
   }
 
   for (const resultado of resultados) {
