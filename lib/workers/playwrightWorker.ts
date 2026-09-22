@@ -25,7 +25,7 @@ export async function extrairMercadoLivreWorker(
       `${WORKER_URL}/extrair?url=${encodeURIComponent(link)}`,
       {
         cache: "no-store",
-        signal: AbortSignal.timeout(300000),
+        signal: AbortSignal.timeout(70000),
       }
     );
   } catch (erro) {
