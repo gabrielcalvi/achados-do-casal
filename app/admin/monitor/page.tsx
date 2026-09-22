@@ -108,7 +108,7 @@ export default async function MonitorPage() {
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm font-bold text-slate-500">Status</p>
             <strong className="mt-3 block text-xl text-emerald-600">● Automático</strong>
-            <span className="mt-1 block text-xs font-bold text-slate-400">4 execuções por dia</span>
+            <span className="mt-1 block text-xs font-bold text-slate-400">1 execução por hora</span>
           </div>
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm font-bold text-slate-500">Última verificação</p>
