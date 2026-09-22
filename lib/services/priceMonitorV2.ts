@@ -80,11 +80,20 @@ async function extrairMercadoLivreSeguro(
       fonte: "mercado_livre_playwright_link_original",
     };
   } catch (erroOriginal) {
-    erros.push(
-      `link original: ${
-        erroOriginal instanceof Error ? erroOriginal.message : String(erroOriginal)
-      }`
-    );
+    const mensagemOriginal =
+      erroOriginal instanceof Error ? erroOriginal.message : String(erroOriginal);
+
+    erros.push(`link original: ${mensagemOriginal}`);
+
+    if (
+      /verifica[cç][aã]o de seguran[cç]a|captcha|limite de tentativas/i.test(
+        mensagemOriginal
+      )
+    ) {
+      throw new Error(
+        `Mercado Livre bloqueou a leitura do produto ${produto.id}: ${mensagemOriginal}`
+      );
+    }
   }
 
   const linkDireto = linkDiretoMercadoLivre(link);
@@ -341,17 +350,15 @@ export async function monitorarTodosProdutosV2() {
     .select(
       "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo"
     )
+    .eq("ativo", true)
     .order("id");
 
   if (error) throw new Error(`Erro ao buscar produtos: ${error.message}`);
 
-  // Produtos ativos sempre sao monitorados. Produtos ML em quarentena tambem,
-  // para poderem voltar automaticamente quando a leitura visual funcionar.
-  const produtos = ((data || []) as ProdutoBanco[]).filter(
-    (produto) =>
-      produto.ativo === true ||
-      (ehMercadoLivre(produto) && Boolean(produto.monitor_erro))
-  );
+  // A varredura normal cuida apenas da vitrine ativa.
+  // Produtos ML em quarentena possuem uma rota separada de recuperacao,
+  // para que dezenas de falhas do ML nunca travem a atualizacao das outras lojas.
+  const produtos = (data || []) as ProdutoBanco[];
 
   const produtosMl = produtos.filter(ehMercadoLivre);
   const produtosOutros = produtos.filter((produto) => !ehMercadoLivre(produto));
@@ -386,10 +393,6 @@ export async function monitorarTodosProdutosV2() {
     }
   }
 
-  for (const produto of produtosMl) {
-    resultados.push(await processar(produto));
-  }
-
   const LIMITE_OUTRAS_LOJAS = 3;
   for (
     let indice = 0;
@@ -399,6 +402,12 @@ export async function monitorarTodosProdutosV2() {
     const lote = produtosOutros.slice(indice, indice + LIMITE_OUTRAS_LOJAS);
     const resultadosLote = await Promise.all(lote.map(processar));
     resultados.push(...resultadosLote);
+  }
+
+  // Mercado Livre fica por ultimo e sequencial. Assim Amazon/KaBuM sao
+  // atualizados mesmo se o ML estiver com captcha ou verificacao de seguranca.
+  for (const produto of produtosMl) {
+    resultados.push(await processar(produto));
   }
 
   for (const resultado of resultados) {
