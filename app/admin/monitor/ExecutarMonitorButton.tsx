@@ -143,8 +143,19 @@ export default function ExecutarMonitorButton() {
         }
       );
 
-      const resultado =
-        (await resposta.json()) as RespostaMonitor;
+      const textoResposta = await resposta.text();
+
+      let resultado: RespostaMonitor;
+
+      try {
+        resultado = JSON.parse(textoResposta) as RespostaMonitor;
+      } catch {
+        throw new Error(
+          resposta.status === 504
+            ? "A atualização demorou demais e foi encerrada pelo servidor. O monitor foi ajustado para evitar esse travamento nas próximas execuções."
+            : `O servidor respondeu em formato inesperado (HTTP ${resposta.status}).`
+        );
+      }
 
       if (!resposta.ok || resultado.sucesso === false) {
         throw new Error(
