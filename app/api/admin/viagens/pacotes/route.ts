@@ -35,6 +35,11 @@ function numero(valor: unknown) {
   return Number.isFinite(resultado) ? resultado : null;
 }
 
+function numeroPositivoOuNull(valor: unknown) {
+  const resultado = numero(valor);
+  return resultado != null && resultado > 0 ? resultado : null;
+}
+
 function urlValida(valor: string) {
   try {
     const url = new URL(valor);
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest) {
     const adultos = numero(body?.adultos) ?? 2;
     const criancas = numero(body?.criancas) ?? 0;
     const precoTotal = numero(body?.preco_total);
-    const precoPorPessoa = numero(body?.preco_por_pessoa);
+    const precoPorPessoa = numeroPositivoOuNull(body?.preco_por_pessoa);
 
     if (!titulo) {
       return NextResponse.json(
@@ -327,7 +332,7 @@ export async function PATCH(request: NextRequest) {
     const adultos = numero(body?.adultos) ?? 2;
     const criancas = numero(body?.criancas) ?? 0;
     const precoTotal = numero(body?.preco_total);
-    const precoPorPessoa = numero(body?.preco_por_pessoa);
+    const precoPorPessoa = numeroPositivoOuNull(body?.preco_por_pessoa);
 
     if (!id) {
       return NextResponse.json(
