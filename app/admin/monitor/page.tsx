@@ -2,6 +2,9 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import ExecutarMonitorButton from "./ExecutarMonitorButton";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function formatarPreco(valor: string | null) {
   if (!valor) return "—";
   const numero = Number(valor);
