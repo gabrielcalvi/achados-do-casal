@@ -375,9 +375,10 @@ export default function PacotesViagem() {
         adultos: Number(form.adultos),
         criancas: Number(form.criancas),
         preco_total: Number(form.preco_total),
-        preco_por_pessoa: form.preco_por_pessoa
-          ? Number(form.preco_por_pessoa)
-          : null,
+        preco_por_pessoa:
+          form.preco_por_pessoa && Number(form.preco_por_pessoa) > 0
+            ? Number(form.preco_por_pessoa)
+            : null,
         radar_preco_referencia: form.radar_preco_referencia
           ? Number(form.radar_preco_referencia)
           : null,
