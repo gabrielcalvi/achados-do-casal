@@ -108,6 +108,7 @@ export default function ProdutoPage() {
             <span className="mt-4 inline-flex rounded-full bg-pink-100 px-4 py-2 text-sm font-bold text-pink-700">❤️ O Casal tem em casa</span>
           )}
 
+          {produto.ativo ? (
           <div className="mt-6">
             {produto.preco_antigo && Number(produto.preco_antigo) > Number(produto.preco_atual) && (
               <p className="text-sm text-slate-400 line-through">
@@ -146,6 +147,15 @@ export default function ProdutoPage() {
           >
             Ver oferta
           </a>
+          </div>
+          ) : produto.review_completa ? (
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <p className="font-black text-amber-900">⭐ Review publicada · oferta não monitorada</p>
+              <p className="mt-2 text-sm leading-6 text-amber-800">
+                Mantemos esta página pela nossa experiência real com o produto. O preço e o link de compra antigos não estão sendo exibidos porque a oferta não está ativa no Achados.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
 
