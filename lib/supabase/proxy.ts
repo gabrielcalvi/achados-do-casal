@@ -45,7 +45,7 @@ export async function atualizarSessao(request: NextRequest) {
 
   const acessandoAdmin = caminho.startsWith("/admin");
   const acessandoLogin = caminho === "/login";
-  const apiInterna = caminho.startsWith("/api/debug/") || caminho === "/api/teste-monitor" || caminho === "/api/mercadolivre/teste" || caminho === "/api/mercadolivre/refresh-teste";
+  const apiInterna = caminho.startsWith("/api/debug/") || caminho === "/api/teste-monitor" || caminho === "/api/mercadolivre/login" || caminho === "/api/mercadolivre/me" || caminho === "/api/mercadolivre/refresh" || caminho === "/api/mercadolivre/teste" || caminho === "/api/mercadolivre/refresh-teste";
 
   if (!user && apiInterna) {
     return NextResponse.json({ erro: "Nao autorizado." }, { status: 401 });
