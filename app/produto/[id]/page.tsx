@@ -220,6 +220,23 @@ export default function ProdutoPage() {
               </div>
             )}
           </div>
+
+          {produto.review_completa && produto.review_link_compra && (
+            <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+              <p className="text-lg font-black text-emerald-900">
+                Gostou do produto?
+              </p>
+              <p className="mt-1 text-sm text-emerald-800">
+                Acesse pelo nosso link afiliado para conferir a oferta atual.
+              </p>
+              <a
+                href={`/produto/${produto.id}/review-ir?origem=site`}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-6 py-4 font-black text-white transition hover:bg-emerald-700"
+              >
+                Gostou do produto? Clique aqui e compre →
+              </a>
+            </div>
+          )}
         </section>
       )}
     </main>
