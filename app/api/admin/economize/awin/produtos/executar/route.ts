@@ -135,16 +135,23 @@ async function executar(request: NextRequest) {
 
     await comando(sandbox, "rm", ["-f", LOG_PATH, EXIT_PATH]);
 
+    const lojaSolicitada = request.nextUrl.searchParams.get("loja")?.trim() || "cea";
+    const configuracoesLoja: Record<string, { limite: string; desconto: string; catalogoSemDesconto: string }> = {
+      cea: { limite: "180", desconto: "10", catalogoSemDesconto: "cea" },
+      "lauri-esporte": { limite: "30", desconto: "10", catalogoSemDesconto: "" },
+    };
+    const configLoja = configuracoesLoja[lojaSolicitada] || configuracoesLoja.cea;
+
     const env = {
       AWIN_API_TOKEN: awinToken,
       AWIN_DATAFEED_API_KEY: datafeedKey,
       AWIN_PUBLISHER_ID: publisher,
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-      AWIN_PRODUTOS_LOJAS: "cea",
-      AWIN_PRODUTOS_LIMITE_POR_LOJA: "180",
-      AWIN_PRODUTOS_DESCONTO_MINIMO: "10",
-      AWIN_PRODUTOS_CATALOGO_LOJAS: "cea",
+      AWIN_PRODUTOS_LOJAS: lojaSolicitada,
+      AWIN_PRODUTOS_LIMITE_POR_LOJA: configLoja.limite,
+      AWIN_PRODUTOS_DESCONTO_MINIMO: configLoja.desconto,
+      AWIN_PRODUTOS_CATALOGO_LOJAS: configLoja.catalogoSemDesconto,
     };
 
     await sandbox.runCommand({
@@ -158,8 +165,8 @@ async function executar(request: NextRequest) {
     return NextResponse.json({
       sucesso: true,
       iniciado: true,
-      modo: "varredura_catalogo_cea_feed_atual_amostrado",
-      lojas: ["cea"],
+      modo: lojaSolicitada === "lauri-esporte" ? "varredura_lauri_desconto_real" : "varredura_catalogo_cea_feed_atual_amostrado",
+      lojas: [lojaSolicitada],
       feeds_por_execucao: 1,
       max_linhas_feed: 30000,
       feed_preferido: "mais_recente_retornado_pela_awin",
