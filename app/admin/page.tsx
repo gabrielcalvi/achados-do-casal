@@ -63,6 +63,7 @@ vendas: "",
   temEmCasa: false,
   reviewCompleta: false,
   videoUrl: "",
+  reviewLinkCompra: "",
   opiniaoCasal: "",
 notaCasal: "",
 tempoDeUso: "",
@@ -135,6 +136,7 @@ async function editarProduto(produto: any) {
     temEmCasa: produto.tem_em_casa ?? false,
     reviewCompleta: produto.review_completa ?? false,
     videoUrl: produto.video_url ?? "",
+    reviewLinkCompra: produto.review_link_compra ?? "",
     opiniaoCasal: produto.opiniao_casal ?? "",
     notaCasal: produto.nota_casal?.toString() ?? "",
     tempoDeUso: produto.tempo_de_uso ?? "",
@@ -263,6 +265,7 @@ function limparFormularioProduto() {
     temEmCasa: false,
     reviewCompleta: false,
     videoUrl: "",
+    reviewLinkCompra: "",
     opiniaoCasal: "",
     notaCasal: "",
     tempoDeUso: "",
@@ -314,6 +317,7 @@ vendas: formulario.vendas || null,
     tem_em_casa: formulario.temEmCasa,
     review_completa: formulario.reviewCompleta,
     video_url: formulario.videoUrl || null,
+    review_link_compra: formulario.reviewLinkCompra || null,
     opiniao_casal: formulario.opiniaoCasal || null,
 nota_casal: formulario.notaCasal
   ? Number(formulario.notaCasal)
@@ -590,7 +594,8 @@ vendas: "",
   temEmCasa: false,
   reviewCompleta: false,
   videoUrl: "",
-  opiniaoCasal: "",
+    reviewLinkCompra: "",
+    opiniaoCasal: "",
 notaCasal: "",
 tempoDeUso: "",
 pontosPositivos: "",
@@ -1325,6 +1330,30 @@ const produtosPaginados = produtosOrdenados.slice(
     className="w-full rounded-xl border p-3"
   />
 </div>
+
+{formulario.reviewCompleta && (
+  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+    <label className="mb-2 block font-black text-amber-900">
+      🛒 Link de compra do review
+    </label>
+    <p className="mb-3 text-sm text-amber-800">
+      Cole aqui o seu link afiliado manual. Este link é independente da oferta e do monitor de preço.
+    </p>
+    <input
+      type="url"
+      placeholder="https://meli.la/... ou outro link afiliado"
+      value={formulario.reviewLinkCompra}
+      onChange={(e) =>
+        setFormulario({
+          ...formulario,
+          reviewLinkCompra: e.target.value,
+        })
+      }
+      className="w-full rounded-xl border border-amber-300 bg-white p-4"
+    />
+  </div>
+)}
+
 {formulario.temEmCasa && (
   <div className="rounded-2xl border border-pink-200 bg-pink-50 p-5 mt-4">
     <h3 className="text-lg font-black text-pink-700">
