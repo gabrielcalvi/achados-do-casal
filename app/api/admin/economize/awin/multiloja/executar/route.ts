@@ -167,6 +167,7 @@ async function executar(
           "calvin-klein",
           "stanley",
           "nike",
+          "lauri-esporte",
         ],
         nike: {
           advertiserId: "17652",
