@@ -225,13 +225,15 @@ export async function GET(request: NextRequest) {
   checks.push({
     chave: "cupons_ml_v2",
     titulo: "Cupons Mercado Livre V2",
-    status: mlIdade > 10 ? "erro" : mlIdade > 7 ? "atencao" : "ok",
-    mensagem: mlIdade > 10 ? "Coleta atrasada." : "Coleta dentro da janela esperada.",
+    status: "atencao",
+    mensagem: "Coleta automatica pausada: sessao do Mercado Livre precisa ser renovada manualmente.",
     metricas: {
+      modo: "pausado",
+      motivo: "sessao_expirada",
       ultima_coleta_em: ultimaMl.data?.ultima_coleta_em || null,
       horas_desde_atualizacao: mlIdade,
+      recuperacao_automatica: false,
     },
-    ...(mlIdade > 10 ? { recuperar: "/api/admin/economize/cupons/ml-v2/executar" } : {}),
   });
 
   const monitorIdade = horasDesde(ultimaMonitor.data?.ultima_verificacao);
