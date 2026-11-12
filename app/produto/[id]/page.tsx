@@ -133,7 +133,6 @@ export default function ProdutoPage() {
                 {produto.frete_gratis && <p className="font-bold text-green-700">🚚 Frete grátis</p>}
               </div>
             )}
-          </div>
 
           {produto.updated_at && (
             <p className="mt-3 text-sm font-semibold text-slate-500">
