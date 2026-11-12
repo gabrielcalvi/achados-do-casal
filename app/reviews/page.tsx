@@ -28,7 +28,7 @@ function nota(valor: unknown) {
 export default async function ReviewsPage() {
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
-    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa,review_completa,ativo,preco_atual,preco_antigo,monitoramento_manual,updated_at")
+    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa,review_completa,ativo,preco_atual,preco_antigo,monitoramento_manual,updated_at,preco_manual_atualizado_em")
     .eq("review_completa", true)
     .order("id", { ascending: false });
 
@@ -151,7 +151,7 @@ export default async function ReviewsPage() {
 
                             <p className="mt-1 text-xs font-semibold text-orange-800">
                               {produto.monitoramento_manual
-                                ? `🖐️ Preço atualizado em ${new Date(produto.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às ${new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`
+                                ? `🖐️ Preço atualizado em ${new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às ${new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`
                                 : "✅ Preço monitorado pelo Achados"}
                             </p>
                           </div>
