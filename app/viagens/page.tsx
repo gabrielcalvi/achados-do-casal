@@ -1,17 +1,12 @@
-import RadarPublico from "./RadarPublico";
 import PacotesPublicos from "./PacotesPublicos";
 import IngressosPublicos from "./IngressosPublicos";
-import ViagemPorOrcamento from "./ViagemPorOrcamento";
+import SolicitarVooWhatsApp from "./SolicitarVooWhatsApp";
 import ExperienciaViagens from "./ExperienciaViagensV2";
 
 export const dynamic = "force-dynamic";
 
 const GRUPO_VIAGENS = "https://chat.whatsapp.com/LaeDJXjVTnhIpRf8FfR8Xx";
 
-const ORIGENS_MONITORADAS = [
-  "Porto Alegre", "São Paulo", "Rio de Janeiro", "Florianópolis",
-  "Brasília", "Belo Horizonte", "Salvador", "Recife",
-];
 
 export default function ViagensPage() {
   return (
@@ -50,10 +45,10 @@ export default function ViagensPage() {
           <div>
             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black tracking-wide">INTELIGÊNCIA DE VIAGEM</span>
             <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">Viajar melhor,<br />pagar menos<br /><span className="text-cyan-200">e decidir com dados.</span></h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-sky-100">Um Radar que acompanha preços reais, compara oportunidades e ajuda você a escolher melhor antes de comprar.</p>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-sky-100">Pacotes, ingressos e experiências continuam disponíveis no site. Para passagens aéreas, você envia sua rota e nós fazemos a pesquisa sob medida quando houver intenção real de compra.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#radar-real" className="rounded-2xl bg-white px-6 py-4 font-black text-sky-950 shadow-lg transition hover:bg-sky-50">Ver Radar inteligente</a>
-              <a href="#viajar-com-orcamento" className="rounded-2xl bg-emerald-400 px-6 py-4 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-300">Tenho um orçamento</a>
+              <a href="#cotacao-voo" className="rounded-2xl bg-white px-6 py-4 font-black text-sky-950 shadow-lg transition hover:bg-sky-50">Pedir cotação de voo</a>
+              <a href="#pacotes-viagem" className="rounded-2xl bg-emerald-400 px-6 py-4 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-300">Ver pacotes e ingressos</a>
             </div>
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-sky-100">
               <a href="#nossas-viagens" className="transition hover:text-white">Nossas viagens</a><span className="text-white/30">•</span>
@@ -62,18 +57,17 @@ export default function ViagensPage() {
           </div>
 
           <div className="rounded-[2rem] border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur sm:p-7">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><p className="text-sm font-black uppercase tracking-widest text-cyan-200">Nosso Radar de oportunidades</p><h2 className="mt-3 text-3xl font-black">O robô procura.<br />Você escolhe melhor.</h2></div>
-              <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-xs font-black text-cyan-100">8 origens · 160 rotas</span>
+            <p className="text-sm font-black uppercase tracking-widest text-cyan-200">Pesquisa sob demanda</p>
+            <h2 className="mt-3 text-3xl font-black">Menos robô procurando vazio.<br />Mais pesquisa para quem quer viajar.</h2>
+            <p className="mt-5 text-sm leading-6 text-sky-100">
+              O Radar automático de voos foi pausado para reduzir custo. A estrutura continua disponível no admin e as pesquisas são feitas manualmente quando alguém solicita uma rota.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Voos</p><p className="mt-1 text-xl font-black">Sob demanda</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Pacotes</p><p className="mt-1 text-xl font-black text-emerald-200">Ativos</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Ingressos</p><p className="mt-1 text-xl font-black text-amber-200">Ativos</p></div>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Origens</p><p className="mt-1 text-2xl font-black">8</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Destinos</p><p className="mt-1 text-2xl font-black">20</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Rotas</p><p className="mt-1 text-2xl font-black text-cyan-200">160</p></div>
-            </div>
-            <p className="mt-5 text-sm leading-6 text-sky-100">Novas rotas entram no ranking assim que recebem a primeira tarifa real. Sem preço inventado e sem favorecer parceiros.</p>
-            <div className="mt-5 flex flex-wrap gap-2">{ORIGENS_MONITORADAS.map((origem) => <span key={origem} className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white">{origem}</span>)}</div>
-          </div>
+          </div>          </div>
         </div>
 
         <style>{`
@@ -149,8 +143,7 @@ export default function ViagensPage() {
         `}</style>
       </section>
 
-      <RadarPublico />
-      <ViagemPorOrcamento />
+      <SolicitarVooWhatsApp whatsappNumero={process.env.NEXT_PUBLIC_WHATSAPP_COTACOES || ""} fallbackUrl={GRUPO_VIAGENS} />
       <PacotesPublicos />
       <IngressosPublicos />
       <ExperienciaViagens />
