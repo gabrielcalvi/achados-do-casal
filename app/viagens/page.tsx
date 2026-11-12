@@ -67,7 +67,7 @@ export default function ViagensPage() {
               <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Pacotes</p><p className="mt-1 text-xl font-black text-emerald-200">Ativos</p></div>
               <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Ingressos</p><p className="mt-1 text-xl font-black text-amber-200">Ativos</p></div>
             </div>
-          </div>          </div>
+          </div>
         </div>
 
         <style>{`
