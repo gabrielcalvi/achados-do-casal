@@ -108,7 +108,7 @@ export default function ProdutoPage() {
             <span className="mt-4 inline-flex rounded-full bg-pink-100 px-4 py-2 text-sm font-bold text-pink-700">❤️ O Casal tem em casa</span>
           )}
 
-          {produto.ativo ? (
+          {produto.ativo && !produto.monitoramento_manual ? (
           <div className="mt-6">
             {produto.preco_antigo && Number(produto.preco_antigo) > Number(produto.preco_atual) && (
               <p className="text-sm text-slate-400 line-through">
