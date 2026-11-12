@@ -21,6 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/cobasi`, lastModified: new Date(), changeFrequency: "daily", priority: 0.75 },
     { url: `${BASE}/casas-bahia`, lastModified: new Date(), changeFrequency: "daily", priority: 0.75 },
     { url: `${BASE}/gamer`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 },
+    { url: `${BASE}/lauri-esporte`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
   ];
 
   const [ofertas, produtos, pacotes, ingressos] = await Promise.all([
@@ -39,6 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from("viagens_pacotes")
       .select("id,updated_at")
       .eq("status", "ativo")
+      .in("disponibilidade_status", ["disponivel", "nao_verificado"])
       .or(`validade.is.null,validade.gt.${agora}`)
       .limit(1000),
     supabaseAdmin
