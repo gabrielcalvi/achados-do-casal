@@ -246,24 +246,17 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const viagem = ultimaViagem.data;
-  const viagemIdade = horasDesde(viagem?.iniciada_em);
-  const qtdPrecos = precos24h.count ?? 0;
-  const viagemErro = viagem?.status === "erro";
+  // Radar de voos pausado intencionalmente: consultas agora sao sob demanda.
   checks.push({
     chave: "radar_viagens",
     titulo: "Radar de Viagens",
-    status: viagemErro || viagemIdade > 10 || qtdPrecos === 0 ? "erro" : viagemIdade > 7 ? "atencao" : "ok",
-    mensagem: viagemErro
-      ? `Última execução falhou: ${String(viagem?.erro || "erro sem detalhe").slice(0, 180)}`
-      : qtdPrecos === 0
-        ? "Nenhum preço coletado nas últimas 24 horas."
-        : "Radar coletando normalmente.",
+    status: "ok",
+    mensagem: "Modo manual ativo. Coletas automaticas pagas estao pausadas para reduzir custo.",
     metricas: {
-      ultima_execucao: viagem?.iniciada_em || null,
-      status_execucao: viagem?.status || null,
-      precos_24h: qtdPrecos,
-      horas_desde_execucao: viagemIdade,
+      modo: "manual",
+      coletas_automaticas: false,
+      ultima_execucao: ultimaViagem.data?.iniciada_em || null,
+      precos_24h: precos24h.count ?? 0,
     },
   });
 
