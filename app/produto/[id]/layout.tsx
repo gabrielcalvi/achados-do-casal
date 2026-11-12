@@ -28,12 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: produto } = await supabaseAdmin
     .from("produtos")
-    .select("id,nome,loja,imagem,preco_atual,preco_antigo,ativo")
+    .select("id,nome,loja,imagem,preco_atual,preco_antigo,ativo,review_completa,nota_casal,tempo_de_uso")
     .eq("id", numero)
-    .eq("ativo", true)
     .maybeSingle();
 
-  if (!produto) {
+  if (!produto || (!produto.ativo && !produto.review_completa)) {
     return {
       title: "Produto não encontrado | Achados do Casal",
       robots: { index: false, follow: false },
@@ -41,9 +40,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const preco = moeda(produto.preco_atual);
-  const descricao = preco
-    ? `${preco} na ${produto.loja}. Confira preço, estoque e disponibilidade no Achados do Casal.`
-    : `Confira este achado na ${produto.loja}. Preço e disponibilidade podem mudar.`;
+  const descricao = produto.review_completa
+    ? `Review real do Achados do Casal: ${produto.nome}. ${produto.nota_casal ? `Nota ${produto.nota_casal}/10. ` : ""}${produto.tempo_de_uso ? `Tempo de uso: ${produto.tempo_de_uso}.` : ""}`
+    : preco
+      ? `${preco} na ${produto.loja}. Confira preço, estoque e disponibilidade no Achados do Casal.`
+      : `Confira este achado na ${produto.loja}. Preço e disponibilidade podem mudar.`;
 
   const canonical = `https://achadosdocasal.com.br/produto/${produto.id}`;
   const imagem = produto.imagem || undefined;
