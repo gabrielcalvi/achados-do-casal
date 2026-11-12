@@ -80,7 +80,7 @@ export default async function ReviewsPage() {
                 return (
                   <article
                     key={produto.id}
-                    className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                    className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                   >
                     <Link
                       href={`/produto/${produto.id}`}
@@ -99,16 +99,16 @@ export default async function ReviewsPage() {
                       />
                     </Link>
 
-                    <div className="p-6">
+                    <div className="flex flex-1 flex-col p-6">
                       <p className="text-xs font-black uppercase text-blue-800">
                         {produto.loja}
                       </p>
 
-                      <h2 className="mt-2 line-clamp-3 text-xl font-black leading-7">
+                      <h2 className="mt-2 min-h-[84px] line-clamp-3 text-xl font-black leading-7">
                         {produto.nome}
                       </h2>
 
-                      <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div className="mt-5 grid min-h-[84px] grid-cols-2 gap-3">
                         <div className="rounded-2xl bg-amber-50 p-4">
                           <p className="text-xs font-bold text-slate-500">Nota do casal</p>
                           <p className="mt-1 text-2xl font-black">
@@ -124,11 +124,15 @@ export default async function ReviewsPage() {
                         </div>
                       </div>
 
-                      {!produto.ativo ? (
-                        <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">
-                          Review ativa · oferta atual não monitorada.
-                        </p>
-                      ) : null}
+                      <div className="mt-4 min-h-[44px]">
+                        {!produto.ativo ? (
+                          <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">
+                            Review ativa · oferta atual não monitorada.
+                          </p>
+                        ) : (
+                          <div aria-hidden="true" className="h-[44px]" />
+                        )}
+                      </div>
 
                       <Link
                         href={`/produto/${produto.id}`}
