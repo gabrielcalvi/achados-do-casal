@@ -595,6 +595,7 @@ notaCasal: "",
 tempoDeUso: "",
 pontosPositivos: "",
 pontosNegativos: "",
+  monitoramentoManual: false,
 });
 
   setAbrirFormulario(false);
