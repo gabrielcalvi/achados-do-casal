@@ -93,6 +93,66 @@ function identificarDestino(url) {
   return "categoria_ou_pagina";
 }
 
+function expirouPeloTexto(item, agoraMs = Date.now()) {
+  const texto = [
+    item?.title,
+    item?.description,
+    item?.terms,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const inicioMs = Date.parse(item?.startDate || "");
+  const toleranciaMs = 36 * 60 * 60 * 1000;
+
+  if (/\bso hoje\b|\bpromocao relampago\b|\boferta relampago\b/.test(texto)) {
+    if (Number.isFinite(inicioMs) && agoraMs > inicioMs + toleranciaMs) {
+      return true;
+    }
+  }
+
+  if (/\bate o fim do mes\b|\bvalida ate o fim do mes\b|\bvalido ate o fim do mes\b/.test(texto)) {
+    if (Number.isFinite(inicioMs)) {
+      const inicio = new Date(inicioMs);
+      const fimMesMs = Date.UTC(
+        inicio.getUTCFullYear(),
+        inicio.getUTCMonth() + 1,
+        1
+      ) - 1;
+
+      if (agoraMs > fimMesMs + toleranciaMs) {
+        return true;
+      }
+    }
+  }
+
+  const padraoData = /(?:valido|valida|oferta valida|ate)\s*(?:ate\s*)?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g;
+  let match;
+
+  while ((match = padraoData.exec(texto)) !== null) {
+    const dia = Number(match[1]);
+    const mes = Number(match[2]);
+    let ano = match[3] ? Number(match[3]) : null;
+
+    if (ano !== null && ano < 100) ano += 2000;
+    if (ano === null) {
+      ano = Number.isFinite(inicioMs)
+        ? new Date(inicioMs).getUTCFullYear()
+        : new Date(agoraMs).getUTCFullYear();
+    }
+
+    const fimDiaMs = Date.UTC(ano, mes - 1, dia, 23, 59, 59, 999);
+    if (Number.isFinite(fimDiaMs) && agoraMs > fimDiaMs + toleranciaMs) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function main() {
   carregarEnvLocal();
 
@@ -154,6 +214,13 @@ async function main() {
       }
 
       if (Number.isFinite(fim) && fim <= agora) {
+        return false;
+      }
+
+      // A Awin pode manter vouchers marcados como "active" por muito tempo,
+      // mesmo quando o proprio texto diz "so hoje", "relampago" ou traz uma
+      // data curta ja vencida. Nesses casos, prevalece a semantica da oferta.
+      if (expirouPeloTexto(item, agora)) {
         return false;
       }
 
