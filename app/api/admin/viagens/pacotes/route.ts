@@ -99,6 +99,8 @@ export async function GET() {
       companhia_aerea,
       bagagem,
       preco_total,
+      impostos_taxas_encargos,
+      preco_total_final,
       preco_por_pessoa,
       moeda,
       imagem_url,
@@ -164,6 +166,8 @@ export async function POST(request: NextRequest) {
     const adultos = numero(body?.adultos) ?? 2;
     const criancas = numero(body?.criancas) ?? 0;
     const precoTotal = numero(body?.preco_total);
+    const impostosTaxasEncargos = numeroPositivoOuNull(body?.impostos_taxas_encargos);
+    const precoTotalFinal = numeroPositivoOuNull(body?.preco_total_final) || (precoTotal && impostosTaxasEncargos ? precoTotal + impostosTaxasEncargos : null);
     const precoPorPessoa = numeroPositivoOuNull(body?.preco_por_pessoa);
 
     if (!titulo) {
@@ -255,6 +259,8 @@ export async function POST(request: NextRequest) {
       companhia_aerea: texto(body?.companhia_aerea) || null,
       bagagem: texto(body?.bagagem) || null,
       preco_total: precoTotal,
+      impostos_taxas_encargos: impostosTaxasEncargos,
+      preco_total_final: precoTotalFinal,
       preco_por_pessoa: precoPorPessoa,
       moeda: texto(body?.moeda) || "BRL",
       imagem_url: imagemUrl || null,
@@ -332,6 +338,8 @@ export async function PATCH(request: NextRequest) {
     const adultos = numero(body?.adultos) ?? 2;
     const criancas = numero(body?.criancas) ?? 0;
     const precoTotal = numero(body?.preco_total);
+    const impostosTaxasEncargos = numeroPositivoOuNull(body?.impostos_taxas_encargos);
+    const precoTotalFinal = numeroPositivoOuNull(body?.preco_total_final) || (precoTotal && impostosTaxasEncargos ? precoTotal + impostosTaxasEncargos : null);
     const precoPorPessoa = numeroPositivoOuNull(body?.preco_por_pessoa);
 
     if (!id) {
@@ -430,6 +438,8 @@ export async function PATCH(request: NextRequest) {
       companhia_aerea: texto(body?.companhia_aerea) || null,
       bagagem: texto(body?.bagagem) || null,
       preco_total: precoTotal,
+      impostos_taxas_encargos: impostosTaxasEncargos,
+      preco_total_final: precoTotalFinal,
       preco_por_pessoa: precoPorPessoa,
       moeda: texto(body?.moeda) || "BRL",
       imagem_url: imagemUrl || null,
