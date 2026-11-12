@@ -179,13 +179,65 @@ export async function GET(request: Request) {
       });
     }
 
-    const resultado = await monitorarTodosProdutosV2();
+    const inicioMs = Date.now();
+    const iniciadoEm = new Date().toISOString();
+    const { data: execucao, error: erroExecucao } = await supabaseAdmin
+      .from("monitor_execucoes")
+      .insert({
+        iniciado_em: iniciadoEm,
+        status: "executando",
+      })
+      .select("id")
+      .single();
 
-    return Response.json({
-      sucesso: true,
-      modo: "monitor_v2",
-      ...resultado,
-    });
+    if (erroExecucao) {
+      console.error("Falha ao registrar inicio do monitor:", erroExecucao);
+    }
+
+    try {
+      const resultado = await monitorarTodosProdutosV2();
+      const finalizadoEm = new Date().toISOString();
+      const duracaoMs = Date.now() - inicioMs;
+
+      if (execucao?.id) {
+        const { error: erroFinalizacao } = await supabaseAdmin
+          .from("monitor_execucoes")
+          .update({
+            finalizado_em: finalizadoEm,
+            status: resultado.erros > 0 ? "concluido_com_erros" : "concluido",
+            produtos_verificados: resultado.total,
+            alteracoes_encontradas: resultado.alterados,
+            erros: resultado.erros,
+            duracao_ms: duracaoMs,
+          })
+          .eq("id", execucao.id);
+
+        if (erroFinalizacao) {
+          console.error("Falha ao finalizar historico do monitor:", erroFinalizacao);
+        }
+      }
+
+      return Response.json({
+        sucesso: true,
+        modo: "monitor_v2",
+        execucao_id: execucao?.id || null,
+        duracao_ms: duracaoMs,
+        ...resultado,
+      });
+    } catch (erroMonitor) {
+      if (execucao?.id) {
+        await supabaseAdmin
+          .from("monitor_execucoes")
+          .update({
+            finalizado_em: new Date().toISOString(),
+            status: "erro",
+            erros: 1,
+            duracao_ms: Date.now() - inicioMs,
+          })
+          .eq("id", execucao.id);
+      }
+      throw erroMonitor;
+    }
   } catch (erro) {
     return Response.json(
       {
