@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${BASE}/economize`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.95 },
     { url: `${BASE}/viagens`, lastModified: new Date(), changeFrequency: "daily", priority: 0.95 },
+    { url: `${BASE}/reviews`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
     { url: `${BASE}/nike`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/kabum`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/renner`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
@@ -32,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     supabaseAdmin
       .from("produtos")
       .select("id,updated_at")
-      .eq("ativo", true)
+      .or("ativo.eq.true,review_completa.eq.true")
       .limit(5000),
     supabaseAdmin
       .from("viagens_pacotes")
