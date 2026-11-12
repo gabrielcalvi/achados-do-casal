@@ -40,6 +40,12 @@ export default function PartnerPromoBar() {
         >
           COBASI · VER OFERTAS
         </Link>
+        <Link
+          href="/lauri-esporte"
+          className="inline-flex items-center rounded-full bg-[#111827] px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-white transition hover:bg-slate-700"
+        >
+          LAURI ESPORTE · VER OFERTAS
+        </Link>
       </div>
     </div>
   );
