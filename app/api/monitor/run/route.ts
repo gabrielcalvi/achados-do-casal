@@ -12,6 +12,23 @@ import {
   buscarProdutoCatalogoMercadoLivre,
 } from "@/lib/mercadolivre/api";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+
+async function autorizado(request: Request) {
+  const segredo = process.env.CRON_SECRET?.trim();
+  if (segredo && request.headers.get("authorization") === `Bearer ${segredo}`) {
+    return true;
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return !error && Boolean(user);
+  } catch {
+    return false;
+  }
+}
 
 function extrairProductIdCatalogo(link: string) {
   try {
@@ -111,6 +128,10 @@ async function diagnosticarCatalogo(produtoId: number) {
 }
 
 export async function GET(request: Request) {
+  if (!(await autorizado(request))) {
+    return Response.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
+  }
+
   try {
     const url = new URL(request.url);
     const idParam = url.searchParams.get("id");
