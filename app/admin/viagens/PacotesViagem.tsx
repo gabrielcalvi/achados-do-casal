@@ -26,6 +26,8 @@ type Pacote = {
   companhia_aerea?: string | null;
   bagagem?: string | null;
   preco_total: number;
+  impostos_taxas_encargos?: number | null;
+  preco_total_final?: number | null;
   preco_por_pessoa?: number | null;
   moeda: string;
   link_afiliado: string;
@@ -61,6 +63,8 @@ type DadosPreparados = {
   companhia_aerea?: string;
   bagagem?: string;
   preco_total?: number | null;
+  impostos_taxas_encargos?: number | null;
+  preco_total_final?: number | null;
   preco_por_pessoa?: number | null;
   moeda?: string;
   imagem_url?: string;
@@ -119,6 +123,8 @@ const INICIAL = {
   companhia_aerea: "",
   bagagem: "",
   preco_total: "",
+  impostos_taxas_encargos: "",
+  preco_total_final: "",
   preco_por_pessoa: "",
   moeda: "BRL",
   imagem_url: "",
@@ -251,6 +257,8 @@ export default function PacotesViagem() {
       companhia_aerea: pacote.companhia_aerea || "",
       bagagem: pacote.bagagem || "",
       preco_total: String(pacote.preco_total ?? ""),
+      impostos_taxas_encargos: pacote.impostos_taxas_encargos != null ? String(pacote.impostos_taxas_encargos) : "",
+      preco_total_final: pacote.preco_total_final != null ? String(pacote.preco_total_final) : "",
       preco_por_pessoa:
         pacote.preco_por_pessoa != null ? String(pacote.preco_por_pessoa) : "",
       moeda: pacote.moeda || "BRL",
@@ -334,6 +342,14 @@ export default function PacotesViagem() {
           dados.preco_total != null
             ? String(dados.preco_total)
             : atual.preco_total,
+        impostos_taxas_encargos:
+          dados.impostos_taxas_encargos != null
+            ? String(dados.impostos_taxas_encargos)
+            : atual.impostos_taxas_encargos,
+        preco_total_final:
+          dados.preco_total_final != null
+            ? String(dados.preco_total_final)
+            : atual.preco_total_final,
         preco_por_pessoa:
           dados.preco_por_pessoa != null
             ? String(dados.preco_por_pessoa)
@@ -375,6 +391,8 @@ export default function PacotesViagem() {
         adultos: Number(form.adultos),
         criancas: Number(form.criancas),
         preco_total: Number(form.preco_total),
+        impostos_taxas_encargos: form.impostos_taxas_encargos ? Number(form.impostos_taxas_encargos) : null,
+        preco_total_final: form.preco_total_final ? Number(form.preco_total_final) : null,
         preco_por_pessoa:
           form.preco_por_pessoa && Number(form.preco_por_pessoa) > 0
             ? Number(form.preco_por_pessoa)
@@ -782,7 +800,7 @@ export default function PacotesViagem() {
             </label>
 
             <label>
-              <span className="text-sm font-black">Preço total *</span>
+              <span className="text-sm font-black">Preço anunciado do pacote *</span>
               <input
                 type="number"
                 min="0"
@@ -792,6 +810,44 @@ export default function PacotesViagem() {
                 required
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
+              <span className="mt-1 block text-xs font-bold text-slate-500">
+                Valor que a Decolar mostra antes de impostos, taxas e encargos.
+              </span>
+            </label>
+
+            <label>
+              <span className="text-sm font-black">Impostos, taxas e encargos</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.impostos_taxas_encargos}
+                onChange={(e) => {
+                  const taxas = e.target.value;
+                  const base = Number(form.preco_total || 0);
+                  const taxaNum = Number(taxas || 0);
+                  alterar("impostos_taxas_encargos", taxas);
+                  if (base > 0 && taxaNum >= 0) {
+                    setForm((atual) => ({ ...atual, impostos_taxas_encargos: taxas, preco_total_final: String((base + taxaNum).toFixed(2)) }));
+                  }
+                }}
+                className="mt-2 w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3"
+              />
+            </label>
+
+            <label>
+              <span className="text-sm font-black">Total final com taxas</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.preco_total_final}
+                onChange={(e) => alterar("preco_total_final", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-black"
+              />
+              <span className="mt-1 block text-xs font-bold text-emerald-700">
+                Este será o preço principal exibido no site quando preenchido.
+              </span>
             </label>
 
             <label>
