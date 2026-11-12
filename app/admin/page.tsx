@@ -320,6 +320,10 @@ vendas: formulario.vendas || null,
     monitoramento_manual:
       formulario.loja.toLowerCase().includes("mercado livre") || formulario.monitoramentoManual,
     updated_at: new Date().toISOString(),
+    preco_manual_atualizado_em:
+      formulario.loja.toLowerCase().includes("mercado livre") || formulario.monitoramentoManual
+        ? new Date().toISOString()
+        : null,
     tem_em_casa: formulario.temEmCasa,
     review_completa: formulario.reviewCompleta,
     video_url: formulario.videoUrl || null,
