@@ -43,6 +43,44 @@ function instanteReferencia(item: {
   return 0;
 }
 
+async function normalizarExpiradosPorData(agoraIso: string) {
+  const [ofertasResp, cuponsResp] = await Promise.all([
+    supabaseAdmin
+      .from("economize_ofertas")
+      .update({
+        status: "expirado",
+        destaque: false,
+        updated_at: agoraIso,
+      })
+      .in("status", ["ativo", "pendente"])
+      .lte("validade", agoraIso)
+      .select("id"),
+    supabaseAdmin
+      .from("economize_cupons")
+      .update({
+        status: "expirado",
+        verificado_em: agoraIso,
+        updated_at: agoraIso,
+      })
+      .in("status", ["ativo", "pendente"])
+      .lte("validade", agoraIso)
+      .select("id"),
+  ]);
+
+  if (ofertasResp.error) {
+    throw new Error(`Falha ao normalizar ofertas expiradas: ${ofertasResp.error.message}`);
+  }
+
+  if (cuponsResp.error) {
+    throw new Error(`Falha ao normalizar cupons expirados: ${cuponsResp.error.message}`);
+  }
+
+  return {
+    ofertas: ofertasResp.data?.length || 0,
+    cupons: cuponsResp.data?.length || 0,
+  };
+}
+
 async function limparRevisoesIndisponiveis(agoraIso: string) {
   const { data: revisoes, error } = await supabaseAdmin
     .from("monitor_alteracoes")
@@ -107,7 +145,10 @@ export async function GET(request: NextRequest) {
     const agoraIso = agora.toISOString();
     const limiteFrescor = agora.getTime() - JANELA_FRESCOR_MS;
 
-    const revisoes = await limparRevisoesIndisponiveis(agoraIso);
+    const [revisoes, expiradosNormalizados] = await Promise.all([
+      limparRevisoesIndisponiveis(agoraIso),
+      normalizarExpiradosPorData(agoraIso),
+    ]);
 
     const { data, error } = await supabaseAdmin
       .from("economize_ofertas")
@@ -163,6 +204,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       sucesso: true,
       revisoesMonitor: revisoes,
+      expiradosNormalizados,
       politica: {
         origem: "agente_produtos_awin_*",
         frescorMaximoHoras: JANELA_FRESCOR_MS / 3600000,
