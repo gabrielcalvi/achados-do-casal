@@ -139,6 +139,7 @@ async function editarProduto(produto: any) {
     tempoDeUso: produto.tempo_de_uso ?? "",
     pontosPositivos: produto.pontos_positivos ?? "",
     pontosNegativos: produto.pontos_negativos ?? "",
+    monitoramentoManual: produto.monitoramento_manual ?? false,
   });
 
   setLinkProdutoDireto(produto.link || "");
@@ -266,6 +267,7 @@ function limparFormularioProduto() {
     tempoDeUso: "",
     pontosPositivos: "",
     pontosNegativos: "",
+    monitoramentoManual: false,
   });
 }
 async function salvarProduto() {
@@ -851,6 +853,10 @@ const produtosPaginados = produtosOrdenados.slice(
       {produto.precoAtual}
     </p>
     <div className="mt-2 flex gap-2">
+
+  {produto.monitoramento_manual && (
+    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">🖐️ ML MANUAL</span>
+  )}
 
   {produto.destaque && (
     <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-bold text-yellow-700">
