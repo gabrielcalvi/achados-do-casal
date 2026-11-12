@@ -17,6 +17,12 @@ export default function PartnerPromoBar() {
     <div className="bg-black text-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-5 py-2.5 text-center">
         <Link
+          href="/reviews"
+          className="inline-flex items-center rounded-full bg-amber-400 px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-slate-950 transition hover:bg-amber-300"
+        >
+          ⭐ REVIEWS DO CASAL
+        </Link>
+        <Link
           href="/nike"
           className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-5 py-2 text-sm font-black uppercase tracking-[0.12em] transition hover:bg-white hover:text-black"
         >
