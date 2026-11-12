@@ -67,7 +67,8 @@ vendas: "",
   opiniaoCasal: "",
 notaCasal: "",
 tempoDeUso: "",
-pontosPositivos: "",
+    dataInicioUso: "",
+    pontosPositivos: "",
 pontosNegativos: "",
 monitoramentoManual: false,
 
@@ -140,6 +141,7 @@ async function editarProduto(produto: any) {
     opiniaoCasal: produto.opiniao_casal ?? "",
     notaCasal: produto.nota_casal?.toString() ?? "",
     tempoDeUso: produto.tempo_de_uso ?? "",
+    dataInicioUso: produto.data_inicio_uso ?? "",
     pontosPositivos: produto.pontos_positivos ?? "",
     pontosNegativos: produto.pontos_negativos ?? "",
     monitoramentoManual: produto.monitoramento_manual ?? false,
@@ -269,6 +271,7 @@ function limparFormularioProduto() {
     opiniaoCasal: "",
     notaCasal: "",
     tempoDeUso: "",
+    dataInicioUso: "",
     pontosPositivos: "",
     pontosNegativos: "",
     monitoramentoManual: false,
@@ -326,6 +329,7 @@ nota_casal: formulario.notaCasal
   ? Number(formulario.notaCasal)
   : null,
 tempo_de_uso: formulario.tempoDeUso || null,
+data_inicio_uso: formulario.dataInicioUso || null,
 pontos_positivos: formulario.pontosPositivos || null,
 pontos_negativos: formulario.pontosNegativos || null,
 };
@@ -601,7 +605,8 @@ vendas: "",
     opiniaoCasal: "",
 notaCasal: "",
 tempoDeUso: "",
-pontosPositivos: "",
+    dataInicioUso: "",
+    pontosPositivos: "",
 pontosNegativos: "",
   monitoramentoManual: false,
 });
@@ -1403,6 +1408,25 @@ const produtosPaginados = produtosOrdenados.slice(
         }
         className="rounded-xl border border-slate-300 bg-white p-4"
       />
+      <div className="sm:col-span-2">
+        <label className="mb-2 block text-sm font-black text-slate-700">
+          📅 Data de início de uso
+        </label>
+        <input
+          type="date"
+          value={formulario.dataInicioUso}
+          onChange={(e) =>
+            setFormulario({
+              ...formulario,
+              dataInicioUso: e.target.value,
+            })
+          }
+          className="w-full rounded-xl border border-slate-300 bg-white p-4"
+        />
+        <p className="mt-2 text-xs text-slate-500">
+          Se preenchida, o tempo de uso passa a ser calculado automaticamente mês a mês.
+        </p>
+      </div>
     </div>
 
     <textarea
