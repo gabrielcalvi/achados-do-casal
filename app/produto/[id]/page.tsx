@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 
 export default function ProdutoPage() {
   const params = useParams();
@@ -188,10 +189,10 @@ export default function ProdutoPage() {
                 <p className="mt-1 text-3xl font-black">⭐ {produto.nota_casal}/10</p>
               </div>
             )}
-            {produto.tempo_de_uso && (
+            {(produto.data_inicio_uso || produto.tempo_de_uso) && (
               <div className="rounded-2xl bg-white p-5">
                 <p className="text-sm text-slate-500">Tempo de uso</p>
-                <p className="mt-1 text-xl font-black">{produto.tempo_de_uso}</p>
+                <p className="mt-1 text-xl font-black">{formatarTempoDeUso(produto.data_inicio_uso, produto.tempo_de_uso)}</p>
               </div>
             )}
           </div>
