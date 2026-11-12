@@ -68,6 +68,7 @@ notaCasal: "",
 tempoDeUso: "",
 pontosPositivos: "",
 pontosNegativos: "",
+monitoramentoManual: false,
 
 });
 async function carregarProdutos() {
