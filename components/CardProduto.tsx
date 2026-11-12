@@ -250,9 +250,7 @@ export default function CardProduto({
   )}
 
   <a
-    href={produto.link_afiliado || produto.link}
-    target="_blank"
-    rel="sponsored noopener noreferrer"
+    href={`/produto/${produto.id}/ir?origem=site`}
     className="inline-flex w-full items-center justify-center rounded-xl bg-blue-950 px-5 font-black text-white transition hover:bg-blue-900"
     style={{ height: "56px" }}
   >
