@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ function nota(valor: unknown) {
 export default async function ReviewsPage() {
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
-    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,video_url,tem_em_casa,review_completa,ativo,preco_atual,preco_antigo,monitoramento_manual,updated_at")
+    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa,review_completa,ativo,preco_atual,preco_antigo,monitoramento_manual,updated_at")
     .eq("review_completa", true)
     .order("id", { ascending: false });
 
@@ -119,7 +120,7 @@ export default async function ReviewsPage() {
                         <div className="rounded-2xl bg-slate-50 p-4">
                           <p className="text-xs font-bold text-slate-500">Tempo de uso</p>
                           <p className="mt-1 font-black">
-                            {produto.tempo_de_uso || "Não informado"}
+                            {formatarTempoDeUso(produto.data_inicio_uso, produto.tempo_de_uso)}
                           </p>
                         </div>
                       </div>
