@@ -150,7 +150,7 @@ export default async function ReviewsPage() {
 
                             <p className="mt-1 text-xs font-semibold text-orange-800">
                               {produto.monitoramento_manual
-                                ? "🖐️ Preço atualizado manualmente"
+                                ? `🖐️ Preço atualizado em ${new Date(produto.updated_at).toLocaleDateString("pt-BR")} às ${new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
                                 : "✅ Preço monitorado pelo Achados"}
                             </p>
                           </div>
