@@ -27,7 +27,7 @@ const supabase = createClient(supabaseUrl, serviceKey, {
 const lojas = lojasConfig.filter(
   (loja) =>
     !loja.monitorOnly &&
-    ["cea", "renner", "calvin-klein", "stanley", "casas-bahia"].includes(loja.slug)
+    ["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "lauri-esporte"].includes(loja.slug)
 );
 
 function agora() {
@@ -336,8 +336,35 @@ async function buscarListaFeeds() {
   return linhas;
 }
 
+function resolverAdvertiserIdPeloFeed(lista, loja) {
+  if (String(loja.advertiserId || "").trim()) return String(loja.advertiserId).trim();
+
+  const dominio = String(loja.dominio || "").toLowerCase();
+  const nome = String(loja.nome || "").toLowerCase();
+
+  const candidatos = lista.filter((row) => {
+    const serializado = JSON.stringify(row).toLowerCase();
+    return (
+      (dominio && serializado.includes(dominio)) ||
+      (nome && serializado.includes(nome)) ||
+      (loja.slug === "lauri-esporte" && serializado.includes("lauri"))
+    );
+  });
+
+  for (const row of candidatos) {
+    const id = texto(campo(row, ["Advertiser ID", "advertiser_id", "Merchant ID", "merchant_id"]));
+    if (/^\d+$/.test(id)) {
+      loja.advertiserId = id;
+      return id;
+    }
+  }
+
+  return "";
+}
+
 function feedsDaLoja(lista, loja) {
-  const id = String(loja.advertiserId);
+  const id = resolverAdvertiserIdPeloFeed(lista, loja);
+  if (!id) return [];
   let encontrados = lista.filter((row) => texto(campo(row, ["Advertiser ID", "advertiser_id"])) === id);
 
   encontrados = encontrados.filter((row) => {
