@@ -138,7 +138,7 @@ export default function ProdutoPage() {
           {produto.updated_at && (
             <p className="mt-3 text-sm font-semibold text-slate-500">
               {produto.monitoramento_manual ? "🖐️ Preço atualizado manualmente em " : "✅ Preço atualizado em "}
-              {new Date(produto.updated_at).toLocaleDateString("pt-BR")} às {new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              {new Date(produto.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às {new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
             </p>
           )}
 
