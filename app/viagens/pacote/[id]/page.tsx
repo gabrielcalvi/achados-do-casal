@@ -31,6 +31,7 @@ type Pacote = {
   observacoes: string | null;
   validade: string | null;
   destaque: boolean;
+  disponibilidade_status: string | null;
 };
 
 async function carregarPacote(id: string) {
@@ -61,7 +62,8 @@ async function carregarPacote(id: string) {
       imagem_url,
       observacoes,
       validade,
-      destaque
+      destaque,
+      disponibilidade_status
     `)
     .eq("id", id)
     .eq("status", "ativo")
@@ -70,6 +72,9 @@ async function carregarPacote(id: string) {
   if (error || !data) return null;
 
   const pacote = data as Pacote;
+  const disponibilidade = String(pacote.disponibilidade_status || "nao_verificado").toLowerCase();
+  if (disponibilidade !== "disponivel" && disponibilidade !== "nao_verificado") return null;
+
   if (pacote.validade) {
     const validade = new Date(pacote.validade).getTime();
     if (!Number.isFinite(validade) || validade <= Date.now()) return null;
