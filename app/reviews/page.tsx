@@ -27,7 +27,7 @@ function nota(valor: unknown) {
 export default async function ReviewsPage() {
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
-    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,video_url,tem_em_casa,review_completa,ativo")
+    .select("id,nome,loja,categoria,imagem,nota_casal,tempo_de_uso,video_url,tem_em_casa,review_completa,ativo,preco_atual,preco_antigo,monitoramento_manual,updated_at")
     .eq("review_completa", true)
     .order("id", { ascending: false });
 
@@ -124,13 +124,40 @@ export default async function ReviewsPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 min-h-[44px]">
-                        {!produto.ativo ? (
+                      <div className="mt-4 min-h-[108px]">
+                        {produto.ativo && Number(produto.preco_atual) > 0 ? (
+                          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3">
+                            <p className="text-xs font-black uppercase tracking-wide text-orange-700">
+                              🔥 Oferta atual
+                            </p>
+
+                            {produto.preco_antigo &&
+                              Number(produto.preco_antigo) > Number(produto.preco_atual) && (
+                                <p className="mt-1 text-xs font-semibold text-slate-500 line-through">
+                                  De {Number(produto.preco_antigo).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  })}
+                                </p>
+                              )}
+
+                            <p className="mt-1 text-2xl font-black text-orange-600">
+                              {Number(produto.preco_atual).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+
+                            <p className="mt-1 text-xs font-semibold text-orange-800">
+                              {produto.monitoramento_manual
+                                ? "🖐️ Preço atualizado manualmente"
+                                : "✅ Preço monitorado pelo Achados"}
+                            </p>
+                          </div>
+                        ) : (
                           <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">
                             Review ativa · oferta atual não monitorada.
                           </p>
-                        ) : (
-                          <div aria-hidden="true" className="h-[44px]" />
                         )}
                       </div>
 
