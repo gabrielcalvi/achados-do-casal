@@ -25,6 +25,8 @@ type Pacote = {
   companhia_aerea: string | null;
   bagagem: string | null;
   preco_total: number;
+  impostos_taxas_encargos: number | null;
+  preco_total_final: number | null;
   preco_por_pessoa: number | null;
   moeda: string;
   imagem_url: string | null;
@@ -57,6 +59,8 @@ async function carregarPacote(id: string) {
       companhia_aerea,
       bagagem,
       preco_total,
+      impostos_taxas_encargos,
+      preco_total_final,
       preco_por_pessoa,
       moeda,
       imagem_url,
@@ -101,9 +105,11 @@ function dataCurta(valor: string) {
 }
 
 function descricao(pacote: Pacote) {
-  const preco = pacote.preco_por_pessoa
-    ? `${moeda(pacote.preco_por_pessoa, pacote.moeda)} por pessoa`
-    : `${moeda(pacote.preco_total, pacote.moeda)} o pacote`;
+  const preco = pacote.preco_total_final
+    ? `${moeda(pacote.preco_total_final, pacote.moeda)} total final com impostos e taxas`
+    : pacote.preco_por_pessoa
+      ? `${moeda(pacote.preco_por_pessoa, pacote.moeda)} por pessoa`
+      : `${moeda(pacote.preco_total, pacote.moeda)} o pacote`;
 
   return `${pacote.origem_codigo} → ${pacote.destino_codigo} • ${pacote.noites} noites • ${pacote.hotel_nome} • ${preco}. Oferta selecionada pelo Achados do Casal.`;
 }
@@ -159,8 +165,12 @@ export default async function PaginaPacote({
 
   if (!pacote) notFound();
 
-  const precoPrincipal = pacote.preco_por_pessoa || pacote.preco_total;
-  const rotuloPreco = pacote.preco_por_pessoa ? "por pessoa" : "pacote total";
+  const precoPrincipal = pacote.preco_total_final || pacote.preco_por_pessoa || pacote.preco_total;
+  const rotuloPreco = pacote.preco_total_final
+    ? "TOTAL FINAL com impostos e taxas"
+    : pacote.preco_por_pessoa
+      ? "por pessoa"
+      : "pacote total";
   const textoCompartilhar = descricao(pacote);
 
   return (
@@ -238,15 +248,28 @@ export default async function PaginaPacote({
               </div>
 
               <div className="mt-7 border-t border-slate-200 pt-6">
-                <p className="text-sm font-bold text-slate-500">{rotuloPreco}</p>
-                <p className="mt-1 text-4xl font-black text-emerald-700">
-                  {moeda(precoPrincipal, pacote.moeda)}
-                </p>
-                {pacote.preco_por_pessoa && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    Total informado: {moeda(pacote.preco_total, pacote.moeda)}
-                  </p>
-                )}
+                <p className={`text-sm font-black ${pacote.preco_total_final ? "uppercase tracking-wide text-emerald-700" : "text-slate-500"}`}>{rotuloPreco}</p>
+                <p className="mt-1 text-4xl font-black text-emerald-700">{moeda(precoPrincipal, pacote.moeda)}</p>
+
+                {pacote.preco_total_final ? (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-center justify-between gap-4 text-sm">
+                      <span className="font-bold text-amber-900">Pacote anunciado pela Decolar</span>
+                      <strong>{moeda(pacote.preco_total, pacote.moeda)}</strong>
+                    </div>
+                    {pacote.impostos_taxas_encargos ? (
+                      <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                        <span className="font-bold text-amber-900">Impostos, taxas e encargos</span>
+                        <strong>+ {moeda(pacote.impostos_taxas_encargos, pacote.moeda)}</strong>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 border-t border-amber-200 pt-3 text-xs font-bold leading-5 text-amber-800">
+                      A Decolar pode destacar primeiro o valor sem encargos. Aqui mostramos o total final informado para você saber quanto realmente vai pagar.
+                    </div>
+                  </div>
+                ) : pacote.preco_por_pessoa ? (
+                  <p className="mt-1 text-sm text-slate-500">Total informado: {moeda(pacote.preco_total, pacote.moeda)}</p>
+                ) : null}
               </div>
 
               <CompartilharPacote titulo={pacote.titulo} texto={textoCompartilhar} />
