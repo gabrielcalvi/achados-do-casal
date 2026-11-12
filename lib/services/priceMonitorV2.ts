@@ -12,6 +12,7 @@ type ProdutoBanco = {
   monitor_falhas_consecutivas: number | null;
   monitor_erro?: string | null;
   ativo?: boolean | null;
+  monitoramento_manual?: boolean | null;
 };
 
 type DadosMonitor = {
@@ -244,7 +245,7 @@ async function carregarProduto(id: number): Promise<ProdutoBanco> {
   const { data, error } = await supabaseAdmin
     .from("produtos")
     .select(
-      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo"
+      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo,monitoramento_manual"
     )
     .eq("id", id)
     .single();
@@ -358,8 +359,11 @@ export async function monitorarTodosProdutosV2() {
   // A varredura normal cuida apenas da vitrine ativa.
   // Produtos ML em quarentena possuem uma rota separada de recuperacao,
   // para que dezenas de falhas do ML nunca travem a atualizacao das outras lojas.
-  const produtos = (data || []) as ProdutoBanco[];
+  const produtosTodos = (data || []) as ProdutoBanco[];
+  const produtos = produtosTodos.filter((produto) => !produto.monitoramento_manual);
 
+  // Produtos marcados como manuais nunca entram na varredura automatica.
+  // Mercado Livre cadastrado manualmente usa esse modo por padrao.
   const produtosMl = produtos.filter(ehMercadoLivre);
   const produtosOutros = produtos.filter((produto) => !ehMercadoLivre(produto));
   const resultados: Array<Record<string, unknown>> = [];
@@ -431,6 +435,7 @@ export async function monitorarTodosProdutosV2() {
 
   return {
     total: produtos.length,
+    ignoradosManuais: produtosTodos.length - produtos.length,
     alterados,
     indisponiveis,
     erros,
