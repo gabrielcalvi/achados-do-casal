@@ -67,7 +67,7 @@ const lojas = [
     slug: "lauri-esporte",
     dbSlug: "lauri-esporte",
     nome: "Lauri Esporte",
-    advertiserId: String(process.env.LAURI_AWIN_ADVERTISER_ID || "").trim(),
+    advertiserId: "118977",
     dominio: "lauriesporte.com.br",
     logoUrl: null
   },
