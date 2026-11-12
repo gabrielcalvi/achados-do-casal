@@ -4,6 +4,7 @@ import PacotesDisponibilidade from "./PacotesDisponibilidade";
 import CapturadorDecolarLocal from "./CapturadorDecolarLocal";
 import DemandaRadar from "./DemandaRadar";
 import IngressosViagem from "./IngressosViagem";
+import RadarManual from "./RadarManual";
 
 export const dynamic = "force-dynamic";
 
@@ -99,11 +100,13 @@ export default async function AdminViagensPage() {
             <div>
               <p className="text-sm font-black uppercase tracking-wider text-violet-600">Achados do Casal</p>
               <h1 className="mt-2 text-3xl font-black sm:text-4xl">✈️ Viagens — Radar + Pacotes + Ingressos</h1>
-              <p className="mt-2 max-w-3xl text-slate-600">O Radar encontra boas janelas de voo. Pacotes cuidam de aéreo + hotel; ingressos e atrações têm cadastro próprio, sem exigir origem, destino ou hospedagem.</p>
+              <p className="mt-2 max-w-3xl text-slate-600">O Radar automático de voos está pausado para reduzir custo. Pesquisas de passagens agora são feitas sob demanda; pacotes e ingressos continuam normalmente.</p>
             </div>
             <Link href="/viagens" target="_blank" className="rounded-xl bg-violet-600 px-5 py-3 font-black text-white transition hover:bg-violet-700">Abrir página pública ↗</Link>
           </div>
         </header>
+
+        <RadarManual />
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm font-bold text-slate-500">Radares configurados</p><p className="mt-2 text-3xl font-black">{radares.length}</p></div>
