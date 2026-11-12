@@ -21,6 +21,8 @@ type PacotePublico = {
   companhia_aerea: string | null;
   bagagem: string | null;
   preco_total: number;
+  impostos_taxas_encargos: number | null;
+  preco_total_final: number | null;
   preco_por_pessoa: number | null;
   moeda: string;
   imagem_url: string | null;
@@ -68,7 +70,7 @@ export default async function PacotesPublicos() {
       id,titulo,parceiro,link_afiliado,radar_slug,radar_preco_referencia,
       origem_codigo,destino_codigo,destino_nome,data_ida,data_volta,
       hotel_nome,hotel_categoria,regime_hospedagem,noites,adultos,criancas,
-      companhia_aerea,bagagem,preco_total,preco_por_pessoa,moeda,imagem_url,
+      companhia_aerea,bagagem,preco_total,impostos_taxas_encargos,preco_total_final,preco_por_pessoa,moeda,imagem_url,
       observacoes,validade,destaque,created_at,disponibilidade_status
     `)
     .eq("status", "ativo")
@@ -167,11 +169,23 @@ export default async function PacotesPublicos() {
               ) : null}
 
               <div className="mt-6 border-t border-slate-100 pt-6">
-                <p className="text-sm font-bold text-slate-500">{pacoteDestaque.preco_por_pessoa ? "Pacote por pessoa" : "Pacote total"}</p>
-                <p className="mt-1 text-4xl font-black text-emerald-700">
-                  {moeda(pacoteDestaque.preco_por_pessoa || pacoteDestaque.preco_total, pacoteDestaque.moeda)}
-                </p>
-                {pacoteDestaque.preco_por_pessoa ? <p className="mt-1 text-sm text-slate-500">Total informado: {moeda(pacoteDestaque.preco_total, pacoteDestaque.moeda)}</p> : null}
+                {pacoteDestaque.preco_total_final ? (
+                  <>
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Total final com impostos e taxas</p>
+                    <p className="mt-1 text-4xl font-black text-emerald-700">{moeda(pacoteDestaque.preco_total_final, pacoteDestaque.moeda)}</p>
+                    <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                      <div>Pacote anunciado: {moeda(pacoteDestaque.preco_total, pacoteDestaque.moeda)}</div>
+                      {pacoteDestaque.impostos_taxas_encargos ? <div className="mt-1">+ Impostos, taxas e encargos: {moeda(pacoteDestaque.impostos_taxas_encargos, pacoteDestaque.moeda)}</div> : null}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">No Achados, mostramos o valor final para evitar surpresa no checkout.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold text-slate-500">{pacoteDestaque.preco_por_pessoa ? "Pacote por pessoa" : "Pacote total"}</p>
+                    <p className="mt-1 text-4xl font-black text-emerald-700">{moeda(pacoteDestaque.preco_por_pessoa || pacoteDestaque.preco_total, pacoteDestaque.moeda)}</p>
+                    {pacoteDestaque.preco_por_pessoa ? <p className="mt-1 text-sm text-slate-500">Total informado: {moeda(pacoteDestaque.preco_total, pacoteDestaque.moeda)}</p> : null}
+                  </>
+                )}
               </div>
 
               {pacoteDestaque.observacoes ? <p className="mt-4 text-sm leading-6 text-slate-500">{pacoteDestaque.observacoes}</p> : null}
@@ -240,9 +254,19 @@ export default async function PacotesPublicos() {
                   ) : null}
 
                   <div className="mt-5 border-t border-slate-100 pt-4">
-                    <p className="text-xs font-bold text-slate-500">{pacote.preco_por_pessoa ? "Pacote por pessoa" : "Pacote total"}</p>
-                    <p className="mt-1 text-3xl font-black text-emerald-700">{moeda(pacote.preco_por_pessoa || pacote.preco_total, pacote.moeda)}</p>
-                    {pacote.preco_por_pessoa ? <p className="mt-1 text-xs text-slate-500">Total informado: {moeda(pacote.preco_total, pacote.moeda)}</p> : null}
+                    {pacote.preco_total_final ? (
+                      <>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Total final com impostos e taxas</p>
+                        <p className="mt-1 text-3xl font-black text-emerald-700">{moeda(pacote.preco_total_final, pacote.moeda)}</p>
+                        <p className="mt-1 text-xs text-slate-500">Anunciado sem taxas: {moeda(pacote.preco_total, pacote.moeda)}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs font-bold text-slate-500">{pacote.preco_por_pessoa ? "Pacote por pessoa" : "Pacote total"}</p>
+                        <p className="mt-1 text-3xl font-black text-emerald-700">{moeda(pacote.preco_por_pessoa || pacote.preco_total, pacote.moeda)}</p>
+                        {pacote.preco_por_pessoa ? <p className="mt-1 text-xs text-slate-500">Total informado: {moeda(pacote.preco_total, pacote.moeda)}</p> : null}
+                      </>
+                    )}
                   </div>
 
                   {pacote.observacoes ? <p className="mt-3 text-xs leading-5 text-slate-500">{pacote.observacoes}</p> : null}
