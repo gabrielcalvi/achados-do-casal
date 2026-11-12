@@ -108,7 +108,7 @@ export default function ProdutoPage() {
             <span className="mt-4 inline-flex rounded-full bg-pink-100 px-4 py-2 text-sm font-bold text-pink-700">❤️ O Casal tem em casa</span>
           )}
 
-          {produto.ativo && !produto.monitoramento_manual ? (
+          {produto.ativo ? (
           <div className="mt-6">
             {produto.preco_antigo && Number(produto.preco_antigo) > Number(produto.preco_atual) && (
               <p className="text-sm text-slate-400 line-through">
@@ -136,7 +136,8 @@ export default function ProdutoPage() {
 
           {produto.updated_at && (
             <p className="mt-3 text-sm font-semibold text-slate-500">
-              ✅ Preço atualizado em {new Date(produto.updated_at).toLocaleDateString("pt-BR")} às {new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              {produto.monitoramento_manual ? "🖐️ Preço atualizado manualmente em " : "✅ Preço atualizado em "}
+              {new Date(produto.updated_at).toLocaleDateString("pt-BR")} às {new Date(produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
 
