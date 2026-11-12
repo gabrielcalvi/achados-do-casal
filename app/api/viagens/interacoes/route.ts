@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COOKIE = "viagens_session";
-const EVENTOS = new Set(["origem_selecionada", "destino_selecionado", "busca_orcamento", "outra_origem_interesse"]);
+const EVENTOS = new Set(["origem_selecionada", "destino_selecionado", "busca_orcamento", "outra_origem_interesse", "pedido_cotacao_whatsapp"]);
 
 function texto(valor: unknown, limite = 200) {
   return typeof valor === "string" ? valor.trim().slice(0, limite) || null : null;
