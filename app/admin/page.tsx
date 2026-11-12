@@ -314,6 +314,9 @@ vendas: formulario.vendas || null,
   destaque: formulario.destaque,
   gamer: formulario.gamer,
     ativo: formulario.ativo,
+    monitoramento_manual:
+      formulario.loja.toLowerCase().includes("mercado livre") || formulario.monitoramentoManual,
+    updated_at: new Date().toISOString(),
     tem_em_casa: formulario.temEmCasa,
     review_completa: formulario.reviewCompleta,
     video_url: formulario.videoUrl || null,
@@ -1027,6 +1030,13 @@ const produtosPaginados = produtosOrdenados.slice(
   <option value="Stanley">Stanley</option>
   <option value="Decolar">Decolar</option>
 </select>
+
+{formulario.loja.toLowerCase().includes("mercado livre") && (
+  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+    🖐️ Mercado Livre fica em modo manual: tu informa preço, link e promoções; o monitor automático não mexe nesse produto.
+  </div>
+)}
+
 {(imagem || formulario.imagem) && (
   <div className="mb-4 flex justify-center">
     <img
