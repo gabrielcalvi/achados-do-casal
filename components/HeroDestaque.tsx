@@ -1,4 +1,5 @@
 type ProdutoDestaque = {
+  id: number;
   nome: string;
   loja: string;
   categoria: string;
@@ -91,9 +92,7 @@ export default function HeroDestaque({
           )}
 
           <a
-            href={produto.link}
-            target="_blank"
-            rel="sponsored noopener noreferrer"
+            href={`/produto/${produto.id}/ir?origem=site`}
             className="mt-6 inline-flex w-full justify-center rounded-xl bg-blue-950 px-5 py-4 font-black text-white transition hover:bg-blue-900"
           >
             Ver oferta na {produto.loja}
