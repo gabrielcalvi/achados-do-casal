@@ -206,7 +206,7 @@ async function registrarErro(produto: ProdutoBanco, mensagem: string) {
   // No Mercado Livre, preco nao confirmado sai imediatamente da vitrine.
   // O produto continua sendo tentado pelo monitor e volta sozinho assim que
   // uma leitura visual confiavel tiver sucesso.
-  if (ehMercadoLivre(produto)) {
+  if (ehMercadoLivre(produto) && !produto.monitoramento_manual) {
     atualizacao.ativo = false;
   }
 
@@ -349,7 +349,7 @@ export async function monitorarTodosProdutosV2() {
   const { data, error } = await supabaseAdmin
     .from("produtos")
     .select(
-      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo"
+      "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo,monitoramento_manual"
     )
     .eq("ativo", true)
     .order("id");
