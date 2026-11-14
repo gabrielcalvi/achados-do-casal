@@ -256,6 +256,10 @@ Fontes oficiais já incorporadas ao radar:
 
 Cuponation continua como fonte estruturada secundária para lojas em que entrega código, validade, publicação e `lastUsedDate`.
 
+Em 14/11/2026 foram validadas e fixadas URLs diretas da Cuponation para **Netshoes, Centauro, O Boticário, Casas Bahia e Sephora**. Todas responderam HTTP 200 no ambiente Vercel e retornaram códigos estruturados. Antes da publicação, o radar continua exigindo `published=true`, validade ativa, benefício relevante e `lastUsedDate` recente.
+
+O filtro de códigos foi endurecido para descartar nomes de ícones/asset keys como `arrow`, `shopping`, `calendar`, `star`, `phone`, `tag`, `credit`, `coins` e `message`, evitando falsos cupons.
+
 Lojas prioritárias adicionadas/monitoradas:
 - Renner;
 - C&A (mantida no pipeline próprio existente, sem duplicar no radar);
@@ -273,6 +277,7 @@ Lojas prioritárias adicionadas/monitoradas:
 Regra: marca atraente sem cupom verificável continua no radar, mas **não entra no público só para preencher a página**.
 
 ### Changelog Black Friday
+- **14/11/2026** — adicionadas fontes diretas de Netshoes/Centauro/Boticário/Casas Bahia/Sephora; validação no ambiente confirmou códigos estruturados e o filtro de asset/icon keys foi ampliado antes da liberação.
 - **14/11/2026** — faixa Black Friday da home ampliada para maior visibilidade; radar ficou mais conservador em ofertas com múltiplos percentuais e Samsung foi validada como segunda marca com códigos estruturados e uso recente.
 - **14/11/2026** — criada Central Black Friday e radar de cupons com inclusão de marcas não parceiras para tráfego, critérios fortes de validação, rechecagem automática e rastreamento de cliques.
 
