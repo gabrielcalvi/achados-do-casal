@@ -501,6 +501,7 @@ Configuração observada em `vercel.json`:
 Pontos já trabalhados:
 - metadata da Central Economize;
 - sitemap;
+- **14/11/2026: sitemap enviado/validado manualmente no Google Search Console, como etapa de indexação e acompanhamento do site;**
 - inclusão de Reviews do Casal;
 - reviews inativas continuam indexáveis;
 - Lauri Esporte incluída no sitemap;
@@ -647,4 +648,5 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — registrado que o sitemap do site foi enviado/validado manualmente no Google Search Console.
 - **14/11/2026** — criação do documento mestre, consolidação de meses de histórico, arquitetura, integrações, regras, banco, cron, estado de produção e pendências.
