@@ -502,6 +502,8 @@ Pontos já trabalhados:
 - metadata da Central Economize;
 - sitemap;
 - **14/11/2026: sitemap enviado/validado manualmente no Google Search Console, como etapa de indexação e acompanhamento do site;**
+- **14/11/2026: confirmação manual no Search Console de que `/economize` e `/viagens` já estão indexadas ("O URL está no Google").**
+- **14/11/2026: `/reviews` ainda aparece como "Rastreada, mas não indexada no momento"; rastreamento permitido, busca da página com êxito e indexação permitida, sem bloqueio técnico aparente.**
 - inclusão de Reviews do Casal;
 - reviews inativas continuam indexáveis;
 - Lauri Esporte incluída no sitemap;
@@ -648,5 +650,6 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — registrado estado de indexação no Search Console: `/economize` e `/viagens` indexadas; `/reviews` rastreada com sucesso, indexação permitida, ainda aguardando entrada no índice.
 - **14/11/2026** — registrado que o sitemap do site foi enviado/validado manualmente no Google Search Console.
 - **14/11/2026** — criação do documento mestre, consolidação de meses de histórico, arquitetura, integrações, regras, banco, cron, estado de produção e pendências.
