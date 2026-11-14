@@ -243,38 +243,65 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const ids = Array.isArray(body?.ids)
-      ? [...new Set(body.ids.map((id: unknown) => texto(id)).filter(Boolean))]
-      : [];
+    const itensRecebidos = Array.isArray(body?.itens) ? body.itens : [];
+    const itens = itensRecebidos
+      .map((item: any) => ({
+        tabela: texto(item?.tabela),
+        id: texto(item?.id),
+      }))
+      .filter(
+        (item: { tabela: string; id: string }) =>
+          item.id &&
+          (item.tabela === "viagens_pacotes" || item.tabela === "viagens_ingressos")
+      );
 
-    if (ids.length === 0) {
+    if (itens.length === 0) {
       return NextResponse.json(
-        { sucesso: false, erro: "Selecione ao menos um pacote para excluir." },
+        { sucesso: false, erro: "Selecione ao menos uma oferta para excluir." },
         { status: 400 }
       );
     }
 
-    if (ids.length > 100) {
+    if (itens.length > 100) {
       return NextResponse.json(
-        { sucesso: false, erro: "Exclusao limitada a 100 pacotes por vez." },
+        { sucesso: false, erro: "Exclusao limitada a 100 ofertas por vez." },
         { status: 400 }
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("viagens_pacotes")
-      .delete()
-      .in("id", ids)
-      .eq("tipo", "pacote")
-      .select("id,titulo");
+    const pacotesIds = itens
+      .filter((item: any) => item.tabela === "viagens_pacotes")
+      .map((item: any) => item.id);
+    const ingressosIds = itens
+      .filter((item: any) => item.tabela === "viagens_ingressos")
+      .map((item: any) => item.id);
 
-    if (error) throw new Error(error.message);
+    const excluidos: Array<{ tabela: string; id: string }> = [];
 
-    const excluidos = data ?? [];
+    if (pacotesIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("viagens_pacotes")
+        .delete()
+        .in("id", pacotesIds)
+        .select("id");
+      if (error) throw new Error(error.message);
+      for (const item of data ?? []) excluidos.push({ tabela: "viagens_pacotes", id: item.id });
+    }
+
+    if (ingressosIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("viagens_ingressos")
+        .delete()
+        .in("id", ingressosIds)
+        .select("id");
+      if (error) throw new Error(error.message);
+      for (const item of data ?? []) excluidos.push({ tabela: "viagens_ingressos", id: item.id });
+    }
+
     return NextResponse.json({
       sucesso: true,
       excluidos: excluidos.length,
-      ids: excluidos.map((item) => item.id),
+      itens: excluidos,
     });
   } catch (erro) {
     return NextResponse.json(
@@ -283,7 +310,7 @@ export async function DELETE(request: NextRequest) {
         erro:
           erro instanceof Error
             ? erro.message
-            : "Erro inesperado ao excluir pacotes.",
+            : "Erro inesperado ao excluir ofertas.",
       },
       { status: 500 }
     );
