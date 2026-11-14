@@ -164,7 +164,7 @@ export default function CardProduto({
           className="mt-3 flex shrink-0 items-start"
           style={{ height: "24px" }}
         >
-          {(produto.avaliacao || produto.vendas) && (
+          {!ehAmazon && (produto.avaliacao || produto.vendas) && (
             <div className="flex flex-wrap gap-3 text-sm font-bold text-slate-700">
               {produto.avaliacao && (
                 <span>⭐ {produto.avaliacao}</span>
