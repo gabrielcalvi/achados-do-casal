@@ -27,8 +27,9 @@ async function imagemSegura(url: string | null) {
 
     if (!resposta.ok) return null;
 
-    const tipo = resposta.headers.get("content-type") || "image/jpeg";
-    if (!tipo.startsWith("image/")) return null;
+    const tipoBruto = (resposta.headers.get("content-type") || "").toLowerCase();
+    const tipo = tipoBruto.split(";")[0].trim();
+    if (!["image/jpeg", "image/png"].includes(tipo)) return null;
 
     const buffer = Buffer.from(await resposta.arrayBuffer());
     if (buffer.byteLength > 4_500_000) return null;
@@ -38,6 +39,19 @@ async function imagemSegura(url: string | null) {
     return null;
   }
 }
+
+async function respostaPng(imageResponse: ImageResponse) {
+  const bytes = await imageResponse.arrayBuffer();
+  return new Response(bytes, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=60, s-maxage=300",
+      "Content-Length": String(bytes.byteLength),
+    },
+  });
+}
+
 
 export async function GET(
   _request: Request,
@@ -68,7 +82,8 @@ export async function GET(
     .maybeSingle();
 
   if (!oferta) {
-    return new ImageResponse(
+    return respostaPng(
+      new ImageResponse(
       (
         <div
           style={{
@@ -87,6 +102,7 @@ export async function GET(
         </div>
       ),
       { width: LARGURA, height: ALTURA }
+      )
     );
   }
 
@@ -105,7 +121,8 @@ export async function GET(
   );
   const produtoImagem = await imagemSegura(oferta.imagem_url);
 
-  return new ImageResponse(
+  return respostaPng(
+    new ImageResponse(
     (
       <div
         style={{
@@ -327,9 +344,7 @@ export async function GET(
     {
       width: LARGURA,
       height: ALTURA,
-      headers: {
-        "Cache-Control": "public, max-age=60, s-maxage=300",
-      },
     }
+    )
   );
 }
