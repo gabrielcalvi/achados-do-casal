@@ -24,10 +24,16 @@ const supabase = createClient(supabaseUrl, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+const lojasPadrao = ["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "lauri-esporte"];
+const lojasSolicitadas = new Set(
+  String(process.env.AWIN_PRODUTOS_LOJAS || lojasPadrao.join(","))
+    .split(",")
+    .map((slug) => slug.trim())
+    .filter(Boolean)
+);
+
 const lojas = lojasConfig.filter(
-  (loja) =>
-    !loja.monitorOnly &&
-    ["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "lauri-esporte"].includes(loja.slug)
+  (loja) => !loja.monitorOnly && lojasSolicitadas.has(loja.slug)
 );
 
 function agora() {
