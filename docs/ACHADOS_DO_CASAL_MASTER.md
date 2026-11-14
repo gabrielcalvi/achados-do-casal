@@ -268,12 +268,13 @@ Características já implementadas:
 #### Lauri Esporte
 - status: ativo
 - catálogo, cupons, promoções e links afiliados
-- automação: ativa
-- advertiser ID oficial foi fixado
-- passou a fazer parte da rotina multiloja
+- advertiser ID oficial: `118977`
 - ganhou destaque na barra de parceiros
 - foi adicionada ao sitemap
-- regra atual: manter somente ofertas com desconto real
+- regra atual: manter somente ofertas com desconto real (mínimo operacional de 10%)
+- **14/11/2026:** diagnosticado catálogo público zerado porque o cron dedicado das 08:40 UTC executou código antigo (`33d809...`) em que `?loja=lauri-esporte` era ignorado; a rotina processava C&A, Renner, Calvin Klein, Stanley, Casas Bahia e Lauri por último, sem publicação Lauri concluída.
+- correção: criada rota 100% dedicada `/api/admin/economize/awin/lauri-esporte/produtos/executar`, com `AWIN_PRODUTOS_LOJAS=lauri-esporte`, status/log próprios e cron próprio.
+- Lauri passa a ser monitorada também pelo watchdog de catálogo.
 
 #### Renner
 - status: ativo
@@ -575,7 +576,7 @@ Configuração observada em `vercel.json`:
   - `10 4,16 * * *`
 - `/api/admin/watchdog`
   - `5 * * * *`
-- `/api/admin/economize/awin/produtos/executar?loja=lauri-esporte`
+- `/api/admin/economize/awin/lauri-esporte/produtos/executar`
   - `40 2,8,14,20 * * *`
 
 **Atenção:** horários de cron da Vercel são UTC. Converter para horário local ao interpretar.
@@ -746,6 +747,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — diagnosticada vitrine Lauri em 0/0/—: cron das 08:40 UTC usava coletor antigo `33d809...` e ignorava o filtro de loja, deixando Lauri por último numa varredura multiloja pesada. Criada rota/cron dedicado para Lauri e adicionado check específico no watchdog.
 - **14/11/2026** — pós-validação final: produção em `14fd7fb` / deploy `dpl_EK8LgBhDHN3FVc4AESdUA58nX5kA` READY; erro social marcado como resolvido após testes PNG 200 e zero runtime errors; Beto Carrero confirmado na fonte unificada com mesmo UUID/preço/link; `viagens_ingressos` confirmado com 0 registros; sitemap corrigido para aplicar disponibilidade profunda somente a pacotes; PRs #33 e #34 registrados.
 - **14/11/2026** — correções estruturais: rota social endurecida para materializar PNG antes da resposta; ingressos migrados para a tabela única de ofertas de viagem preservando IDs/URLs via redirecionamento; arquivamento reversível adicionado com restauração no admin e exclusão definitiva mantida como ação separada.
 - **14/11/2026** — monitor de disponibilidade ampliado para todas as ofertas de viagem, com regras próprias por modalidade e painel unificado de saúde/exclusão.
