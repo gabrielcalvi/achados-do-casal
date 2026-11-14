@@ -8,6 +8,7 @@ import PainelAgenteEconomia from "./PainelAgenteEconomia";
 import PainelFontesEconomia from "./PainelFontesEconomia";
 import PainelCuponsEconomia from "./PainelCuponsEconomia";
 import PainelSaudeAwin from "./PainelSaudeAwin";
+import PainelAmazonCreators from "./PainelAmazonCreators";
 
 type LojaEconomize = {
   id: string;
@@ -785,6 +786,7 @@ async function excluirOferta(
         </section>
 <PainelAgenteEconomia />
 <PainelSaudeAwin />
+<PainelAmazonCreators />
 <PainelFontesEconomia lojas={lojasAtivas} />
 <PainelCuponsEconomia lojas={lojasAtivas} />
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
