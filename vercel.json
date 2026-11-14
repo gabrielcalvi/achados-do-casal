@@ -45,7 +45,7 @@
       "schedule": "5 * * * *"
     },
     {
-      "path": "/api/admin/economize/awin/produtos/executar?loja=lauri-esporte",
+      "path": "/api/admin/economize/awin/lauri-esporte/produtos/executar",
       "schedule": "40 2,8,14,20 * * *"
     }
   ]
