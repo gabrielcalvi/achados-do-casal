@@ -232,11 +232,15 @@ function codigoAceitavel(codigo: string, loja: LojaBlackFriday) {
   const proibidos = new Set([
     "CUPOM", "CODIGO", "DESCONTO", "PROMO", "PROMOCAO", "BLACKFRIDAY",
     "SHOPPING", "CALENDAR", "CHECK", "ARROW", "SALE", "STAR",
+    "PHONE", "TAG", "CREDIT", "COINS", "MESSAGE",
     loja.nome.toUpperCase().replace(/[^A-Z0-9]/g, ""),
     loja.slug.toUpperCase().replace(/[^A-Z0-9]/g, ""),
   ]);
 
-  return !proibidos.has(normalizado) && !/^(ARROW|SHOPPING|CALENDAR|CHECK|SALE|STAR)/.test(normalizado);
+  return (
+    !proibidos.has(normalizado) &&
+    !/^(ARROW|SHOPPING|CALENDAR|CHECK|SALE|STAR|PHONE|TAG|CREDIT|COINS|MESSAGE)/.test(normalizado)
+  );
 }
 
 export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: string) {
