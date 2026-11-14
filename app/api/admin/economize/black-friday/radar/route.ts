@@ -4,11 +4,22 @@ import {
   BLACK_FRIDAY_FIM,
   LOJAS_BLACK_FRIDAY,
   processarLojaBlackFriday,
+  type LojaBlackFriday,
 } from "@/lib/economize/blackFridayRadar";
+import { LOJAS_BLACK_FRIDAY_EXTRAS } from "@/lib/economize/blackFridayRadarExtras";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+const LOJAS_RADAR: LojaBlackFriday[] = Array.from(
+  new Map(
+    [...LOJAS_BLACK_FRIDAY, ...LOJAS_BLACK_FRIDAY_EXTRAS].map((loja) => [
+      loja.slug,
+      loja,
+    ]),
+  ).values(),
+);
 
 function autorizadoCron(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim() || "";
@@ -18,7 +29,10 @@ function autorizadoCron(request: NextRequest) {
 async function usuarioAutenticado() {
   try {
     const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
     return !error && Boolean(user);
   } catch {
     return false;
@@ -31,7 +45,10 @@ async function autorizado(request: NextRequest) {
 
 async function executar(request: NextRequest) {
   if (!(await autorizado(request))) {
-    return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
+    return NextResponse.json(
+      { sucesso: false, erro: "Nao autorizado." },
+      { status: 401 },
+    );
   }
 
   if (Date.now() >= Date.parse(BLACK_FRIDAY_FIM)) {
@@ -43,20 +60,23 @@ async function executar(request: NextRequest) {
     });
   }
 
-  const slug = request.nextUrl.searchParams.get("loja")?.trim().toLowerCase() || "";
+  const slug =
+    request.nextUrl.searchParams.get("loja")?.trim().toLowerCase() || "";
   const lojas = slug
-    ? LOJAS_BLACK_FRIDAY.filter((loja) => loja.slug === slug)
-    : LOJAS_BLACK_FRIDAY;
+    ? LOJAS_RADAR.filter((loja) => loja.slug === slug)
+    : LOJAS_RADAR;
 
   if (slug && lojas.length === 0) {
     return NextResponse.json(
       { sucesso: false, erro: "Loja nao cadastrada no radar Black Friday." },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
   const resultados: any[] = [];
-  const concorrencia = 4;
+  // A cobertura cresceu bastante; oito lojas por lote mantém a ronda completa
+  // dentro da janela da função sem concentrar todas as requisições de uma vez.
+  const concorrencia = 8;
 
   for (let indice = 0; indice < lojas.length; indice += concorrencia) {
     const lote = lojas.slice(indice, indice + concorrencia);
@@ -76,7 +96,7 @@ async function executar(request: NextRequest) {
             fonte: null,
           };
         }
-      })
+      }),
     );
     resultados.push(...processados);
   }
@@ -92,7 +112,15 @@ async function executar(request: NextRequest) {
       if (item.erro) acc.erros += 1;
       return acc;
     },
-    { lojas: 0, ignoradas: 0, encontrados: 0, ativos: 0, pendentes: 0, desativados: 0, erros: 0 }
+    {
+      lojas: 0,
+      ignoradas: 0,
+      encontrados: 0,
+      ativos: 0,
+      pendentes: 0,
+      desativados: 0,
+      erros: 0,
+    },
   );
 
   return NextResponse.json(
@@ -103,7 +131,7 @@ async function executar(request: NextRequest) {
       resumo,
       resultados,
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "no-store" } },
   );
 }
 
