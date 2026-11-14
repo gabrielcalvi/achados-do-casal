@@ -164,6 +164,7 @@ export async function GET(request: NextRequest) {
     nike,
     kabum,
     cobasi,
+    lauri,
     ultimaMl,
     ultimaMonitor,
     ultimaViagem,
@@ -175,6 +176,7 @@ export async function GET(request: NextRequest) {
     contarProdutosAwin("nike"),
     contarProdutosAwin("kabum"),
     contarProdutosAwin("cobasi"),
+    contarProdutosAwin("lauri-esporte"),
     supabaseAdmin
       .from("economize_cupons_candidatos")
       .select("ultima_coleta_em")
@@ -219,6 +221,7 @@ export async function GET(request: NextRequest) {
     checkCatalogo("nike", "Catálogo Nike", nike, "/api/admin/economize/awin/nike/produtos/executar"),
     checkCatalogo("kabum", "Catálogo KaBuM", kabum, "/api/admin/economize/awin/kabum/produtos/executar"),
     checkCatalogo("cobasi", "Catálogo Cobasi", cobasi, "/api/admin/economize/awin/cobasi/produtos/executar"),
+    checkCatalogo("lauri-esporte", "Catálogo Lauri Esporte", lauri, "/api/admin/economize/awin/lauri-esporte/produtos/executar"),
   ];
 
   const mlIdade = horasDesde(ultimaMl.data?.ultima_coleta_em);
