@@ -297,8 +297,8 @@ export default async function ProdutoPage({
       <div className="grid gap-10 lg:grid-cols-2">
         <ProdutoGaleria
           nome={produto.nome}
-          imagemPrincipal={produto.imagem}
-          imagensExtras={imagens}
+          imagemPrincipal={ehAmazon ? "/produto-amazon.svg" : produto.imagem}
+          imagensExtras={ehAmazon ? [] : imagens}
         />
 
         <div>
