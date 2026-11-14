@@ -65,22 +65,34 @@
 
 ## 3. Estado de produção em 14/11/2026
 
-Foi feito um redeploy forçado do último commit de produção para validar o estado atual.
+Estado final validado após as correções estruturais de social + Viagens:
 
-- Deployment ID: `dpl_8SmpGskcnfBvJfsQ2NNu1TmirLGq`
-- Origem: redeploy
-- Commit: `1c9b071e10308d13443bdda41fc417aceb27fec2`
-- Status final: **READY**
-- Home: HTTP 200
-- `/economize`: HTTP 200
+- Deployment ID: `dpl_EK8LgBhDHN3FVc4AESdUA58nX5kA`
+- Commit: `14fd7fb432235fb7dc77cc1846a32ef194791990`
+- Commit: `fix: ajusta sitemap para ofertas de viagem`
+- Status: **READY**
+- Domínio principal: `achadosdocasal.com.br`
+- `/viagens`: HTTP 200
+- `/viagens/pacote/d36900cb-bb92-46ee-b3d9-7b6f0c9ba14c`: HTTP 200
+- URL antiga `/viagens/ingresso/d36900cb-bb92-46ee-b3d9-7b6f0c9ba14c`: preservada por redirecionamento permanente
+- `/api/social/achado/[id]`: PNG HTTP 200 nos testes finais
+- Vercel Runtime Errors: **0 erros** na janela final de validação de 10 minutos
 
-### Pendência observada
-Há erro recorrente em produção na rota:
-- `/api/social/achado/[id]`
-- Erro: `failed to pipe response`
-- Causa reportada: `TypeError: u2 is not iterable`
+### Erro social — RESOLVIDO
+O erro recorrente `failed to pipe response` / `TypeError: u2 is not iterable` foi tratado em 14/11/2026.
 
-Isto deve ser investigado sem esquecer as funcionalidades já estáveis.
+Correção aplicada:
+- o `ImageResponse` é materializado por completo antes de a resposta HTTP ser enviada;
+- a rota passa a devolver um PNG normal, reduzindo dependência de streaming;
+- imagens remotas usadas no card são restritas a formatos seguros JPEG/PNG, com fallback quando necessário.
+
+Validação:
+- oferta com imagem JPG: PNG HTTP 200;
+- oferta com imagem SVG na origem: fallback seguro, PNG HTTP 200;
+- zero erros de runtime observados após o deploy final.
+
+PR principal: **#33**
+Commit principal: `c11359d5571c1f4416cd27b82bfc34ae1f32e351`.
 
 ---
 
@@ -403,14 +415,17 @@ Tabelas:
 - `viagens_ignav_chamadas`
 - `viagens_interacoes`
 
-Volumes em 14/11/2026:
+Volumes históricos em 14/11/2026 antes da consolidação final:
 - radares: 160
 - execuções: 5.733
 - preços: 19.219
-- pacotes: 22
 - chamadas IGNAV: 22.054
 - interações: 25
-- ingressos: 1
+
+Snapshot após a migração estrutural de 14/11/2026:
+- `viagens_pacotes`: 2 registros no momento da conferência;
+- `viagens_ingressos`: **0 registros**;
+- a contagem de `viagens_pacotes` é operacional e muda conforme ofertas são cadastradas/arquivadas/excluídas.
 
 ### Radar Viagens — referências históricas
 Metas/regras trabalhadas:
@@ -429,7 +444,20 @@ Em 14/11/2026 a estrutura de `viagens_pacotes` foi ampliada sem quebrar os regis
 #### Fonte única de ofertas
 Em 14/11/2026 os ingressos deixaram de usar cadastro/tabela pública separada como fonte principal. O histórico existente é migrado para `viagens_pacotes` com `tipo=ingresso`, preservando o mesmo UUID. A URL antiga `/viagens/ingresso/[id]` redireciona permanentemente para `/viagens/pacote/[id]`.
 
-A tabela `viagens_ingressos` pode permanecer apenas como estrutura legada vazia durante a transição, mas não deve receber novos cadastros.
+A tabela `viagens_ingressos` permanece apenas como estrutura legada vazia durante a transição e **não deve receber novos cadastros**. Após a migração real, sua contagem foi confirmada em **0 registros**.
+
+Migração versionada:
+- `supabase/migrations/20261114134500_viagens_unifica_ingressos_arquivamento.sql`
+
+Caso preservado na migração:
+- Beto Carrero World;
+- UUID preservado: `d36900cb-bb92-46ee-b3d9-7b6f0c9ba14c`;
+- tipo final: `ingresso`;
+- status: `ativo`;
+- preço total: R$ 124,00;
+- preço por pessoa: R$ 124,00;
+- link afiliado preservado: `https://tidd.ly/4isMQKG`;
+- `arquivado_em = null` após a migração.
 
 #### Arquivamento
 - `viagens_pacotes.arquivado_em` indica uma oferta arquivada;
@@ -454,7 +482,9 @@ Regras do monitor:
 - bloqueios técnicos do parceiro (ex.: 403/429) viram **erro técnico**, sem inativar automaticamente;
 - expiração objetiva por validade/data pode marcar a oferta como indisponível/expirada;
 - ingressos da tabela `viagens_ingressos` receberam os mesmos campos de saúde;
-- o painel do admin passou a mostrar todos os tipos em uma única tabela e permite exclusão manual das ofertas selecionadas.
+- o painel do admin passou a mostrar todos os tipos em uma única tabela;
+- a ação padrão de remoção operacional passou a ser **Arquivar**, com restauração posterior;
+- a exclusão definitiva continua disponível separadamente e exige confirmação explícita.
 
 Tipos suportados no cadastro flexível:
 - `pacote` — aéreo + hotel; mantém Radar, aeroportos, companhia aérea, bagagem, datas e noites;
@@ -569,6 +599,9 @@ Pontos já trabalhados:
 - reviews inativas continuam indexáveis;
 - Lauri Esporte incluída no sitemap;
 - pacotes não publicáveis filtrados do sitemap;
+- após a unificação, a regra de disponibilidade profunda do sitemap vale somente para `tipo=pacote`;
+- ingressos, hotéis, carros, cruzeiros, passeios e outros tipos ativos/válidos/não arquivados não são excluídos do sitemap apenas porque o parceiro bloqueou a checagem automática;
+- Beto Carrero validado no sitemap pela URL nova `/viagens/pacote/d36900cb-bb92-46ee-b3d9-7b6f0c9ba14c`, sem duplicar a URL legada;
 - canonical e OpenGraph presentes nas páginas públicas principais.
 
 ---
@@ -600,6 +633,8 @@ Não manter essas informações somente em conversa.
 ## 13. Histórico de commits-chave
 
 ### Novembro/2026
+- `14fd7fb` — ajusta sitemap para ofertas de viagem após a unificação
+- `c11359d` — consolida correção social, unificação de ingressos e arquivamento reversível
 - `1c9b071` — respeita loja solicitada na coleta Awin
 - `b5dda8a` — ignora produtos manuais no monitor automático
 - `c198855` — mostra composição do total final do pacote
@@ -669,13 +704,13 @@ Não manter essas informações somente em conversa.
 
 ## 15. Pontos ainda pendentes / próximos passos
 
-1. Investigar o erro recorrente de produção em `/api/social/achado/[id]`.
-2. Fechar cobertura remota do monitor do Mercado Livre para todos os formatos de link.
-3. Implementar/automatizar **Cupons Amazon V2**.
-4. Continuar evolução das integrações prioritárias ainda não fechadas.
-5. Confirmar comissões/regras que o banco marca como pendentes.
-6. Validar continuamente o fluxo ponta a ponta de pacotes Decolar.
-7. Manter qualidade dos preços e desconto real das coletas AWIN.
+1. Fechar cobertura remota do monitor do Mercado Livre para todos os formatos de link.
+2. Implementar/automatizar **Cupons Amazon V2**.
+3. Continuar evolução das integrações prioritárias ainda não fechadas.
+4. Confirmar comissões/regras que o banco marca como pendentes.
+5. Validar continuamente o fluxo ponta a ponta de pacotes Decolar.
+6. Manter qualidade dos preços e desconto real das coletas AWIN.
+7. Acompanhar a estabilidade da rota social após a correção, sem tratá-la como pendência aberta enquanto não houver nova recorrência.
 8. Manter este documento atualizado sempre que houver decisão arquitetural, nova integração, regra de negócio, cron, tabela ou mudança importante.
 
 ---
@@ -711,6 +746,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — pós-validação final: produção em `14fd7fb` / deploy `dpl_EK8LgBhDHN3FVc4AESdUA58nX5kA` READY; erro social marcado como resolvido após testes PNG 200 e zero runtime errors; Beto Carrero confirmado na fonte unificada com mesmo UUID/preço/link; `viagens_ingressos` confirmado com 0 registros; sitemap corrigido para aplicar disponibilidade profunda somente a pacotes; PRs #33 e #34 registrados.
 - **14/11/2026** — correções estruturais: rota social endurecida para materializar PNG antes da resposta; ingressos migrados para a tabela única de ofertas de viagem preservando IDs/URLs via redirecionamento; arquivamento reversível adicionado com restauração no admin e exclusão definitiva mantida como ação separada.
 - **14/11/2026** — monitor de disponibilidade ampliado para todas as ofertas de viagem, com regras próprias por modalidade e painel unificado de saúde/exclusão.
 - **14/11/2026** — Viagens ampliado para ofertas flexíveis: pacote, hotel, ingresso, carro, cruzeiro, passeio e outro; hotel não exige aeroportos; verificador Decolar permanece exclusivo de pacotes; estrutura existente preservada.
