@@ -872,6 +872,8 @@ export default function PacotesViagem() {
               </>
             )}
 
+            {!["carro", "outro"].includes(form.tipo) && (
+              <>
             <label>
               <span className="text-sm font-black">Adultos *</span>
               <input
@@ -894,6 +896,9 @@ export default function PacotesViagem() {
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
             </label>
+
+              </>
+            )}
 
             <label>
               <span className="text-sm font-black">Preço anunciado da oferta *</span>
@@ -990,6 +995,17 @@ export default function PacotesViagem() {
                 rows={3}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
+            </label>
+
+            <label>
+              <span className="text-sm font-black">Validade da oferta</span>
+              <input
+                type="date"
+                value={form.validade}
+                onChange={(e) => alterar("validade", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+              />
+              <span className="mt-1 block text-xs font-bold text-slate-500">Depois desta data, a oferta deixa de aparecer publicamente.</span>
             </label>
 
             <label className="flex items-center gap-3">
