@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Passagens sob medida, pacotes e ingressos",
+  title: "Passagens, hotéis, pacotes e ofertas de viagem",
   description:
-    "Peça uma cotação de passagem sob medida pelo WhatsApp e encontre pacotes, ingressos e oportunidades de viagem selecionadas pelo Achados do Casal.",
+    "Peça uma cotação de passagem sob medida e encontre pacotes, hotéis, ingressos, carros, cruzeiros e experiências selecionadas pelo Achados do Casal.",
   alternates: {
     canonical: "/viagens",
   },
   openGraph: {
     title: "Viagens | Achados do Casal",
     description:
-      "Cotações de passagens sob demanda, pacotes, ingressos e oportunidades para viajar melhor e pagar menos.",
+      "Cotações de passagens sob demanda, pacotes, hotéis, ingressos, carros, cruzeiros e experiências para viajar melhor e pagar menos.",
     url: "/viagens",
     type: "website",
   },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Viagens | Achados do Casal",
     description:
-      "Cotações de passagens sob demanda, pacotes, ingressos e oportunidades de viagem.",
+      "Cotações de passagens sob demanda e ofertas de hotéis, pacotes, ingressos, carros, cruzeiros e experiências.",
   },
 };
 

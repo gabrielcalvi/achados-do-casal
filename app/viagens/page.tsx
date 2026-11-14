@@ -45,10 +45,10 @@ export default function ViagensPage() {
           <div>
             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black tracking-wide">INTELIGÊNCIA DE VIAGEM</span>
             <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">Viajar melhor,<br />pagar menos<br /><span className="text-cyan-200">e decidir com dados.</span></h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-sky-100">Pacotes, ingressos e experiências continuam disponíveis no site. Para passagens aéreas, você envia sua rota e nós fazemos a pesquisa sob medida quando houver intenção real de compra.</p>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-sky-100">Pacotes, hotéis, ingressos, carros, cruzeiros e experiências continuam disponíveis no site. Para passagens aéreas, você envia sua rota e nós fazemos a pesquisa sob medida quando houver intenção real de compra.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a href="#cotacao-voo" className="rounded-2xl bg-white px-6 py-4 font-black text-sky-950 shadow-lg transition hover:bg-sky-50">Pedir cotação de voo</a>
-              <a href="#pacotes-viagem" className="rounded-2xl bg-emerald-400 px-6 py-4 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-300">Ver pacotes e ingressos</a>
+              <a href="#pacotes-selecionados" className="rounded-2xl bg-emerald-400 px-6 py-4 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-300">Ver ofertas de viagem</a>
             </div>
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-sky-100">
               <a href="#nossas-viagens" className="transition hover:text-white">Nossas viagens</a><span className="text-white/30">•</span>
@@ -64,7 +64,7 @@ export default function ViagensPage() {
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Voos</p><p className="mt-1 text-xl font-black">Sob demanda</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Pacotes</p><p className="mt-1 text-xl font-black text-emerald-200">Ativos</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Ofertas</p><p className="mt-1 text-xl font-black text-emerald-200">Ativas</p></div>
               <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Ingressos</p><p className="mt-1 text-xl font-black text-amber-200">Ativos</p></div>
             </div>
           </div>

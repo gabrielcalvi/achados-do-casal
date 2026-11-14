@@ -423,6 +423,28 @@ Metas/regras trabalhadas:
 
 Esses valores são referências históricas do produto e podem mudar; não devem ser tratados como preços atuais sem coleta.
 
+### Ofertas flexíveis de viagem
+Em 14/11/2026 a estrutura de `viagens_pacotes` foi ampliada sem quebrar os registros existentes.
+
+Tipos suportados no cadastro flexível:
+- `pacote` — aéreo + hotel; mantém Radar, aeroportos, companhia aérea, bagagem, datas e noites;
+- `hotel` — hotel + cidade/destino + check-in/check-out + noites; **não exige aeroportos**;
+- `ingresso` — atração/local; sem obrigação de voo/hotel;
+- `carro` — local de retirada + período; sem passageiros/aeroportos;
+- `cruzeiro` — porto/local + período + noites;
+- `passeio` — atração/local, com dados comerciais da oferta;
+- `outro` — formato genérico para oportunidades que não se encaixam nos anteriores.
+
+Regras:
+- registros antigos continuam `tipo=pacote` por padrão;
+- URLs existentes de pacote não mudaram;
+- link afiliado e preço continuam obrigatórios para publicação/cadastro;
+- o formulário do admin mostra e exige somente campos pertinentes à modalidade;
+- o verificador automático de disponibilidade Decolar continua atuando **somente em `tipo=pacote`**, para não gerar falsos erros em hotel/carro/cruzeiro/etc.;
+- a vitrine pública e a página individual passam a usar rótulo, ícone, local, período e preço conforme o tipo;
+- a validade da oferta pode ser cadastrada e remove a oferta da vitrine pública quando expira;
+- migration versionada: `supabase/migrations/20261114122000_viagens_ofertas_flexiveis.sql`.
+
 ### Pacotes Decolar
 O fluxo passou por várias versões:
 - fallback Playwright;
@@ -659,6 +681,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — Viagens ampliado para ofertas flexíveis: pacote, hotel, ingresso, carro, cruzeiro, passeio e outro; hotel não exige aeroportos; verificador Decolar permanece exclusivo de pacotes; estrutura existente preservada.
 - **14/11/2026** — reconfirmado como regra permanente: lançamento de produtos do Mercado Livre é manual; não reativar automação de produtos sem decisão explícita do Gabriel.
 - **14/11/2026** — SEO de produtos reforçado: server-side rendering em `/produto/[id]`, metadata dinâmica, Product/Review/Breadcrumb JSON-LD e links internos; commit de produção `32c52e7520c0066aa93191924f7f127182d07546`, deploy `dpl_9n7omXWrHiBkSG1rTLqAQWpAgoma` READY.
 - **14/11/2026** — registrado estado de indexação no Search Console: `/economize` e `/viagens` indexadas; `/reviews` rastreada com sucesso, indexação permitida, ainda aguardando entrada no índice.

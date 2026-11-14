@@ -277,6 +277,7 @@ export async function GET(request: NextRequest) {
     .from("viagens_pacotes")
     .select("id,status,titulo,parceiro,link_original,data_ida,data_volta,hotel_nome,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
     .eq("status", "ativo")
+    .eq("tipo", "pacote")
     .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
     .limit(20);
 

@@ -44,6 +44,7 @@ export async function GET() {
       disponibilidade_motivo,
       disponibilidade_ultima_ok_em
     `)
+    .eq("tipo", "pacote")
     .order("created_at", { ascending: false })
     .limit(100);
 

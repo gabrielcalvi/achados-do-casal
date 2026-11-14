@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type Pacote = {
   id: string;
   status: string;
+  tipo: "pacote" | "hotel" | "ingresso" | "carro" | "cruzeiro" | "passeio" | "outro";
   titulo: string;
   parceiro: string;
   link_original?: string | null;
@@ -15,6 +16,8 @@ type Pacote = {
   origem_codigo: string;
   destino_codigo: string;
   destino_nome?: string | null;
+  local_nome?: string | null;
+  cidade_uf?: string | null;
   data_ida: string;
   data_volta: string;
   hotel_nome: string;
@@ -100,7 +103,18 @@ const RADARES = [
   "gig-lisboa",
 ];
 
+const TIPOS = [
+  { value: "pacote", label: "📦 Pacote" },
+  { value: "hotel", label: "🏨 Hotel" },
+  { value: "ingresso", label: "🎟️ Ingresso" },
+  { value: "carro", label: "🚗 Aluguel de carro" },
+  { value: "cruzeiro", label: "🚢 Cruzeiro" },
+  { value: "passeio", label: "🎡 Passeio / experiência" },
+  { value: "outro", label: "✨ Outro" },
+] as const;
+
 const INICIAL = {
+  tipo: "pacote",
   titulo: "",
   parceiro: "Decolar",
   link_original: "",
@@ -112,6 +126,8 @@ const INICIAL = {
   origem_codigo: "",
   destino_codigo: "",
   destino_nome: "",
+  local_nome: "",
+  cidade_uf: "",
   data_ida: "",
   data_volta: "",
   hotel_nome: "",
@@ -159,6 +175,22 @@ function diferencaNoites(ida?: string, volta?: string) {
 function dataInput(valor?: string | null) {
   if (!valor) return "";
   return valor.slice(0, 10);
+}
+
+function tipoLabel(tipo: string) {
+  return TIPOS.find((item) => item.value === tipo)?.label || "✨ Oferta";
+}
+
+function tipoComDatas(tipo: string) {
+  return ["pacote", "hotel", "carro", "cruzeiro"].includes(tipo);
+}
+
+function tipoComNoites(tipo: string) {
+  return ["pacote", "hotel", "cruzeiro"].includes(tipo);
+}
+
+function tipoComHotel(tipo: string) {
+  return ["pacote", "hotel"].includes(tipo);
 }
 
 export default function PacotesViagem() {
@@ -232,6 +264,7 @@ export default function PacotesViagem() {
   function editarPacote(pacote: Pacote) {
     setEditandoId(pacote.id);
     setForm({
+      tipo: pacote.tipo || "pacote",
       titulo: pacote.titulo || "",
       parceiro: pacote.parceiro || "Decolar",
       link_original: pacote.link_original || "",
@@ -246,6 +279,8 @@ export default function PacotesViagem() {
       origem_codigo: pacote.origem_codigo || "",
       destino_codigo: pacote.destino_codigo || "",
       destino_nome: pacote.destino_nome || "",
+      local_nome: pacote.local_nome || "",
+      cidade_uf: pacote.cidade_uf || "",
       data_ida: dataInput(pacote.data_ida),
       data_volta: dataInput(pacote.data_volta),
       hotel_nome: pacote.hotel_nome || "",
@@ -387,7 +422,7 @@ export default function PacotesViagem() {
       const payload = {
         ...form,
         ...(editandoId ? { id: editandoId } : {}),
-        noites: Number(form.noites),
+        noites: form.noites ? Number(form.noites) : null,
         adultos: Number(form.adultos),
         criancas: Number(form.criancas),
         preco_total: Number(form.preco_total),
@@ -423,8 +458,8 @@ export default function PacotesViagem() {
         throw new Error(
           dados.erro ||
             (editandoId
-              ? "Falha ao salvar alterações do pacote."
-              : "Falha ao cadastrar pacote.")
+              ? "Falha ao salvar alterações da oferta."
+              : "Falha ao cadastrar oferta.")
         );
       }
 
@@ -435,14 +470,14 @@ export default function PacotesViagem() {
       await carregar();
       setAviso(
         foiEdicao
-          ? "Alterações do pacote salvas com sucesso."
-          : "Pacote cadastrado com sucesso."
+          ? "Alterações da oferta salvas com sucesso."
+          : "Oferta cadastrada com sucesso."
       );
     } catch (error) {
       setErro(
         error instanceof Error
           ? error.message
-          : "Erro inesperado ao salvar pacote."
+          : "Erro inesperado ao salvar oferta."
       );
     } finally {
       setSalvando(false);
@@ -454,13 +489,11 @@ export default function PacotesViagem() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-wider text-amber-600">
-            Pacotes manuais
+            Ofertas de viagem
           </p>
-          <h2 className="mt-2 text-2xl font-black">Aéreo + hotel</h2>
+          <h2 className="mt-2 text-2xl font-black">Pacotes, hotéis, ingressos, carros e experiências</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Use as melhores janelas encontradas pelo Radar para montar pacotes
-            em parceiros como Decolar. O pacote é uma oferta comercial separada
-            e não altera a classificação independente do Radar.
+            Cadastre cada oportunidade no formato certo. Pacotes mantêm todos os dados de voo + hotel; hotéis, ingressos, carros, cruzeiros e passeios mostram apenas os campos necessários para cada oferta.
           </p>
         </div>
 
@@ -469,14 +502,14 @@ export default function PacotesViagem() {
           onClick={aberto ? fecharFormulario : novoPacote}
           className="rounded-xl bg-amber-500 px-5 py-3 font-black text-slate-950 transition hover:bg-amber-400"
         >
-          {aberto ? "Fechar cadastro" : "+ Adicionar pacote"}
+          {aberto ? "Fechar cadastro" : "+ Adicionar oferta"}
         </button>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-            Pacotes cadastrados
+            Ofertas cadastradas
           </p>
           <p className="mt-2 text-3xl font-black">{pacotes.length}</p>
         </div>
@@ -522,7 +555,7 @@ export default function PacotesViagem() {
             <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-amber-700">
-                  ✏️ Editando pacote existente
+                  ✏️ Editando oferta existente
                 </p>
                 <p className="mt-1 font-black text-slate-950">{form.titulo}</p>
               </div>
@@ -531,11 +564,12 @@ export default function PacotesViagem() {
                 onClick={novoPacote}
                 className="rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-black text-amber-800"
               >
-                Cancelar edição / Novo pacote
+                Cancelar edição / Nova oferta
               </button>
             </div>
           )}
 
+          {form.tipo === "pacote" && (
           <div className="mb-6 rounded-2xl border-2 border-violet-200 bg-violet-50 p-5">
             <p className="text-xs font-black uppercase tracking-wider text-violet-700">
               ✨ Preenchimento automático
@@ -571,14 +605,28 @@ export default function PacotesViagem() {
               O link original fica salvo para futuras atualizações de preço. Ele não substitui o link afiliado.
             </p>
           </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label>
+              <span className="text-sm font-black">Tipo de oferta *</span>
+              <select
+                value={form.tipo}
+                onChange={(e) => alterar("tipo", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-black"
+              >
+                {TIPOS.map((tipo) => (
+                  <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+                ))}
+              </select>
+            </label>
+
             <label className="xl:col-span-2">
-              <span className="text-sm font-black">Título do pacote *</span>
+              <span className="text-sm font-black">Título da oferta *</span>
               <input
                 value={form.titulo}
                 onChange={(e) => alterar("titulo", e.target.value)}
-                placeholder="Ex.: Madrid 9 noites + voo saindo de GRU"
+                placeholder={form.tipo === "pacote" ? "Ex.: Madrid 9 noites + voo saindo de GRU" : form.tipo === "hotel" ? "Ex.: Hotel Atlântico Business - Rio de Janeiro" : "Título da oferta"}
                 required
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
@@ -601,7 +649,7 @@ export default function PacotesViagem() {
                 type="url"
                 value={form.link_afiliado}
                 onChange={(e) => alterar("link_afiliado", e.target.value)}
-                placeholder="Cole aqui o link afiliado da Decolar depois de revisar o pacote"
+                placeholder="Cole aqui o link afiliado usado no botão público"
                 required
                 className="mt-2 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3"
               />
@@ -610,6 +658,8 @@ export default function PacotesViagem() {
               </span>
             </label>
 
+            {form.tipo === "pacote" && (
+              <>
             <label>
               <span className="text-sm font-black">Radar de referência</span>
               <select
@@ -658,6 +708,11 @@ export default function PacotesViagem() {
               </label>
             </div>
 
+              </>
+            )}
+
+            {form.tipo === "pacote" && (
+              <>
             <label>
               <span className="text-sm font-black">Origem *</span>
               <input
@@ -726,13 +781,46 @@ export default function PacotesViagem() {
               />
             </label>
 
+              </>
+            )}
+
+            {form.tipo !== "pacote" && (
+              <>
+                <label className="xl:col-span-2">
+                  <span className="text-sm font-black">{form.tipo === "hotel" ? "Cidade / destino" : form.tipo === "carro" ? "Local de retirada *" : form.tipo === "cruzeiro" ? "Porto de embarque *" : form.tipo === "ingresso" ? "Atração / local *" : form.tipo === "passeio" ? "Passeio / local *" : "Nome / local"}</span>
+                  <input
+                    value={form.local_nome}
+                    onChange={(e) => alterar("local_nome", e.target.value)}
+                    required={["ingresso","carro","cruzeiro","passeio"].includes(form.tipo)}
+                    placeholder={form.tipo === "hotel" ? "Rio de Janeiro" : "Nome ou local da oferta"}
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                  />
+                </label>
+                <label>
+                  <span className="text-sm font-black">Cidade / UF</span>
+                  <input value={form.cidade_uf} onChange={(e) => alterar("cidade_uf", e.target.value)} placeholder="Rio de Janeiro/RJ" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3" />
+                </label>
+                {tipoComDatas(form.tipo) && (
+                  <>
+                    <label><span className="text-sm font-black">{form.tipo === "hotel" ? "Check-in *" : "Início *"}</span><input type="date" value={form.data_ida} onChange={(e) => alterar("data_ida", e.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3" /></label>
+                    <label><span className="text-sm font-black">{form.tipo === "hotel" ? "Check-out *" : "Fim *"}</span><input type="date" value={form.data_volta} onChange={(e) => alterar("data_volta", e.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3" /></label>
+                  </>
+                )}
+                {tipoComNoites(form.tipo) && (
+                  <label><span className="text-sm font-black">Noites *</span><input type="number" min="1" value={form.noites} onChange={(e) => alterar("noites", e.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3" /></label>
+                )}
+              </>
+            )}
+
+            {tipoComHotel(form.tipo) && (
+              <>
             <label className="xl:col-span-2">
               <span className="text-sm font-black">Hotel *</span>
               <input
                 value={form.hotel_nome}
                 onChange={(e) => alterar("hotel_nome", e.target.value)}
                 placeholder="Nome do hotel"
-                required
+                required={tipoComHotel(form.tipo)}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
             </label>
@@ -757,6 +845,11 @@ export default function PacotesViagem() {
               />
             </label>
 
+              </>
+            )}
+
+            {form.tipo === "pacote" && (
+              <>
             <label>
               <span className="text-sm font-black">Companhia aérea</span>
               <input
@@ -776,6 +869,11 @@ export default function PacotesViagem() {
               />
             </label>
 
+              </>
+            )}
+
+            {!["carro", "outro"].includes(form.tipo) && (
+              <>
             <label>
               <span className="text-sm font-black">Adultos *</span>
               <input
@@ -799,8 +897,11 @@ export default function PacotesViagem() {
               />
             </label>
 
+              </>
+            )}
+
             <label>
-              <span className="text-sm font-black">Preço anunciado do pacote *</span>
+              <span className="text-sm font-black">Preço anunciado da oferta *</span>
               <input
                 type="number"
                 min="0"
@@ -811,7 +912,7 @@ export default function PacotesViagem() {
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
               />
               <span className="mt-1 block text-xs font-bold text-slate-500">
-                Valor que a Decolar mostra antes de impostos, taxas e encargos.
+                Valor anunciado pelo parceiro antes de eventuais impostos, taxas e encargos.
               </span>
             </label>
 
@@ -896,13 +997,24 @@ export default function PacotesViagem() {
               />
             </label>
 
+            <label>
+              <span className="text-sm font-black">Validade da oferta</span>
+              <input
+                type="date"
+                value={form.validade}
+                onChange={(e) => alterar("validade", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+              />
+              <span className="mt-1 block text-xs font-bold text-slate-500">Depois desta data, a oferta deixa de aparecer publicamente.</span>
+            </label>
+
             <label className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={form.destaque}
                 onChange={(e) => alterar("destaque", e.target.checked)}
               />
-              <span className="text-sm font-black">Destacar pacote</span>
+              <span className="text-sm font-black">Destacar oferta</span>
             </label>
           </div>
 
@@ -935,9 +1047,9 @@ export default function PacotesViagem() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="px-4 py-3 font-black">Pacote</th>
-              <th className="px-4 py-3 font-black">Rota / datas</th>
-              <th className="px-4 py-3 font-black">Hotel</th>
+              <th className="px-4 py-3 font-black">Oferta</th>
+              <th className="px-4 py-3 font-black">Tipo / local</th>
+              <th className="px-4 py-3 font-black">Datas / detalhes</th>
               <th className="px-4 py-3 font-black">Preço</th>
               <th className="px-4 py-3 font-black">Parceiro</th>
               <th className="px-4 py-3 font-black">Status</th>
@@ -948,13 +1060,13 @@ export default function PacotesViagem() {
             {carregando ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  Carregando pacotes...
+                  Carregando ofertas...
                 </td>
               </tr>
             ) : pacotes.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  Nenhum pacote cadastrado ainda.
+                  Nenhuma oferta cadastrada ainda.
                 </td>
               </tr>
             ) : (
