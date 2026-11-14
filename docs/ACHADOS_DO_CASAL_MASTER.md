@@ -499,6 +499,11 @@ Configuração observada em `vercel.json`:
 ## 11. SEO e publicação
 
 Pontos já trabalhados:
+- **14/11/2026: páginas `/produto/[id]` migradas para renderização no servidor, preservando a galeria interativa em componente cliente isolado.**
+- **14/11/2026: metadata dinâmica por produto/review, canonical, Open Graph e Twitter Cards adicionados nas páginas de produto.**
+- **14/11/2026: dados estruturados JSON-LD `Product`, `Review` e `BreadcrumbList` adicionados às páginas de produto quando aplicável.**
+- **14/11/2026: links internos reforçados com breadcrumb visual, retorno para Reviews do Casal e bloco de reviews relacionadas.**
+- **Validação:** preview Vercel READY; produtos 36, 38 e 101 testados com HTTP 200; produção validada em `/produto/36` com conteúdo completo no HTML, `robots=index,follow`, canonical e JSON-LD presentes.
 - metadata da Central Economize;
 - sitemap;
 - **14/11/2026: sitemap enviado/validado manualmente no Google Search Console, como etapa de indexação e acompanhamento do site;**
@@ -650,6 +655,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — SEO de produtos reforçado: server-side rendering em `/produto/[id]`, metadata dinâmica, Product/Review/Breadcrumb JSON-LD e links internos; commit de produção `32c52e7520c0066aa93191924f7f127182d07546`, deploy `dpl_9n7omXWrHiBkSG1rTLqAQWpAgoma` READY.
 - **14/11/2026** — registrado estado de indexação no Search Console: `/economize` e `/viagens` indexadas; `/reviews` rastreada com sucesso, indexação permitida, ainda aguardando entrada no índice.
 - **14/11/2026** — registrado que o sitemap do site foi enviado/validado manualmente no Google Search Console.
 - **14/11/2026** — criação do documento mestre, consolidação de meses de histórico, arquitetura, integrações, regras, banco, cron, estado de produção e pendências.
