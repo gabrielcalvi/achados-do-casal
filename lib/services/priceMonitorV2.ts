@@ -24,11 +24,6 @@ type DadosMonitor = {
   fonte?: string;
 };
 
-function ehAmazon(produto: Pick<ProdutoBanco, "loja" | "link">) {
-  const texto = `${produto.loja || ""} ${produto.link || ""}`.toLowerCase();
-  return texto.includes("amazon") || texto.includes("amzn.to");
-}
-
 function ehMercadoLivre(produto: Pick<ProdutoBanco, "loja" | "link">) {
   const texto = `${produto.loja || ""} ${produto.link || ""}`.toLowerCase();
   return (
@@ -136,10 +131,6 @@ async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
 
   if (ehMercadoLivre(produto)) {
     return extrairMercadoLivreSeguro(produto, link);
-  }
-
-  if (ehAmazon(produto)) {
-    throw new Error("Monitoramento automático da Amazon pausado: usar dados oficiais da PA API.");
   }
 
   const dados = await extrairProduto(link);
@@ -369,13 +360,10 @@ export async function monitorarTodosProdutosV2() {
   // Produtos ML em quarentena possuem uma rota separada de recuperacao,
   // para que dezenas de falhas do ML nunca travem a atualizacao das outras lojas.
   const produtosTodos = (data || []) as ProdutoBanco[];
-  const produtos = produtosTodos.filter(
-    (produto) => !produto.monitoramento_manual && !ehAmazon(produto)
-  );
+  const produtos = produtosTodos.filter((produto) => !produto.monitoramento_manual);
 
   // Produtos marcados como manuais nunca entram na varredura automatica.
   // Mercado Livre cadastrado manualmente usa esse modo por padrao.
-  // Amazon também fica fora da varredura até usar a PA API oficial.
   const produtosMl = produtos.filter(ehMercadoLivre);
   const produtosOutros = produtos.filter((produto) => !ehMercadoLivre(produto));
   const resultados: Array<Record<string, unknown>> = [];

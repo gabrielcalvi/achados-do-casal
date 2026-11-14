@@ -40,20 +40,17 @@ export default function HeroDestaque({
     );
   }
 
-  const ehAmazon = produto.loja.trim().toLowerCase() === "amazon";
-  const economia = ehAmazon
-    ? null
-    : calcularEconomia(
-        produto.precoAnterior,
-        produto.precoAtual,
-      );
+  const economia = calcularEconomia(
+    produto.precoAnterior,
+    produto.precoAtual,
+  );
 
   return (
     <div className="overflow-hidden rounded-3xl bg-white text-slate-950 shadow-2xl">
       <div className="grid md:grid-cols-[220px_1fr]">
         <div className="flex min-h-56 items-center justify-center bg-slate-50 p-6">
           <img
-            src={ehAmazon ? "/produto-amazon.svg" : produto.imagem}
+            src={produto.imagem}
             alt={produto.nome}
             className="h-52 w-full object-contain"
           />
@@ -72,52 +69,33 @@ export default function HeroDestaque({
             {produto.categoria} — {produto.loja}
           </p>
 
-          {ehAmazon ? (
-            <div className="mt-5">
-              <p className="text-sm font-bold text-amber-700">
-                Preço e disponibilidade podem mudar na Amazon.
-              </p>
-              <p className="mt-1 text-2xl font-black text-slate-950">
-                Consulte o preço atual na Amazon
-              </p>
+          {produto.precoAnterior && (
+            <div className="mt-5 text-sm text-slate-400 line-through">
+              De {formatarPreco(produto.precoAnterior)}
             </div>
-          ) : (
-            <>
-              {produto.precoAnterior && (
-                <div className="mt-5 text-sm text-slate-400 line-through">
-                  De {formatarPreco(produto.precoAnterior)}
-                </div>
-              )}
-
-              <div className="text-4xl font-black text-pink-500">
-                {formatarPreco(produto.precoAtual)}
-              </div>
-
-              {economia && (
-                <p className="mt-2 font-bold text-green-700">
-                  Economia de {formatarPreco(economia)}
-                </p>
-              )}
-
-              {produto.pagamento && (
-                <p className="mt-2 font-bold text-green-700">
-                  {produto.pagamento}
-                </p>
-              )}
-            </>
           )}
 
-          {ehAmazon && (
-            <p className="mt-5 text-xs font-bold text-slate-500">
-              Publicidade · link de afiliado Amazon
+          <div className="text-4xl font-black text-pink-500">
+            {formatarPreco(produto.precoAtual)}
+          </div>
+
+          {economia && (
+            <p className="mt-2 font-bold text-green-700">
+              Economia de {formatarPreco(economia)}
+            </p>
+          )}
+
+          {produto.pagamento && (
+            <p className="mt-2 font-bold text-green-700">
+              {produto.pagamento}
             </p>
           )}
 
           <a
             href={`/produto/${produto.id}/ir?origem=site`}
-            className={`${ehAmazon ? "mt-2" : "mt-6"} inline-flex w-full justify-center rounded-xl bg-blue-950 px-5 py-4 font-black text-white transition hover:bg-blue-900`}
+            className="mt-6 inline-flex w-full justify-center rounded-xl bg-blue-950 px-5 py-4 font-black text-white transition hover:bg-blue-900"
           >
-            {ehAmazon ? "Ver na Amazon" : `Ver oferta na ${produto.loja}`}
+            Ver oferta na {produto.loja}
           </a>
         </div>
       </div>

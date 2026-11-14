@@ -241,6 +241,37 @@ Tracking:
 - cliques continuam gravados em `economize_cliques`;
 - origem `black_friday` é aceita para medir desempenho da campanha.
 
+### Estratégia de fontes por loja — Black Friday
+A partir de 14/11/2026 o radar deixou de depender de uma fonte única.
+
+Prioridade:
+1. fonte oficial da própria loja, quando existir;
+2. fonte agregadora validada com código, validade e/ou uso recente;
+3. candidato sem evidência suficiente fica pendente ou nem é criado.
+
+Fontes oficiais já incorporadas ao radar:
+- **Renner** → `https://www.lojasrenner.com.br/cupom-de-desconto`;
+- **Marisa** → página oficial de regras/promoções;
+- **Nike** → página oficial de cupons para confirmação dos códigos oficiais.
+
+Cuponation continua como fonte estruturada secundária para lojas em que entrega código, validade, publicação e `lastUsedDate`.
+
+Lojas prioritárias adicionadas/monitoradas:
+- Renner;
+- C&A (mantida no pipeline próprio existente, sem duplicar no radar);
+- Nike;
+- Apple;
+- Gaston;
+- Marisa;
+- Amazon;
+- Americanas;
+- Decathlon;
+- Dafiti;
+- Zattini;
+- além das demais lojas grandes já existentes no radar.
+
+Regra: marca atraente sem cupom verificável continua no radar, mas **não entra no público só para preencher a página**.
+
 ### Changelog Black Friday
 - **14/11/2026** — faixa Black Friday da home ampliada para maior visibilidade; radar ficou mais conservador em ofertas com múltiplos percentuais e Samsung foi validada como segunda marca com códigos estruturados e uso recente.
 - **14/11/2026** — criada Central Black Friday e radar de cupons com inclusão de marcas não parceiras para tráfego, critérios fortes de validação, rechecagem automática e rastreamento de cliques.
@@ -283,6 +314,22 @@ Estado auditado em 14/11/2026:
 - 0 ofertas Amazon em `economize_ofertas`;
 - 0 cliques humanos registrados nos 4 produtos no momento da auditoria;
 - não havia credenciais/configuração de Creators API identificadas nas variáveis do projeto Vercel.
+
+#### Decisão operacional temporária — Amazon restaurada
+Em 14/11/2026, por decisão operacional, os produtos Amazon foram **restaurados ao comportamento anterior** enquanto a prioridade do projeto passa a ser a Central Black Friday.
+
+Estado temporário:
+- imagem real volta a ser exibida;
+- preço atual e preço anterior voltam a ser exibidos;
+- avaliação, parcelamento e frete voltam a aparecer quando existirem;
+- link afiliado continua funcionando;
+- os 4 produtos existentes voltam a `monitoramento_manual=false`;
+- monitor automático da Amazon volta ao comportamento anterior;
+- preparação automática por link Amazon volta ao comportamento anterior;
+- a Creators API permanece documentada e preparada, mas estacionada por enquanto;
+- retomar Creators API quando a conta Amazon cumprir os requisitos de elegibilidade.
+
+Essa decisão é temporária e deve ser reavaliada quando o acesso oficial da Creators API for liberado.
 
 #### Regra operacional Amazon — 14/11/2026
 A coleta automática por scraping/Playwright foi **pausada**.
@@ -928,6 +975,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — Amazon restaurada temporariamente ao comportamento anterior por decisão operacional: imagem, preço, condições e link afiliado voltam ao público e os 4 produtos voltam ao monitor automático; Creators API fica estacionada até elegibilidade. Radar Black Friday passa a priorizar fontes oficiais por loja e amplia cobertura para Renner, Nike, Marisa, Apple, Gaston, Amazon, Americanas, Decathlon, Dafiti e Zattini.
 - **14/11/2026** — Central Black Friday com radar de cupons reais: aceita marcas parceiras e não parceiras, publica automaticamente apenas códigos com benefício relevante, validade e uso recente, mantém tráfego direto quando não há afiliado e revalida a cada 3h.
 - **14/11/2026** — bloqueio real da Amazon confirmado no Portal: Creators API só libera criação de Application após aceitação final da conta e vendas qualificadas; FAQ da própria Amazon informa requisito de pelo menos 10 vendas qualificadas nos últimos 30 dias para acesso à API de produtos. Se as vendas já existirem, solicitar final acceptance via Associates Contact Us.
 - **14/11/2026** — base técnica da Amazon Creators API preparada: OAuth 2.0 com cache de token, GetItems, SearchItems, marketplace BR, rota administrativa e painel de diagnóstico na Central Economize; faltam apenas elegibilidade/credenciais oficiais para teste real.
