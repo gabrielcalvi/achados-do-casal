@@ -90,7 +90,7 @@ export default function CardProduto({
           className="flex h-full w-full items-center justify-center"
         >
           <img
-            src={produto.imagem}
+            src={ehAmazon ? "/produto-amazon.svg" : produto.imagem}
             alt={produto.nome}
             className="cursor-pointer object-contain transition hover:scale-105"
             style={{
