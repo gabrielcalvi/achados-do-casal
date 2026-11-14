@@ -21,7 +21,7 @@ export default function AdminEconomizeLayout({
               href="/admin/economize/performance"
               className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white transition hover:bg-violet-500"
             >
-              📊 Performance
+              📊 Consultoria & Conteúdo
             </Link>
             <Link
               href="/admin/economize/nike"
