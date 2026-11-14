@@ -17,7 +17,7 @@ type ContextoRota = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NOME_COOKIE_SESSAO = "economize_session";
-const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram"]);
+const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram", "black_friday"]);
 const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
 function limitarTexto(valor: string | null, limite = 1000) {
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
 
     const { data: oferta, error } = await supabaseAdmin
       .from("economize_ofertas")
-      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,loja:economize_lojas!inner (id,ativa)`)
+      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,origem,dados_brutos,loja:economize_lojas!inner (id,ativa)`)
       .eq("id", id)
       .eq("status", "ativo")
       .eq("economize_lojas.ativa", true)
@@ -170,12 +170,23 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
     const linkDestino = typeof oferta.link_destino === "string" ? oferta.link_destino.trim() : "";
     const temCupomAtivo = await ofertaTemCupomAtivo(oferta.id, agoraIso);
 
-    if (temCupomAtivo && !urlEhSegura(linkAfiliado)) {
+    const dadosBrutos =
+      oferta.dados_brutos && typeof oferta.dados_brutos === "object"
+        ? oferta.dados_brutos as Record<string, unknown>
+        : {};
+    const trafegoBlackFriday =
+      oferta.origem === "black_friday_radar_2026" &&
+      dadosBrutos.black_friday_trafego === true;
+
+    if (temCupomAtivo && !urlEhSegura(linkAfiliado) && !trafegoBlackFriday) {
       console.error("Oferta com cupom ativo sem link de afiliado valido:", oferta.id);
       return voltarParaCentral(request, "afiliado-indisponivel");
     }
 
-    const destinoBruto = temCupomAtivo ? linkAfiliado : linkAfiliado || linkDestino;
+    const destinoBruto =
+      temCupomAtivo && !trafegoBlackFriday
+        ? linkAfiliado
+        : linkAfiliado || linkDestino;
     if (!urlEhSegura(destinoBruto)) {
       console.error("Oferta sem URL segura para redirecionamento:", oferta.id);
       return voltarParaCentral(request, "destino-indisponivel");
