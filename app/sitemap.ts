@@ -24,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/lauri-esporte`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
   ];
 
-  const [ofertas, produtos, pacotes, ingressos] = await Promise.all([
+  const [ofertas, produtos, pacotes] = await Promise.all([
     supabaseAdmin
       .from("economize_ofertas")
       .select("id,updated_at")
@@ -40,13 +40,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from("viagens_pacotes")
       .select("id,updated_at")
       .eq("status", "ativo")
+      .is("arquivado_em", null)
       .in("disponibilidade_status", ["disponivel", "nao_verificado"])
-      .or(`validade.is.null,validade.gt.${agora}`)
-      .limit(1000),
-    supabaseAdmin
-      .from("viagens_ingressos")
-      .select("id,updated_at")
-      .eq("status", "ativo")
       .or(`validade.is.null,validade.gt.${agora}`)
       .limit(1000),
   ]);
@@ -66,12 +61,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     ...(pacotes.data ?? []).map((item) => ({
       url: `${BASE}/viagens/pacote/${item.id}`,
-      lastModified: item.updated_at ? new Date(item.updated_at) : new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.8,
-    })),
-    ...(ingressos.data ?? []).map((item) => ({
-      url: `${BASE}/viagens/ingresso/${item.id}`,
       lastModified: item.updated_at ? new Date(item.updated_at) : new Date(),
       changeFrequency: "daily" as const,
       priority: 0.8,

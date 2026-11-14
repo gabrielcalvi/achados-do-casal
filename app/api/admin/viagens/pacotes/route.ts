@@ -167,9 +167,8 @@ export async function GET() {
       data_ida,data_volta,hotel_nome,hotel_categoria,regime_hospedagem,noites,
       adultos,criancas,companhia_aerea,bagagem,preco_total,impostos_taxas_encargos,
       preco_total_final,preco_por_pessoa,moeda,imagem_url,observacoes,validade,
-      destaque,disponibilidade_status,created_at,updated_at
+      destaque,disponibilidade_status,arquivado_em,created_at,updated_at
     `)
-    .in("status", ["ativo", "rascunho"])
     .order("created_at", { ascending: false })
     .limit(150);
 
@@ -211,6 +210,20 @@ export async function PATCH(request: NextRequest) {
     const id = texto(body?.id);
     if (!id) return NextResponse.json({ sucesso: false, erro: "Oferta invalida para edicao." }, { status: 400 });
 
+    const acao = texto(body?.acao).toLowerCase();
+    if (acao === "arquivar" || acao === "restaurar") {
+      const arquivadoEm = acao === "arquivar" ? new Date().toISOString() : null;
+      const { data, error } = await supabaseAdmin
+        .from("viagens_pacotes")
+        .update({ arquivado_em: arquivadoEm, destaque: acao === "arquivar" ? false : undefined })
+        .eq("id", id)
+        .select("id,titulo,arquivado_em")
+        .single();
+
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ sucesso: true, oferta: data, acao });
+    }
+
     const validacao = validar(body);
     if (validacao.erro) return NextResponse.json({ sucesso: false, erro: validacao.erro }, { status: 400 });
 
@@ -235,82 +248,46 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const user = await usuarioAtual();
   if (!user) {
-    return NextResponse.json(
-      { sucesso: false, erro: "Nao autorizado." },
-      { status: 401 }
-    );
+    return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    const itensRecebidos = Array.isArray(body?.itens) ? body.itens : [];
-    const itens = itensRecebidos
-      .map((item: any) => ({
-        tabela: texto(item?.tabela),
-        id: texto(item?.id),
-      }))
-      .filter(
-        (item: { tabela: string; id: string }) =>
-          item.id &&
-          (item.tabela === "viagens_pacotes" || item.tabela === "viagens_ingressos")
-      );
+    const ids = Array.isArray(body?.ids)
+      ? [...new Set(body.ids.map((id: unknown) => texto(id)).filter(Boolean))]
+      : [];
 
-    if (itens.length === 0) {
+    if (ids.length === 0) {
       return NextResponse.json(
         { sucesso: false, erro: "Selecione ao menos uma oferta para excluir." },
         { status: 400 }
       );
     }
-
-    if (itens.length > 100) {
+    if (ids.length > 100) {
       return NextResponse.json(
         { sucesso: false, erro: "Exclusao limitada a 100 ofertas por vez." },
         { status: 400 }
       );
     }
 
-    const pacotesIds = itens
-      .filter((item: any) => item.tabela === "viagens_pacotes")
-      .map((item: any) => item.id);
-    const ingressosIds = itens
-      .filter((item: any) => item.tabela === "viagens_ingressos")
-      .map((item: any) => item.id);
+    const { data, error } = await supabaseAdmin
+      .from("viagens_pacotes")
+      .delete()
+      .in("id", ids)
+      .select("id,titulo");
 
-    const excluidos: Array<{ tabela: string; id: string }> = [];
-
-    if (pacotesIds.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from("viagens_pacotes")
-        .delete()
-        .in("id", pacotesIds)
-        .select("id");
-      if (error) throw new Error(error.message);
-      for (const item of data ?? []) excluidos.push({ tabela: "viagens_pacotes", id: item.id });
-    }
-
-    if (ingressosIds.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from("viagens_ingressos")
-        .delete()
-        .in("id", ingressosIds)
-        .select("id");
-      if (error) throw new Error(error.message);
-      for (const item of data ?? []) excluidos.push({ tabela: "viagens_ingressos", id: item.id });
-    }
+    if (error) throw new Error(error.message);
 
     return NextResponse.json({
       sucesso: true,
-      excluidos: excluidos.length,
-      itens: excluidos,
+      excluidos: data?.length ?? 0,
+      ids: (data ?? []).map((item) => item.id),
     });
   } catch (erro) {
     return NextResponse.json(
       {
         sucesso: false,
-        erro:
-          erro instanceof Error
-            ? erro.message
-            : "Erro inesperado ao excluir ofertas.",
+        erro: erro instanceof Error ? erro.message : "Erro inesperado ao excluir ofertas.",
       },
       { status: 500 }
     );

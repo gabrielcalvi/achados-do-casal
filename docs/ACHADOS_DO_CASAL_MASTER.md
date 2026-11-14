@@ -426,6 +426,18 @@ Esses valores são referências históricas do produto e podem mudar; não devem
 ### Ofertas flexíveis de viagem
 Em 14/11/2026 a estrutura de `viagens_pacotes` foi ampliada sem quebrar os registros existentes.
 
+#### Fonte única de ofertas
+Em 14/11/2026 os ingressos deixaram de usar cadastro/tabela pública separada como fonte principal. O histórico existente é migrado para `viagens_pacotes` com `tipo=ingresso`, preservando o mesmo UUID. A URL antiga `/viagens/ingresso/[id]` redireciona permanentemente para `/viagens/pacote/[id]`.
+
+A tabela `viagens_ingressos` pode permanecer apenas como estrutura legada vazia durante a transição, mas não deve receber novos cadastros.
+
+#### Arquivamento
+- `viagens_pacotes.arquivado_em` indica uma oferta arquivada;
+- arquivar **não apaga** a oferta nem muda seu status original;
+- ofertas arquivadas saem da vitrine pública, sitemap, monitor e cron;
+- o admin continua mostrando a oferta e oferece **Restaurar**;
+- exclusão definitiva permanece separada e exige confirmação forte.
+
 #### Saúde unificada das ofertas
 Também em 14/11/2026 o monitor de disponibilidade passou a cobrir **todas as modalidades de viagem**:
 - pacote;
@@ -699,6 +711,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — correções estruturais: rota social endurecida para materializar PNG antes da resposta; ingressos migrados para a tabela única de ofertas de viagem preservando IDs/URLs via redirecionamento; arquivamento reversível adicionado com restauração no admin e exclusão definitiva mantida como ação separada.
 - **14/11/2026** — monitor de disponibilidade ampliado para todas as ofertas de viagem, com regras próprias por modalidade e painel unificado de saúde/exclusão.
 - **14/11/2026** — Viagens ampliado para ofertas flexíveis: pacote, hotel, ingresso, carro, cruzeiro, passeio e outro; hotel não exige aeroportos; verificador Decolar permanece exclusivo de pacotes; estrutura existente preservada.
 - **14/11/2026** — reconfirmado como regra permanente: lançamento de produtos do Mercado Livre é manual; não reativar automação de produtos sem decisão explícita do Gabriel.

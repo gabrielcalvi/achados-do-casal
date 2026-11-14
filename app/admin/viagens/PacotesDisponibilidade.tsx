@@ -130,6 +130,7 @@ export default function PacotesDisponibilidade() {
   const [aviso, setAviso] = useState("");
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [excluindo, setExcluindo] = useState(false);
+  const [arquivando, setArquivando] = useState(false);
 
   async function carregar() {
     try {
@@ -185,11 +186,43 @@ export default function PacotesDisponibilidade() {
     }
   }
 
+  async function arquivarSelecionados() {
+    if (selecionados.length === 0) return;
+
+    try {
+      setArquivando(true);
+      setErro("");
+      setAviso("");
+
+      const itens = ofertas.filter((oferta) => selecionados.includes(oferta.chave));
+      const resultados = await Promise.all(
+        itens.map((oferta) =>
+          fetch("/api/admin/viagens/pacotes", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: oferta.id, acao: "arquivar" }),
+          }).then(async (resposta) => ({ resposta, dados: await resposta.json() }))
+        )
+      );
+
+      const falha = resultados.find(({ resposta, dados }) => !resposta.ok || !dados.sucesso);
+      if (falha) throw new Error(falha.dados.erro || "Falha ao arquivar ofertas.");
+
+      setOfertas((atuais) => atuais.filter((oferta) => !selecionados.includes(oferta.chave)));
+      setAviso(`${itens.length} oferta(s) arquivada(s). Elas podem ser restauradas na lista de ofertas.`);
+      setSelecionados([]);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao arquivar ofertas.");
+    } finally {
+      setArquivando(false);
+    }
+  }
+
   async function excluirSelecionados() {
     if (selecionados.length === 0) return;
 
     const confirmado = window.confirm(
-      `Excluir permanentemente ${selecionados.length} oferta(s) selecionada(s)? Esta ação não pode ser desfeita.`
+      `EXCLUSÃO DEFINITIVA: apagar permanentemente ${selecionados.length} oferta(s)? Esta ação não pode ser desfeita. Para apenas tirar da tela, use Arquivar.`
     );
     if (!confirmado) return;
 
@@ -198,14 +231,14 @@ export default function PacotesDisponibilidade() {
       setErro("");
       setAviso("");
 
-      const itens = ofertas
+      const ids = ofertas
         .filter((oferta) => selecionados.includes(oferta.chave))
-        .map((oferta) => ({ tabela: oferta.origem_tabela, id: oferta.id }));
+        .map((oferta) => oferta.id);
 
       const resposta = await fetch("/api/admin/viagens/pacotes", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itens }),
+        body: JSON.stringify({ ids }),
       });
       const dados = await resposta.json();
 
@@ -213,10 +246,8 @@ export default function PacotesDisponibilidade() {
         throw new Error(dados.erro || "Falha ao excluir ofertas.");
       }
 
-      const chavesExcluidas = new Set(
-        (dados.itens ?? []).map((item: { tabela: string; id: string }) => `${item.tabela}:${item.id}`)
-      );
-      setOfertas((atuais) => atuais.filter((oferta) => !chavesExcluidas.has(oferta.chave)));
+      const idsExcluidos = new Set<string>(dados.ids ?? []);
+      setOfertas((atuais) => atuais.filter((oferta) => !idsExcluidos.has(oferta.id)));
       setSelecionados([]);
       setAviso(`${dados.excluidos ?? 0} oferta(s) excluída(s) com sucesso.`);
     } catch (error) {
@@ -274,14 +305,24 @@ export default function PacotesDisponibilidade() {
 
         <div className="flex flex-wrap gap-2">
           {selecionados.length > 0 && (
-            <button
-              type="button"
-              onClick={excluirSelecionados}
-              disabled={excluindo}
-              className="rounded-xl bg-red-600 px-5 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {excluindo ? "🗑️ Excluindo..." : `🗑️ Excluir selecionados (${selecionados.length})`}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={arquivarSelecionados}
+                disabled={arquivando || excluindo}
+                className="rounded-xl bg-amber-500 px-5 py-3 font-black text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {arquivando ? "📦 Arquivando..." : `📦 Arquivar selecionados (${selecionados.length})`}
+              </button>
+              <button
+                type="button"
+                onClick={excluirSelecionados}
+                disabled={excluindo || arquivando}
+                className="rounded-xl border border-red-300 bg-white px-5 py-3 font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {excluindo ? "🗑️ Excluindo..." : "🗑️ Excluir definitivamente"}
+              </button>
+            </>
           )}
           <button
             type="button"

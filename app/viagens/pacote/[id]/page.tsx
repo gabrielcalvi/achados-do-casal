@@ -64,6 +64,7 @@ async function carregarOferta(id: string) {
     `)
     .eq("id", id)
     .eq("status", "ativo")
+    .is("arquivado_em", null)
     .maybeSingle();
 
   if (error || !data) return null;
