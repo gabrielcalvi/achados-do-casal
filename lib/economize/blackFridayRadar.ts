@@ -32,6 +32,14 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Pichau", slug: "pichau", dominio: "pichau.com.br", homepage: "https://www.pichau.com.br/" },
   { nome: "Electrolux", slug: "electrolux", dominio: "electrolux.com.br", homepage: "https://loja.electrolux.com.br/" },
   { nome: "Brastemp", slug: "brastemp", dominio: "brastemp.com.br", homepage: "https://www.brastemp.com.br/" },
+  { nome: "Marisa", slug: "marisa", dominio: "marisa.com.br", homepage: "https://www.marisa.com.br/" },
+  { nome: "Gaston", slug: "gaston", dominio: "gaston.com.br", homepage: "https://www.gaston.com.br/" },
+  { nome: "Apple", slug: "apple", dominio: "apple.com", homepage: "https://www.apple.com/br/store" },
+  { nome: "Amazon", slug: "amazon", dominio: "amazon.com.br", homepage: "https://www.amazon.com.br/" },
+  { nome: "Americanas", slug: "americanas", dominio: "americanas.com.br", homepage: "https://www.americanas.com.br/" },
+  { nome: "Decathlon", slug: "decathlon", dominio: "decathlon.com.br", homepage: "https://www.decathlon.com.br/" },
+  { nome: "Dafiti", slug: "dafiti", dominio: "dafiti.com.br", homepage: "https://www.dafiti.com.br/" },
+  { nome: "Zattini", slug: "zattini", dominio: "zattini.com.br", homepage: "https://www.zattini.com.br/" },
 ];
 
 type ResultadoBusca = {
@@ -54,6 +62,8 @@ export type CupomDescoberto = {
   autoAprovado: boolean;
   fonteUrl: string;
   fonteHost: string;
+  fonteOficial?: boolean;
+  fonteNome?: string;
 };
 
 function decodeTexto(valor: string | null | undefined) {
@@ -80,7 +90,20 @@ function urlResultadoDuckDuckGo(href: string) {
   }
 }
 
+const CUPONATION_DIRETA: Record<string, string> = {
+  adidas: "https://www.cuponation.com.br/codigo-promocional-adidas",
+  samsung: "https://www.cuponation.com.br/cupom-desconto-samsung",
+  nike: "https://www.cuponation.com.br/cupom-nike",
+  marisa: "https://www.cuponation.com.br/ofertas-marisa",
+  amazon: "https://www.cuponation.com.br/cupom-desconto-amazon",
+};
+
 export async function buscarCuponation(loja: LojaBlackFriday) {
+  const direta = CUPONATION_DIRETA[loja.slug];
+  if (direta) {
+    return [{ titulo: `Cupons ${loja.nome}`, url: direta, snippet: "Fonte direta validada." }];
+  }
+
   const query = `site:cuponation.com.br "${loja.nome}" cupom desconto 2026`;
   const url = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
   const resposta = await fetch(url, {
@@ -280,10 +303,134 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
       autoAprovado,
       fonteUrl,
       fonteHost: new URL(fonteUrl).hostname,
+      fonteOficial: false,
+      fonteNome: "Cuponation",
     });
   }
 
   return Array.from(descobertos.values()).sort((a, b) => b.score - a.score);
+}
+
+
+const FONTES_OFICIAIS: Record<string, string> = {
+  renner: "https://www.lojasrenner.com.br/cupom-de-desconto",
+  marisa: "https://www.marisa.com.br/institucional/rules-promotions",
+  nike: "https://www.nike.com.br/hotsite/cupom-nike",
+};
+
+function dataBrasiliaParaIso(
+  dia: string,
+  mes: string,
+  ano: string,
+  hora = "23",
+  minuto = "59"
+) {
+  const valor = `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}T${hora.padStart(2, "0")}:${minuto.padStart(2, "0")}:00-03:00`;
+  const data = new Date(valor);
+  return Number.isFinite(data.getTime()) ? data.toISOString() : null;
+}
+
+function extrairValidadeOficial(trecho: string) {
+  const padroes = [
+    /at[eé]\s+(\d{1,2})h(\d{2})\s+(?:\(hor[aá]rio de Bras[ií]lia\)\s+)?do dia\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i,
+    /expira\s+em:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s+[aà]s\s+(\d{1,2})h(?:(\d{2}))?/i,
+  ];
+
+  const primeiro = trecho.match(padroes[0]);
+  if (primeiro) {
+    return dataBrasiliaParaIso(primeiro[3], primeiro[4], primeiro[5], primeiro[1], primeiro[2]);
+  }
+
+  const segundo = trecho.match(padroes[1]);
+  if (segundo) {
+    return dataBrasiliaParaIso(segundo[1], segundo[2], segundo[3], segundo[4], segundo[5] || "00");
+  }
+
+  return null;
+}
+
+function extrairInicioOficial(trecho: string) {
+  const match = trecho.match(
+    /(?:a partir das|de)\s+(\d{1,2})h(\d{2})\s+(?:\(hor[aá]rio de Bras[ií]lia\)\s+)?do dia\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i
+  );
+  return match
+    ? dataBrasiliaParaIso(match[3], match[4], match[5], match[1], match[2])
+    : null;
+}
+
+function tituloOficial(loja: LojaBlackFriday, codigo: string, benef: ReturnType<typeof beneficio>, contexto: string) {
+  const limpo = contexto.replace(/\s+/g, " ").trim();
+  const parte = limpo
+    .split(/V[aá]lido|Ofertas v[aá]lidas|Promo[cç][aã]o v[aá]lida/i)[0]
+    .trim();
+  if (parte && parte.length >= 12 && parte.length <= 220) return parte;
+  if (benef.tipo === "percentual" && benef.percentual) {
+    return `Cupom ${loja.nome} ${codigo}: ${benef.percentual}% OFF`;
+  }
+  if (benef.tipo === "valor_fixo" && benef.valor) {
+    return `Cupom ${loja.nome} ${codigo}: R$ ${benef.valor} OFF`;
+  }
+  return `Cupom ${loja.nome} ${codigo}`;
+}
+
+export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
+  const fonteUrl = FONTES_OFICIAIS[loja.slug];
+  if (!fonteUrl) return [] as CupomDescoberto[];
+
+  const resposta = await fetch(fonteUrl, {
+    cache: "no-store",
+    redirect: "follow",
+    signal: AbortSignal.timeout(20000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    },
+  });
+  if (!resposta.ok) throw new Error(`Fonte oficial respondeu HTTP ${resposta.status}`);
+
+  const html = await resposta.text();
+  const $ = load(html);
+  const texto = $.root().text().replace(/\s+/g, " ").trim();
+  const agora = Date.now();
+  const encontrados = new Map<string, CupomDescoberto>();
+  const regex = /cupom\s*["“”']?([A-Z0-9_-]{4,24})["“”']?/gi;
+
+  for (const match of texto.matchAll(regex)) {
+    const codigo = String(match[1] || "").trim().toUpperCase();
+    if (!codigoAceitavel(codigo, loja)) continue;
+
+    const indice = match.index ?? 0;
+    const contexto = texto.slice(Math.max(0, indice - 220), Math.min(texto.length, indice + 420));
+    const benef = beneficio(contexto, "", "");
+    const validade = extrairValidadeOficial(contexto);
+    const inicio = extrairInicioOficial(contexto);
+    const validadeMs = validade ? Date.parse(validade) : Number.NaN;
+    const vigente = !validade || (Number.isFinite(validadeMs) && validadeMs > agora);
+
+    // Fonte oficial vale como confirmação forte. Ainda exigimos benefício relevante.
+    const autoAprovado = vigente && benef.bom;
+    const score = (vigente ? 35 : 0) + (benef.bom ? 35 : 0) + 30;
+
+    encontrados.set(codigo, {
+      codigo,
+      titulo: tituloOficial(loja, codigo, benef, contexto),
+      tipoDesconto: benef.tipo,
+      descontoPercentual: benef.percentual,
+      valorDesconto: benef.valor,
+      inicio,
+      validade,
+      ultimoUso: null,
+      publicadoNaFonte: true,
+      score,
+      autoAprovado,
+      fonteUrl,
+      fonteHost: new URL(fonteUrl).hostname,
+      fonteOficial: true,
+      fonteNome: `${loja.nome} oficial`,
+    });
+  }
+
+  return Array.from(encontrados.values()).sort((a, b) => b.score - a.score);
 }
 
 async function garantirLoja(loja: LojaBlackFriday) {
@@ -346,14 +493,17 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     campanha: "black-friday-2026",
     black_friday_trafego: true,
     sem_afiliado: true,
-    fonte_confiavel: "cuponation",
+    fonte_confiavel: cupom.fonteNome || (cupom.fonteOficial ? "fonte_oficial" : "cuponation"),
+    fonte_oficial: Boolean(cupom.fonteOficial),
     fonte_url: cupom.fonteUrl,
     fonte_host: cupom.fonteHost,
     fonte_publicado: cupom.publicadoNaFonte,
     ultimo_uso_registrado: cupom.ultimoUso,
     score_qualidade: cupom.score,
     auto_aprovado: cupom.autoAprovado,
-    regra_auto_aprovacao: "publicado+vigente+beneficio_bom+uso_ultimas_72h",
+    regra_auto_aprovacao: cupom.fonteOficial
+      ? "fonte_oficial+vigente+beneficio_bom"
+      : "publicado+vigente+beneficio_bom+uso_ultimas_72h",
   };
 
   const { data: cupomExistente, error: erroBuscaCupom } = await supabaseAdmin
@@ -368,7 +518,9 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     status,
     codigo: cupom.codigo,
     titulo: cupom.titulo,
-    descricao: `Cupom ${lojaDef.nome} encontrado pelo Radar Black Friday e verificado em fonte pública com registro de uso recente.`,
+    descricao: cupom.fonteOficial
+      ? `Cupom ${lojaDef.nome} confirmado diretamente em fonte oficial da loja.`
+      : `Cupom ${lojaDef.nome} encontrado pelo Radar Black Friday e verificado em fonte pública com registro de uso recente.`,
     regras: "Confira as condições finais no carrinho da loja. Cupom monitorado durante a Black Friday.",
     tipo_desconto: cupom.tipoDesconto,
     desconto_percentual: cupom.descontoPercentual,
@@ -411,7 +563,9 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     tipo: "cupom",
     status,
     titulo: cupom.titulo,
-    descricao: `Código ${cupom.codigo} com uso recente registrado. Confira as condições na ${lojaDef.nome}.`,
+    descricao: cupom.fonteOficial
+      ? `Código ${cupom.codigo} confirmado na fonte oficial da ${lojaDef.nome}.`
+      : `Código ${cupom.codigo} com uso recente registrado. Confira as condições na ${lojaDef.nome}.`,
     codigo: cupom.codigo,
     categoria: "Black Friday",
     regras: "Confira elegibilidade e condições no carrinho da loja.",
@@ -524,22 +678,30 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
     };
   }
 
-  const resultados = await buscarCuponation(lojaDef);
-  const fonte = resultados[0]?.url || null;
-  if (!fonte) {
+  const oficiais = await extrairCuponsFonteOficial(lojaDef);
+  let cupons = oficiais;
+  let fonte = oficiais[0]?.fonteUrl || null;
+
+  if (cupons.length === 0) {
+    const resultados = await buscarCuponation(lojaDef);
+    fonte = resultados[0]?.url || null;
+    if (fonte) {
+      cupons = await extrairCuponsCuponation(lojaDef, fonte);
+    }
+  }
+
+  if (!fonte || cupons.length === 0) {
     return {
       loja: lojaDef.slug,
       ignorada: false,
-      motivo: "Nenhuma página Cuponation encontrada pela busca.",
+      motivo: "Nenhum cupom verificável encontrado nas fontes prioritárias.",
       encontrados: 0,
       ativos: 0,
       pendentes: 0,
       desativados: 0,
-      fonte: null,
+      fonte: fonte || null,
     };
   }
-
-  const cupons = await extrairCuponsCuponation(lojaDef, fonte);
   const loja = await garantirLoja(lojaDef);
   const dedupes: string[] = [];
   let ativos = 0;
