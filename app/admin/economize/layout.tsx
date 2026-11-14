@@ -24,6 +24,12 @@ export default function AdminEconomizeLayout({
               📊 Consultoria & Conteúdo
             </Link>
             <Link
+              href="/admin/economize/campanhas"
+              className="rounded-lg bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-amber-300"
+            >
+              📣 Campanhas
+            </Link>
+            <Link
               href="/admin/economize/nike"
               className="rounded-lg bg-white px-4 py-2 text-xs font-black text-black transition hover:bg-zinc-200"
             >

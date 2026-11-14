@@ -1,12 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { inserirCliqueComAtribuicao } from "@/lib/economize/campaignAttribution";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const NOME_COOKIE_SESSAO = "economize_session";
-const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "instagram", "admin"]);
+const ORIGENS_PERMITIDAS = new Set([
+  "site",
+  "whatsapp",
+  "telegram",
+  "instagram",
+  "admin",
+]);
 const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
 function urlSegura(valor: unknown) {
@@ -22,7 +29,11 @@ function urlSegura(valor: unknown) {
 function obterIp(request: NextRequest) {
   const encaminhado = request.headers.get("x-forwarded-for");
   if (encaminhado) return encaminhado.split(",")[0]?.trim() || null;
-  return request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || null;
+  return (
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    null
+  );
 }
 
 function gerarHashIp(ip: string | null) {
@@ -33,13 +44,36 @@ function gerarHashIp(ip: string | null) {
 
 function classificar(request: NextRequest, origem: string) {
   const userAgent = request.headers.get("user-agent")?.trim() || "";
-  if (origem === "admin") return { tipo: "interno", motivo: "origem_admin" } as const;
-  if (!userAgent) return { tipo: "nao_classificado", motivo: "sem_user_agent" } as const;
-  if (PADRAO_BOT.test(userAgent)) return { tipo: "bot", motivo: "user_agent_automatizado" } as const;
+  const referer = request.headers.get("referer")?.trim() || "";
+
+  if (origem === "admin") {
+    return { tipo: "interno", motivo: "origem_admin" } as const;
+  }
+
+  try {
+    if (referer) {
+      const url = new URL(referer);
+      if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+        return { tipo: "interno", motivo: "referer_admin" } as const;
+      }
+    }
+  } catch {
+    // Referer inválido não deve impedir o clique.
+  }
+
+  if (!userAgent) {
+    return { tipo: "nao_classificado", motivo: "sem_user_agent" } as const;
+  }
+  if (PADRAO_BOT.test(userAgent)) {
+    return { tipo: "bot", motivo: "user_agent_automatizado" } as const;
+  }
   return { tipo: "humano_provavel", motivo: "navegador_normal" } as const;
 }
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const produtoId = Number(id);
   if (!Number.isFinite(produtoId) || produtoId <= 0) {
@@ -58,17 +92,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const destino = String(produto.review_link_compra || "").trim();
   if (!urlSegura(destino)) {
-    return NextResponse.redirect(new URL(`/produto/${produtoId}`, request.url), 307);
+    return NextResponse.redirect(
+      new URL(`/produto/${produtoId}`, request.url),
+      307,
+    );
   }
 
-  const origemRecebida = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "site";
-  const origem = ORIGENS_PERMITIDAS.has(origemRecebida) ? origemRecebida : "site";
-  const sessaoRecebida = request.cookies.get(NOME_COOKIE_SESSAO)?.value || "";
+  const origemRecebida =
+    request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() ||
+    "site";
+  const origem = ORIGENS_PERMITIDAS.has(origemRecebida)
+    ? origemRecebida
+    : "site";
+  const sessaoRecebida =
+    request.cookies.get(NOME_COOKIE_SESSAO)?.value || "";
   const sessaoValida = /^[0-9a-f-]{36}$/i.test(sessaoRecebida);
   const sessaoId = sessaoValida ? sessaoRecebida : randomUUID();
   const classificacao = classificar(request, origem);
 
-  await supabaseAdmin.from("economize_cliques").insert({
+  const erroClique = await inserirCliqueComAtribuicao(request, {
     produto_id: produtoId,
     origem,
     rota: request.nextUrl.pathname,
@@ -79,6 +121,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     trafego_tipo: classificacao.tipo,
     trafego_motivo: "review_afiliado_manual",
   });
+
+  if (erroClique) {
+    console.error("Erro ao registrar clique da review:", erroClique);
+  }
 
   const resposta = NextResponse.redirect(new URL(destino), 307);
   resposta.headers.set("Cache-Control", "no-store");

@@ -1,11 +1,10 @@
+import { createHash, randomUUID } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
 import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
-import {
-  createHash,
-  randomUUID,
-} from "node:crypto";
+  inserirCliqueComAtribuicao,
+  lerAtribuicaoCampanha,
+  type AtribuicaoCampanha,
+} from "@/lib/economize/campaignAttribution";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -17,7 +16,14 @@ type ContextoRota = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NOME_COOKIE_SESSAO = "economize_session";
-const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram", "black_friday"]);
+const ORIGENS_PERMITIDAS = new Set([
+  "site",
+  "whatsapp",
+  "telegram",
+  "admin",
+  "instagram",
+  "black_friday",
+]);
 const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
 function limitarTexto(valor: string | null, limite = 1000) {
@@ -28,7 +34,11 @@ function limitarTexto(valor: string | null, limite = 1000) {
 function obterIp(request: NextRequest) {
   const encaminhado = request.headers.get("x-forwarded-for");
   if (encaminhado) return encaminhado.split(",")[0]?.trim() || null;
-  return request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || null;
+  return (
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    null
+  );
 }
 
 function gerarHashIp(ip: string | null) {
@@ -48,7 +58,10 @@ function classificarTrafego(request: NextRequest, origem: string) {
   try {
     if (referer) {
       const urlReferer = new URL(referer);
-      if (urlReferer.pathname === "/admin" || urlReferer.pathname.startsWith("/admin/")) {
+      if (
+        urlReferer.pathname === "/admin" ||
+        urlReferer.pathname.startsWith("/admin/")
+      ) {
         return { tipo: "interno", motivo: "referer_admin" } as const;
       }
     }
@@ -77,7 +90,11 @@ function urlEhSegura(valor: unknown) {
   }
 }
 
-function prepararDestinoAfiliado(destino: string, request: NextRequest) {
+function prepararDestinoAfiliado(
+  destino: string,
+  request: NextRequest,
+  atribuicao: AtribuicaoCampanha | null,
+) {
   try {
     const url = new URL(destino);
     const host = url.hostname.toLowerCase();
@@ -85,12 +102,22 @@ function prepararDestinoAfiliado(destino: string, request: NextRequest) {
     if (host === "www.awin1.com" || host === "awin1.com") {
       for (let indice = 1; indice <= 6; indice += 1) {
         const chave = indice === 1 ? "clickref" : `clickref${indice}`;
-        if (!url.searchParams.get(chave)?.trim()) url.searchParams.delete(chave);
+        if (!url.searchParams.get(chave)?.trim()) {
+          url.searchParams.delete(chave);
+        }
       }
 
-      const origemRecebida = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "";
-      if (ORIGENS_PERMITIDAS.has(origemRecebida)) {
-        url.searchParams.set("clickref", origemRecebida);
+      if (atribuicao) {
+        url.searchParams.set("clickref", atribuicao.content);
+        url.searchParams.set("clickref2", atribuicao.campaign);
+        url.searchParams.set("clickref3", atribuicao.source);
+      } else {
+        const origemRecebida =
+          request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() ||
+          "";
+        if (ORIGENS_PERMITIDAS.has(origemRecebida)) {
+          url.searchParams.set("clickref", origemRecebida);
+        }
       }
     }
 
@@ -113,9 +140,20 @@ async function ofertaTemCupomAtivo(ofertaId: string, agora: string) {
     .eq("oferta_id", ofertaId)
     .limit(50);
 
-  if (erroVinculos) throw new Error(`Falha ao validar vinculo de cupom: ${erroVinculos.message}`);
+  if (erroVinculos) {
+    throw new Error(`Falha ao validar vinculo de cupom: ${erroVinculos.message}`);
+  }
 
-  const idsCupons = Array.from(new Set((vinculos ?? []).map((v) => v.cupom_id).filter((id): id is string => typeof id === "string" && UUID_REGEX.test(id))));
+  const idsCupons = Array.from(
+    new Set(
+      (vinculos ?? [])
+        .map((vinculo) => vinculo.cupom_id)
+        .filter(
+          (id): id is string =>
+            typeof id === "string" && UUID_REGEX.test(id),
+        ),
+    ),
+  );
   if (idsCupons.length === 0) return false;
 
   const { data: cuponsAtivos, error: erroCupons } = await supabaseAdmin
@@ -127,59 +165,85 @@ async function ofertaTemCupomAtivo(ofertaId: string, agora: string) {
     .or(`validade.is.null,validade.gt.${agora}`)
     .limit(1);
 
-  if (erroCupons) throw new Error(`Falha ao validar cupom ativo: ${erroCupons.message}`);
+  if (erroCupons) {
+    throw new Error(`Falha ao validar cupom ativo: ${erroCupons.message}`);
+  }
   return (cuponsAtivos?.length ?? 0) > 0;
 }
 
 export async function GET(request: NextRequest, contexto: ContextoRota) {
   try {
     const { id } = await contexto.params;
-    if (!UUID_REGEX.test(id)) return voltarParaCentral(request, "oferta-invalida");
+    if (!UUID_REGEX.test(id)) {
+      return voltarParaCentral(request, "oferta-invalida");
+    }
 
     const { data: oferta, error } = await supabaseAdmin
       .from("economize_ofertas")
-      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,origem,dados_brutos,loja:economize_lojas!inner (id,ativa)`)
+      .select(
+        "id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,origem,dados_brutos,loja:economize_lojas!inner(id,ativa)",
+      )
       .eq("id", id)
       .eq("status", "ativo")
       .eq("economize_lojas.ativa", true)
       .maybeSingle();
 
     if (error) {
-      console.error("Erro ao localizar oportunidade para redirecionamento:", error);
+      console.error(
+        "Erro ao localizar oportunidade para redirecionamento:",
+        error,
+      );
       return voltarParaCentral(request, "erro-ao-localizar");
     }
     if (!oferta) return voltarParaCentral(request, "oferta-indisponivel");
 
-    const lojaRelacionada = Array.isArray(oferta.loja) ? oferta.loja[0] : oferta.loja;
-    if (!lojaRelacionada?.ativa) return voltarParaCentral(request, "loja-indisponivel");
+    const lojaRelacionada = Array.isArray(oferta.loja)
+      ? oferta.loja[0]
+      : oferta.loja;
+    if (!lojaRelacionada?.ativa) {
+      return voltarParaCentral(request, "loja-indisponivel");
+    }
 
     const agora = Date.now();
     const agoraIso = new Date(agora).toISOString();
 
     if (oferta.data_inicio) {
       const inicio = new Date(oferta.data_inicio).getTime();
-      if (Number.isNaN(inicio) || inicio > agora) return voltarParaCentral(request, "oferta-ainda-nao-iniciada");
+      if (Number.isNaN(inicio) || inicio > agora) {
+        return voltarParaCentral(request, "oferta-ainda-nao-iniciada");
+      }
     }
 
     if (oferta.validade) {
       const validade = new Date(oferta.validade).getTime();
-      if (Number.isNaN(validade) || validade <= agora) return voltarParaCentral(request, "oferta-expirada");
+      if (Number.isNaN(validade) || validade <= agora) {
+        return voltarParaCentral(request, "oferta-expirada");
+      }
     }
 
-    const linkAfiliado = typeof oferta.link_afiliado === "string" ? oferta.link_afiliado.trim() : "";
-    const linkDestino = typeof oferta.link_destino === "string" ? oferta.link_destino.trim() : "";
+    const linkAfiliado =
+      typeof oferta.link_afiliado === "string"
+        ? oferta.link_afiliado.trim()
+        : "";
+    const linkDestino =
+      typeof oferta.link_destino === "string"
+        ? oferta.link_destino.trim()
+        : "";
     const temCupomAtivo = await ofertaTemCupomAtivo(oferta.id, agoraIso);
 
     const dadosBrutos =
       oferta.dados_brutos && typeof oferta.dados_brutos === "object"
-        ? oferta.dados_brutos as Record<string, unknown>
+        ? (oferta.dados_brutos as Record<string, unknown>)
         : {};
     const trafegoBlackFriday =
       oferta.origem === "black_friday_radar_2026" &&
       dadosBrutos.black_friday_trafego === true;
 
     if (temCupomAtivo && !urlEhSegura(linkAfiliado) && !trafegoBlackFriday) {
-      console.error("Oferta com cupom ativo sem link de afiliado valido:", oferta.id);
+      console.error(
+        "Oferta com cupom ativo sem link de afiliado valido:",
+        oferta.id,
+      );
       return voltarParaCentral(request, "afiliado-indisponivel");
     }
 
@@ -188,33 +252,55 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
         ? linkAfiliado
         : linkAfiliado || linkDestino;
     if (!urlEhSegura(destinoBruto)) {
-      console.error("Oferta sem URL segura para redirecionamento:", oferta.id);
+      console.error(
+        "Oferta sem URL segura para redirecionamento:",
+        oferta.id,
+      );
       return voltarParaCentral(request, "destino-indisponivel");
     }
 
-    const destino = prepararDestinoAfiliado(destinoBruto, request);
+    const atribuicao = lerAtribuicaoCampanha(request);
+    const destino = prepararDestinoAfiliado(
+      destinoBruto,
+      request,
+      atribuicao,
+    );
     const sessaoRecebida = request.cookies.get(NOME_COOKIE_SESSAO)?.value;
-    const possuiSessaoValida = typeof sessaoRecebida === "string" && UUID_REGEX.test(sessaoRecebida);
+    const possuiSessaoValida =
+      typeof sessaoRecebida === "string" && UUID_REGEX.test(sessaoRecebida);
     const sessaoId = possuiSessaoValida ? sessaoRecebida : randomUUID();
     const ipHash = gerarHashIp(obterIp(request));
-    const origemRecebida = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() || "central_economize";
-    const origemClique = ORIGENS_PERMITIDAS.has(origemRecebida) ? origemRecebida : "central_economize";
+    const origemRecebida =
+      request.nextUrl.searchParams.get("origem")?.trim().toLowerCase() ||
+      "central_economize";
+    const origemClique = ORIGENS_PERMITIDAS.has(origemRecebida)
+      ? origemRecebida
+      : "central_economize";
     const classificacao = classificarTrafego(request, origemClique);
 
-    const { error: erroClique } = await supabaseAdmin.from("economize_cliques").insert({
-      oferta_id: oferta.id,
-      loja_id: oferta.loja_id,
-      origem: origemClique,
-      rota: request.nextUrl.pathname,
-      referer: limitarTexto(request.headers.get("referer")),
-      user_agent: limitarTexto(request.headers.get("user-agent")),
-      session_id: sessaoId,
-      ip_hash: ipHash,
-      trafego_tipo: classificacao.tipo,
-      trafego_motivo: classificacao.motivo,
-    });
+    const erroClique = await inserirCliqueComAtribuicao(
+      request,
+      {
+        oferta_id: oferta.id,
+        loja_id: oferta.loja_id,
+        origem: origemClique,
+        rota: request.nextUrl.pathname,
+        referer: limitarTexto(request.headers.get("referer")),
+        user_agent: limitarTexto(request.headers.get("user-agent")),
+        session_id: sessaoId,
+        ip_hash: ipHash,
+        trafego_tipo: classificacao.tipo,
+        trafego_motivo: classificacao.motivo,
+      },
+      atribuicao,
+    );
 
-    if (erroClique) console.error("Erro ao registrar clique da Central Economize:", erroClique);
+    if (erroClique) {
+      console.error(
+        "Erro ao registrar clique da Central Economize:",
+        erroClique,
+      );
+    }
 
     const resposta = NextResponse.redirect(new URL(destino), 307);
     resposta.headers.set("Cache-Control", "no-store");
@@ -233,7 +319,10 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
 
     return resposta;
   } catch (error) {
-    console.error("Erro inesperado no redirecionamento da Central Economize:", error);
+    console.error(
+      "Erro inesperado no redirecionamento da Central Economize:",
+      error,
+    );
     return voltarParaCentral(request, "erro-interno");
   }
 }
