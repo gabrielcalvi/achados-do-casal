@@ -138,7 +138,7 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
 
     const { data: oferta, error } = await supabaseAdmin
       .from("economize_ofertas")
-      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,loja:economize_lojas!inner (id,ativa)`)
+      .select(`id,loja_id,status,link_destino,link_afiliado,data_inicio,validade,origem,dados_brutos,loja:economize_lojas!inner (id,ativa)`)
       .eq("id", id)
       .eq("status", "ativo")
       .eq("economize_lojas.ativa", true)
@@ -170,12 +170,23 @@ export async function GET(request: NextRequest, contexto: ContextoRota) {
     const linkDestino = typeof oferta.link_destino === "string" ? oferta.link_destino.trim() : "";
     const temCupomAtivo = await ofertaTemCupomAtivo(oferta.id, agoraIso);
 
-    if (temCupomAtivo && !urlEhSegura(linkAfiliado)) {
+    const dadosBrutos =
+      oferta.dados_brutos && typeof oferta.dados_brutos === "object"
+        ? oferta.dados_brutos as Record<string, unknown>
+        : {};
+    const trafegoBlackFriday =
+      oferta.origem === "black_friday_radar_2026" &&
+      dadosBrutos.black_friday_trafego === true;
+
+    if (temCupomAtivo && !urlEhSegura(linkAfiliado) && !trafegoBlackFriday) {
       console.error("Oferta com cupom ativo sem link de afiliado valido:", oferta.id);
       return voltarParaCentral(request, "afiliado-indisponivel");
     }
 
-    const destinoBruto = temCupomAtivo ? linkAfiliado : linkAfiliado || linkDestino;
+    const destinoBruto =
+      temCupomAtivo && !trafegoBlackFriday
+        ? linkAfiliado
+        : linkAfiliado || linkDestino;
     if (!urlEhSegura(destinoBruto)) {
       console.error("Oferta sem URL segura para redirecionamento:", oferta.id);
       return voltarParaCentral(request, "destino-indisponivel");
