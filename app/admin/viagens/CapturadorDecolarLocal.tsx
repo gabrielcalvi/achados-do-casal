@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type CapturaDecolar = {
+  tipo?: "pacote" | "hotel";
   link_original?: string;
   titulo?: string;
   origem_codigo?: string;
   destino_codigo?: string;
   destino_nome?: string;
+  local_nome?: string;
+  cidade_uf?: string;
   data_ida?: string;
   data_volta?: string;
   noites?: number | null;
@@ -81,18 +84,19 @@ function preencherCampo(rotulo: string, valor: unknown) {
 }
 
 async function garantirFormularioAberto() {
-  if (document.querySelector('input[placeholder="https://www.decolar.com/..."]')) {
+  if (document.querySelector("#form-pacote-viagem")) {
     return true;
   }
 
-  const botao = Array.from(document.querySelectorAll("button")).find((item) =>
-    item.textContent?.includes("Adicionar pacote")
-  );
+  const botao = Array.from(document.querySelectorAll("button")).find((item) => {
+    const texto = item.textContent || "";
+    return texto.includes("Adicionar oferta") || texto.includes("Adicionar pacote");
+  });
   botao?.click();
 
   for (let tentativa = 0; tentativa < 24; tentativa += 1) {
     await new Promise((resolve) => setTimeout(resolve, 250));
-    if (document.querySelector('input[placeholder="https://www.decolar.com/..."]')) {
+    if (document.querySelector("#form-pacote-viagem")) {
       return true;
     }
   }
@@ -106,6 +110,11 @@ async function aplicarNoFormulario(dados: CapturaDecolar) {
     throw new Error("Não encontrei o formulário de Pacotes para aplicar a captura.");
   }
 
+  if (dados.tipo) {
+    preencherCampo("Tipo de oferta", dados.tipo);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
   const linkOriginal = document.querySelector<HTMLInputElement>(
     'input[placeholder="https://www.decolar.com/..."]'
   );
@@ -113,12 +122,18 @@ async function aplicarNoFormulario(dados: CapturaDecolar) {
     definirValor(linkOriginal, dados.link_original);
   }
 
-  preencherCampo("Título do pacote", dados.titulo);
+  preencherCampo("Título da oferta", dados.titulo) || preencherCampo("Título do pacote", dados.titulo);
   preencherCampo("Origem", dados.origem_codigo);
   preencherCampo("Destino", dados.destino_codigo);
   preencherCampo("Nome do destino", dados.destino_nome);
+  preencherCampo("Cidade / destino", dados.local_nome || dados.destino_nome);
+  preencherCampo("Cidade / UF", dados.cidade_uf);
   preencherCampo("Ida", dados.data_ida);
+  preencherCampo("Check-in", dados.data_ida);
+  preencherCampo("Início", dados.data_ida);
   preencherCampo("Volta", dados.data_volta);
+  preencherCampo("Check-out", dados.data_volta);
+  preencherCampo("Fim", dados.data_volta);
   preencherCampo("Noites", dados.noites);
   preencherCampo("Hotel", dados.hotel_nome);
   preencherCampo("Categoria hotel", dados.hotel_categoria);
@@ -127,7 +142,7 @@ async function aplicarNoFormulario(dados: CapturaDecolar) {
   preencherCampo("Bagagem", dados.bagagem);
   preencherCampo("Adultos", dados.adultos);
   preencherCampo("Crianças", dados.criancas);
-  preencherCampo("Preço anunciado do pacote", dados.preco_total);
+  preencherCampo("Preço anunciado da oferta", dados.preco_total) || preencherCampo("Preço anunciado do pacote", dados.preco_total);
   preencherCampo("Impostos, taxas e encargos", dados.impostos_taxas_encargos);
   preencherCampo("Total final com taxas", dados.preco_total_final);
   preencherCampo("Preço por pessoa", dados.preco_por_pessoa);
@@ -135,12 +150,12 @@ async function aplicarNoFormulario(dados: CapturaDecolar) {
   preencherCampo("Observações", dados.observacoes);
 
   document
-    .querySelector('input[placeholder="https://www.decolar.com/..."]')
-    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    .querySelector("#form-pacote-viagem")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function criarBookmarklet(adminBase: string) {
-  const script = `(()=>{try{const clean=v=>String(v??'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim();const num=v=>{let s=clean(v).replace(/[^\\d.,]/g,'');if(!s)return null;if(s.includes(',')){s=s.replace(/\\./g,'').replace(',','.')}else if((s.match(/\\./g)||[]).length>1||/\\.\\d{3}$/.test(s)){s=s.replace(/\\./g,'')}const n=Number(s);return Number.isFinite(n)?n:null};const text=clean(document.body?.innerText||'');const url=new URL(location.href);let decoded='';try{const raw=url.searchParams.get('searchParams')||'';decoded=raw?atob(raw.replace(/-/g,'+').replace(/_/g,'/')):''}catch{}const dates=(decoded+' '+url.pathname).match(/\\d{4}-\\d{2}-\\d{2}/g)||[];const nightsText=text.match(/(\\d+)\\s*Dias?\\s*\\/\\s*(\\d+)\\s*Noites?/i);let nights=nightsText?Number(nightsText[2]):null;if(!nights&&dates[0]&&dates[1]){const a=Date.parse(dates[0]+'T12:00:00Z'),b=Date.parse(dates[1]+'T12:00:00Z');if(b>a)nights=Math.round((b-a)/86400000)}let hotel=null;const visit=o=>{if(!o||hotel)return;if(Array.isArray(o)){o.forEach(visit);return}if(typeof o!=='object')return;const t=Array.isArray(o['@type'])?o['@type']:[o['@type']];if(t.some(x=>['Hotel','LodgingBusiness','Resort','Hostel','Accommodation'].includes(String(x)))&&o.name){hotel=o;return}if(o['@graph'])visit(o['@graph'])};document.querySelectorAll('script[type="application/ld+json"]').forEach(el=>{try{visit(JSON.parse(el.textContent||''))}catch{}});const heads=[...document.querySelectorAll('h1,h2,h3,h4')].map(e=>clean(e.textContent)).filter(Boolean);const hotelName=clean(hotel?.name)||heads.find(h=>h.length>3&&h.length<160&&!/decolar|despegar|pacote|detalhes|resumo|escolha|voo|a[eé]reo|pre[cç]o/i.test(h))||'';const imgValue=Array.isArray(hotel?.image)?hotel.image[0]:hotel?.image;const img=clean(typeof imgValue==='string'?imgValue:imgValue?.url)||clean(document.querySelector('meta[property="og:image"]')?.getAttribute('content'))||clean(document.querySelector('meta[name="twitter:image"]')?.getAttribute('content'))||[...document.images].map(i=>({u:i.currentSrc||i.src,a:(i.naturalWidth||i.width)*(i.naturalHeight||i.height)})).filter(i=>/^https?:/i.test(i.u)).sort((a,b)=>b.a-a.a)[0]?.u||'';const scripts=[...document.scripts].map(s=>s.textContent||'').join('\\n').slice(0,2500000);const corpus=text+'\\n'+decoded+'\\n'+scripts;const route=text.match(/\\b([A-Z]{3})\\s*(?:-|→|–|>)\\s*([A-Z]{3})\\b/);const findCode=rs=>{for(const r of rs){const m=corpus.match(r);if(m?.[1])return m[1].toUpperCase()}return''};const paren=[...text.matchAll(/\\(([A-Z]{3})\\)/g)].map(m=>m[1]).filter(c=>!['BRL','USD','EUR'].includes(c));const unique=[...new Set(paren)];let origin=route?.[1]||findCode([/["'](?:originIata|originAirportCode|departureIata|departureAirportCode|fromAirportCode|fromIata)["']\\s*[:=]\\s*["']([A-Z]{3})["']/i,/["'](?:origin|departure|from)["']\\s*:\\s*\\{[\\s\\S]{0,260}?["'](?:iata|iataCode|code|airportCode)["']\\s*:\\s*["']([A-Z]{3})["']/i,/(?:Saindo de|Origem|Partida|De)[^\\n]{0,120}\\(([A-Z]{3})\\)/i]);let dest=route?.[2]||findCode([/["'](?:destinationIata|destinationAirportCode|arrivalIata|arrivalAirportCode|toAirportCode|toIata)["']\\s*[:=]\\s*["']([A-Z]{3})["']/i,/["'](?:destination|arrival|to)["']\\s*:\\s*\\{[\\s\\S]{0,260}?["'](?:iata|iataCode|code|airportCode)["']\\s*:\\s*["']([A-Z]{3})["']/i,/(?:Para|Destino|Chegada)[^\\n]{0,120}\\(([A-Z]{3})\\)/i]);if(!origin&&unique.length>=2)origin=unique[0];if(!dest&&unique.length>=2)dest=unique.find(c=>c!==origin)||unique[1];const city=clean(hotel?.address?.addressLocality)||clean(text.match(/(?:Destino|Para|Estadia em)\\s+([A-Za-zÀ-ÿ' -]{2,60})/i)?.[1])||'';const per=num(text.match(/Pre[cç]o por pessoa(?: a partir de)?\\s*R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]||text.match(/R\\$\\s*([\\d.]+(?:,\\d{1,2})?)\\s*(?:por pessoa|\\/\\s*pessoa)/i)?.[1]);const pacoteSemTaxas=num(text.match(/Pacote para \\d+ pessoas?[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);const taxas=num(text.match(/Impostos,? taxas e encargos[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);const totalFinal=num(text.match(/(?:^|\\s)TOTAL[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);let total=pacoteSemTaxas||num(text.match(/(?:Pre[cç]o total|Total|Final)[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);let adults=Number(url.searchParams.get('adults')||'');let children=Number(url.searchParams.get('children')||'');if(!Number.isFinite(adults)||adults<1){const m=decoded.match(/\\/(\\d+)\\|/);adults=m?Number(m[1]):2}if(!Number.isFinite(children)||children<0)children=0;if(!total&&per&&adults>0&&children===0)total=Number((per*adults).toFixed(2));const airlines=['LATAM','GOL','Azul','Air China','American Airlines','United Airlines','Delta','Copa Airlines','Avianca','TAP','Iberia','Air Europa','Turkish Airlines','Emirates','Qatar Airways','Air France','KLM','Lufthansa'];const airline=airlines.find(n=>text.toLowerCase().includes(n.toLowerCase()))||'';const bags=[];if(/mochila ou bolsa/i.test(text))bags.push('mochila/bolsa');if(/bagagem de m[aã]o/i.test(text))bags.push('bagagem de mão');if(/bagagem para despachar|bagagem despachada|23\\s*kg/i.test(text))bags.push('bagagem despachada');else if(/n[aã]o inclui bagagem para despachar/i.test(text))bags.push('sem bagagem despachada');const regime=/all.?inclusive/i.test(text)?'All inclusive':/caf[eé]\\s+da\\s+manh[aã]|breakfast/i.test(text)?'Café da manhã':'';const star=clean(hotel?.starRating?.ratingValue)||clean(text.match(/([1-5])\\s*estrelas?/i)?.[1]);const category=star?star+' estrelas':'';const fields=[];const add=(k,v)=>{if(v!==null&&v!==undefined&&v!=='')fields.push(k)};add('hotel',hotelName);add('datas',dates[0]&&dates[1]);add('noites',nights);add('preço',per||total);add('taxas',taxas);add('total final',totalFinal);add('imagem',img);add('rota',origin&&dest);add('companhia',airline);add('bagagem',bags.length);const title=hotelName?(city?hotelName+' • '+city:hotelName):(city&&nights?city+' • '+nights+' noites + aéreo + hotel':'Pacote Decolar • aéreo + hotel');const data={link_original:location.href,titulo:title,origem_codigo:origin,destino_codigo:dest,destino_nome:city,data_ida:dates[0]||'',data_volta:dates[1]||'',noites:nights,hotel_nome:hotelName,hotel_categoria:category,regime_hospedagem:regime,adultos:adults,criancas:children,companhia_aerea:airline,bagagem:bags.join(' • '),preco_total:total,impostos_taxas_encargos:taxas,preco_total_final:totalFinal,preco_por_pessoa:per,imagem_url:img,observacoes:'Capturado diretamente da página aberta da Decolar no navegador. Revise os campos antes de publicar.',campos_detectados:fields};const bytes=new TextEncoder().encode(JSON.stringify(data));let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));const payload=btoa(bin);location.href='${adminBase}?decolar_capture='+encodeURIComponent(payload)}catch(e){alert('Não foi possível capturar este pacote da Decolar: '+(e?.message||e))}})()`;
+  const script = `(()=>{try{const clean=v=>String(v??'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim();const num=v=>{let s=clean(v).replace(/[^\\d.,]/g,'');if(!s)return null;if(s.includes(',')){s=s.replace(/\\./g,'').replace(',','.')}else if((s.match(/\\./g)||[]).length>1||/\\.\\d{3}$/.test(s)){s=s.replace(/\\./g,'')}const n=Number(s);return Number.isFinite(n)?n:null};const text=clean(document.body?.innerText||'');const url=new URL(location.href);const isHotel=/\/accommodations\/detail\//i.test(url.pathname)||/hotel\s+atl[aâ]ntico|hospedagem oferece|ver galeria/i.test(text);const tipo=isHotel?'hotel':'pacote';let decoded='';try{const raw=url.searchParams.get('searchParams')||'';decoded=raw?atob(raw.replace(/-/g,'+').replace(/_/g,'/')):''}catch{}const dates=(decoded+' '+url.pathname).match(/\\d{4}-\\d{2}-\\d{2}/g)||[];const nightsText=text.match(/(\\d+)\\s*Dias?\\s*\\/\\s*(\\d+)\\s*Noites?/i);let nights=nightsText?Number(nightsText[2]):null;if(!nights&&dates[0]&&dates[1]){const a=Date.parse(dates[0]+'T12:00:00Z'),b=Date.parse(dates[1]+'T12:00:00Z');if(b>a)nights=Math.round((b-a)/86400000)}let hotel=null;const visit=o=>{if(!o||hotel)return;if(Array.isArray(o)){o.forEach(visit);return}if(typeof o!=='object')return;const t=Array.isArray(o['@type'])?o['@type']:[o['@type']];if(t.some(x=>['Hotel','LodgingBusiness','Resort','Hostel','Accommodation'].includes(String(x)))&&o.name){hotel=o;return}if(o['@graph'])visit(o['@graph'])};document.querySelectorAll('script[type="application/ld+json"]').forEach(el=>{try{visit(JSON.parse(el.textContent||''))}catch{}});const heads=[...document.querySelectorAll('h1,h2,h3,h4')].map(e=>clean(e.textContent)).filter(Boolean);const hotelName=clean(hotel?.name)||heads.find(h=>h.length>3&&h.length<160&&!/decolar|despegar|pacote|detalhes|resumo|escolha|voo|a[eé]reo|pre[cç]o/i.test(h))||'';const imgValue=Array.isArray(hotel?.image)?hotel.image[0]:hotel?.image;const img=clean(typeof imgValue==='string'?imgValue:imgValue?.url)||clean(document.querySelector('meta[property="og:image"]')?.getAttribute('content'))||clean(document.querySelector('meta[name="twitter:image"]')?.getAttribute('content'))||[...document.images].map(i=>({u:i.currentSrc||i.src,a:(i.naturalWidth||i.width)*(i.naturalHeight||i.height)})).filter(i=>/^https?:/i.test(i.u)).sort((a,b)=>b.a-a.a)[0]?.u||'';const scripts=[...document.scripts].map(s=>s.textContent||'').join('\\n').slice(0,2500000);const corpus=text+'\\n'+decoded+'\\n'+scripts;const route=text.match(/\\b([A-Z]{3})\\s*(?:-|→|–|>)\\s*([A-Z]{3})\\b/);const findCode=rs=>{for(const r of rs){const m=corpus.match(r);if(m?.[1])return m[1].toUpperCase()}return''};const paren=[...text.matchAll(/\\(([A-Z]{3})\\)/g)].map(m=>m[1]).filter(c=>!['BRL','USD','EUR'].includes(c));const unique=[...new Set(paren)];let origin=route?.[1]||findCode([/["'](?:originIata|originAirportCode|departureIata|departureAirportCode|fromAirportCode|fromIata)["']\\s*[:=]\\s*["']([A-Z]{3})["']/i,/["'](?:origin|departure|from)["']\\s*:\\s*\\{[\\s\\S]{0,260}?["'](?:iata|iataCode|code|airportCode)["']\\s*:\\s*["']([A-Z]{3})["']/i,/(?:Saindo de|Origem|Partida|De)[^\\n]{0,120}\\(([A-Z]{3})\\)/i]);let dest=route?.[2]||findCode([/["'](?:destinationIata|destinationAirportCode|arrivalIata|arrivalAirportCode|toAirportCode|toIata)["']\\s*[:=]\\s*["']([A-Z]{3})["']/i,/["'](?:destination|arrival|to)["']\\s*:\\s*\\{[\\s\\S]{0,260}?["'](?:iata|iataCode|code|airportCode)["']\\s*:\\s*["']([A-Z]{3})["']/i,/(?:Para|Destino|Chegada)[^\\n]{0,120}\\(([A-Z]{3})\\)/i]);if(!origin&&unique.length>=2)origin=unique[0];if(!dest&&unique.length>=2)dest=unique.find(c=>c!==origin)||unique[1];const city=clean(hotel?.address?.addressLocality)||clean(text.match(/(?:Destino|Para|Estadia em)\\s+([A-Za-zÀ-ÿ' -]{2,60})/i)?.[1])||clean(text.match(/([A-Za-zÀ-ÿ' -]{2,60}),\\s*Brasil\b/i)?.[1])||'';const per=num(text.match(/Pre[cç]o por pessoa(?: a partir de)?\\s*R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]||text.match(/R\\$\\s*([\\d.]+(?:,\\d{1,2})?)\\s*(?:por pessoa|\\/\\s*pessoa)/i)?.[1]);const pacoteSemTaxas=num(text.match(/Pacote para \\d+ pessoas?[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);const taxas=num(text.match(/Impostos,? taxas e encargos[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);const totalFinal=num(text.match(/(?:^|\\s)TOTAL[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);let total=pacoteSemTaxas||num(text.match(/(?:Pre[cç]o total|Total|Final)[^R]{0,100}R\\$\\s*([\\d.]+(?:,\\d{1,2})?)/i)?.[1]);let adults=Number(url.searchParams.get('adults')||'');let children=Number(url.searchParams.get('children')||'');if(!Number.isFinite(adults)||adults<1){const m=decoded.match(/\\/(\\d+)\\|/);adults=m?Number(m[1]):2}if(!Number.isFinite(children)||children<0)children=0;if(!total&&per&&adults>0&&children===0)total=Number((per*adults).toFixed(2));const airlines=['LATAM','GOL','Azul','Air China','American Airlines','United Airlines','Delta','Copa Airlines','Avianca','TAP','Iberia','Air Europa','Turkish Airlines','Emirates','Qatar Airways','Air France','KLM','Lufthansa'];const airline=airlines.find(n=>text.toLowerCase().includes(n.toLowerCase()))||'';const bags=[];if(/mochila ou bolsa/i.test(text))bags.push('mochila/bolsa');if(/bagagem de m[aã]o/i.test(text))bags.push('bagagem de mão');if(/bagagem para despachar|bagagem despachada|23\\s*kg/i.test(text))bags.push('bagagem despachada');else if(/n[aã]o inclui bagagem para despachar/i.test(text))bags.push('sem bagagem despachada');const regime=/all.?inclusive/i.test(text)?'All inclusive':/caf[eé]\\s+da\\s+manh[aã]|breakfast/i.test(text)?'Café da manhã':'';const star=clean(hotel?.starRating?.ratingValue)||clean(text.match(/([1-5])\\s*estrelas?/i)?.[1]);const category=star?star+' estrelas':'';const fields=[];const add=(k,v)=>{if(v!==null&&v!==undefined&&v!=='')fields.push(k)};add('hotel',hotelName);add('datas',dates[0]&&dates[1]);add('noites',nights);add('preço',per||total);add('taxas',taxas);add('total final',totalFinal);add('imagem',img);add('rota',origin&&dest);add('companhia',airline);add('bagagem',bags.length);const title=hotelName?(city?hotelName+' • '+city:hotelName):(city&&nights?city+' • '+nights+' noites + aéreo + hotel':'Pacote Decolar • aéreo + hotel');const data={tipo,link_original:location.href,titulo:title,origem_codigo:tipo==='pacote'?origin:'',destino_codigo:tipo==='pacote'?dest:'',destino_nome:city,local_nome:tipo==='hotel'?city:'',cidade_uf:tipo==='hotel'?city:'',data_ida:dates[0]||'',data_volta:dates[1]||'',noites:nights,hotel_nome:hotelName,hotel_categoria:category,regime_hospedagem:regime,adultos:adults,criancas:children,companhia_aerea:tipo==='pacote'?airline:'',bagagem:tipo==='pacote'?bags.join(' • '):'',preco_total:total,impostos_taxas_encargos:taxas,preco_total_final:totalFinal,preco_por_pessoa:per,imagem_url:img,observacoes:'Capturado diretamente da página aberta da Decolar no navegador. Revise os campos antes de publicar.',campos_detectados:fields};const bytes=new TextEncoder().encode(JSON.stringify(data));let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));const payload=btoa(bin);location.href='${adminBase}?decolar_capture='+encodeURIComponent(payload)}catch(e){alert('Não foi possível capturar este pacote da Decolar: '+(e?.message||e))}})()`;
 
   return `javascript:${script}`;
 }
@@ -233,8 +248,8 @@ export default function CapturadorDecolarLocal() {
           <h2 className="mt-2 text-2xl font-black">Use a página que já abriu no seu navegador</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
             Esta opção não usa Railway, Monitor, Mercado Livre nem navegador serverless.
-            Ela lê o pacote diretamente da página da Decolar aberta no seu Chrome e volta
-            para este Admin com os campos encontrados.
+            Ela lê a oferta diretamente da página da Decolar aberta no seu Chrome, identifica se é hotel ou pacote
+            e volta para este Admin com os campos encontrados.
           </p>
         </div>
 
@@ -269,7 +284,7 @@ export default function CapturadorDecolarLocal() {
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">2. Na Decolar</p>
           <p className="mt-2 text-sm font-bold text-slate-700">
-            Abra o pacote completo e clique nesse favorito enquanto estiver na página da Decolar.
+            Abra um hotel ou pacote completo e clique nesse favorito enquanto estiver na página da Decolar.
           </p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
