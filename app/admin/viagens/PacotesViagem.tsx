@@ -38,6 +38,7 @@ type Pacote = {
   observacoes?: string | null;
   validade?: string | null;
   destaque: boolean;
+  arquivado_em?: string | null;
 };
 
 type RespostaPacotes = {
@@ -206,7 +207,7 @@ export default function PacotesViagem() {
   const [form, setForm] = useState(INICIAL);
 
   const totalAtivos = useMemo(
-    () => pacotes.filter((pacote) => pacote.status === "ativo").length,
+    () => pacotes.filter((pacote) => pacote.status === "ativo" && !pacote.arquivado_em).length,
     [pacotes]
   );
 
@@ -259,6 +260,31 @@ export default function PacotesViagem() {
     setEditandoId(null);
     setForm(INICIAL);
     setAberto(false);
+  }
+
+  async function alternarArquivo(pacote: Pacote) {
+    try {
+      setErro("");
+      setAviso("");
+      const acao = pacote.arquivado_em ? "restaurar" : "arquivar";
+      const resposta = await fetch("/api/admin/viagens/pacotes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pacote.id, acao }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok || !dados.sucesso) {
+        throw new Error(dados.erro || "Falha ao atualizar arquivo.");
+      }
+      await carregar();
+      setAviso(
+        acao === "arquivar"
+          ? "Oferta arquivada. Ela saiu da vitrine e do monitor, mas pode ser restaurada aqui."
+          : "Oferta restaurada com sucesso."
+      );
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao atualizar arquivo.");
+    }
   }
 
   function editarPacote(pacote: Pacote) {
@@ -1126,18 +1152,34 @@ export default function PacotesViagem() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="font-bold">{pacote.status}</span>
-                    {pacote.destaque && (
+                    {pacote.arquivado_em ? (
+                      <div className="mt-1 text-xs font-black text-amber-700">📦 Arquivada</div>
+                    ) : null}
+                    {pacote.destaque && !pacote.arquivado_em && (
                       <div className="text-xs font-bold text-amber-600">⭐ Destaque</div>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => editarPacote(pacote)}
-                      className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
-                    >
-                      ✏️ Editar
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => editarPacote(pacote)}
+                        className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => alternarArquivo(pacote)}
+                        className={`rounded-lg px-4 py-2 text-xs font-black transition ${
+                          pacote.arquivado_em
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                        }`}
+                      >
+                        {pacote.arquivado_em ? "↩️ Restaurar" : "📦 Arquivar"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
