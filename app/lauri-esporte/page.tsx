@@ -1,6 +1,24 @@
+import { redirect } from "next/navigation";
 import PartnerStorefront from "@/components/PartnerStorefront";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export default function LauriEsportePage() {
+export const dynamic = "force-dynamic";
+
+export default async function LauriEsportePage() {
+  const { count, error } = await supabaseAdmin
+    .from("economize_ofertas")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "ativo")
+    .eq("loja_id", (
+      await supabaseAdmin
+        .from("economize_lojas")
+        .select("id")
+        .eq("slug", "lauri-esporte")
+        .maybeSingle()
+    ).data?.id || "");
+
+  if (error || !count) redirect("/economize");
+
   return (
     <PartnerStorefront
       slug="lauri-esporte"
