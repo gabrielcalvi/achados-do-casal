@@ -260,7 +260,45 @@ Padrão obrigatório:
 
 Objetivo: reduzir regressões, evitar duplicação desnecessária e replicar o que já funciona no projeto.
 
-### Parceiros AWIN relevantes
+### Painel de Saúde AWIN
+Em 14/11/2026 foi criado um painel operacional dentro da Central Economize para acompanhar os catálogos AWIN sem criar um sistema paralelo.
+
+O painel reaproveita:
+- status real dos coletores já existentes no Vercel Sandbox;
+- watchdog;
+- contagens reais da tabela `economize_ofertas`;
+- cadastro de `afiliados_parceiros`.
+
+Lojas iniciais:
+- C&A;
+- Nike;
+- KaBuM;
+- Cobasi;
+- Lauri Esporte.
+
+Métricas exibidas:
+- saúde atual;
+- última execução;
+- feeds encontrados/lidos;
+- total de produtos no feed;
+- produtos elegíveis;
+- selecionados para publicação;
+- links afiliados válidos;
+- novas ofertas;
+- ofertas atualizadas;
+- expiradas;
+- ativos/pendentes/total no banco;
+- erro do coletor, quando houver.
+
+O painel também oferece `Executar agora` por loja usando as rotas já existentes. Regra importante: o estado mais recente do coletor prevalece sobre um watchdog antigo, evitando falso vermelho após uma execução bem-sucedida.
+
+Em 14/11/2026 o cadastro interno da Cobasi foi alinhado com a operação real:
+- `integracoes = ['Catálogo']`;
+- `automacao_status = ativa`;
+- pendência removida;
+- próximo passo: manter catálogo pet automático e acompanhar saúde/qualidade.
+
+
 
 #### C&A
 - status: ativo
@@ -763,6 +801,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — criado Painel de Saúde AWIN na Central Economize, reaproveitando coletores, Sandbox, watchdog e Supabase; inclui C&A, Nike, KaBuM, Cobasi e Lauri, métricas operacionais e botão Executar agora. Cadastro da Cobasi alinhado à automação real.
 - **14/11/2026** — definida regra permanente para novas lojas AWIN: replicar/adaptar pipelines já estáveis em vez de reinventar a coleta; rota dedicada, cron, status, logs e watchdog devem seguir o padrão comprovado sempre que aplicável.
 - **14/11/2026** — diagnosticada vitrine Lauri em 0/0/—: cron das 08:40 UTC usava coletor antigo `33d809...` e ignorava o filtro de loja, deixando Lauri por último numa varredura multiloja pesada. Criada rota/cron dedicado para Lauri e adicionado check específico no watchdog.
 - **14/11/2026** — pós-validação final: produção em `14fd7fb` / deploy `dpl_EK8LgBhDHN3FVc4AESdUA58nX5kA` READY; erro social marcado como resolvido após testes PNG 200 e zero runtime errors; Beto Carrero confirmado na fonte unificada com mesmo UUID/preço/link; `viagens_ingressos` confirmado com 0 registros; sitemap corrigido para aplicar disponibilidade profunda somente a pacotes; PRs #33 e #34 registrados.
