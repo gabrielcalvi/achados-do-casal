@@ -51,10 +51,13 @@ function calcularDesconto(
 export default function CardProduto({
   produto,
 }: CardProdutoProps) {
-  const desconto = calcularDesconto(
-    produto.precoAnterior,
-    produto.precoAtual,
-  );
+  const ehAmazon = produto.loja.trim().toLowerCase() === "amazon";
+  const desconto = ehAmazon
+    ? null
+    : calcularDesconto(
+        produto.precoAnterior,
+        produto.precoAtual,
+      );
 
   return (
     <article
@@ -184,18 +187,31 @@ export default function CardProduto({
   justifyContent: "flex-start",
 }}
         >
-          <p
-            className="text-sm text-slate-400 line-through"
-            style={{ height: "20px" }}
-          >
-            {produto.precoAnterior
-              ? `De ${formatarPreco(produto.precoAnterior)}`
-              : ""}
-          </p>
+          {ehAmazon ? (
+            <>
+              <p className="text-sm font-bold text-amber-700">
+                Preço e disponibilidade podem mudar na Amazon.
+              </p>
+              <p className="mt-1 text-xl font-black text-slate-900">
+                Consulte o preço atual na Amazon
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                className="text-sm text-slate-400 line-through"
+                style={{ height: "20px" }}
+              >
+                {produto.precoAnterior
+                  ? `De ${formatarPreco(produto.precoAnterior)}`
+                  : ""}
+              </p>
 
-          <p className="mt-1 text-3xl font-black text-pink-500">
-            {formatarPreco(produto.precoAtual)}
-          </p>
+              <p className="mt-1 text-3xl font-black text-pink-500">
+                {formatarPreco(produto.precoAtual)}
+              </p>
+            </>
+          )}
         </div>
 <div
   className="mt-2 shrink-0 overflow-hidden"
@@ -206,27 +222,31 @@ export default function CardProduto({
     justifyContent: "flex-start",
   }}
 >
-        {produto.parcelas ? (
-  <p className="text-sm font-bold text-slate-700">
-    💳 {produto.parcelas}
-  </p>
-) : (
-  <p className="text-sm text-slate-400">
-    Parcelamento indisponível
-  </p>
-)}
+        {!ehAmazon && (
+          <>
+            {produto.parcelas ? (
+              <p className="text-sm font-bold text-slate-700">
+                💳 {produto.parcelas}
+              </p>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Parcelamento indisponível
+              </p>
+            )}
 
-{produto.freteGratis && (
-  <p className="mt-2 text-sm font-bold text-green-700">
-    🚚 Frete grátis
-  </p>
-)}
+            {produto.freteGratis && (
+              <p className="mt-2 text-sm font-bold text-green-700">
+                🚚 Frete grátis
+              </p>
+            )}
 
-{produto.pagamento && (
-  <p className="mt-2 text-sm font-bold text-green-700">
-    {produto.pagamento}
-  </p>
-)}
+            {produto.pagamento && (
+              <p className="mt-2 text-sm font-bold text-green-700">
+                {produto.pagamento}
+              </p>
+            )}
+          </>
+        )}
           
         </div>
 
@@ -249,12 +269,18 @@ export default function CardProduto({
     </Link>
   )}
 
+  {ehAmazon && (
+    <p className="text-center text-[11px] font-bold text-slate-500">
+      Publicidade · link de afiliado Amazon
+    </p>
+  )}
+
   <a
     href={`/produto/${produto.id}/ir?origem=site`}
     className="inline-flex w-full items-center justify-center rounded-xl bg-blue-950 px-5 font-black text-white transition hover:bg-blue-900"
     style={{ height: "56px" }}
   >
-    🛒 Ver oferta
+    🛒 {ehAmazon ? "Ver na Amazon" : "Ver oferta"}
   </a>
 </div>
       </div>
