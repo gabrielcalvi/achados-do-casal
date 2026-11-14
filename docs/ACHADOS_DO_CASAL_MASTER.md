@@ -276,6 +276,48 @@ Lojas prioritárias adicionadas/monitoradas:
 
 Regra: marca atraente sem cupom verificável continua no radar, mas **não entra no público só para preencher a página**.
 
+
+### Estado da Central Black Friday em produção — 14/11/2026
+Após a ampliação do radar, a API pública de cupons retornava **48 ofertas de cupom ativas**.
+
+Distribuição relevante:
+- Renner: 12;
+- C&A: 3;
+- Samsung: 5;
+- Netshoes: 5;
+- Centauro: 5;
+- O Boticário: 5;
+- Adidas: 3;
+- Sephora: 3;
+- Casas Bahia: 2;
+- Marisa: 1;
+- Nike: 1.
+
+O radar Black Friday respondia por **44 cupons ativos**; os demais vinham de pipelines parceiros já existentes.
+
+Novas fontes diretas validadas e liberadas:
+- Netshoes;
+- Centauro;
+- O Boticário;
+- Casas Bahia;
+- Sephora.
+
+Critério preservado para fontes agregadoras:
+- código plausível;
+- publicado;
+- validade ativa;
+- benefício relevante;
+- uso recente (até 72h);
+- filtros explícitos contra asset/icon keys.
+
+**Apple e Gaston permanecem monitoradas, mas sem cupom público nesta etapa por falta de evidência forte o suficiente.** Não preencher a página artificialmente com código fraco/antigo.
+
+Produção após a ampliação:
+- commit `fde497a2fe22721b91b00495dd94752772dd0f04`;
+- deploy `dpl_osoqXmpWHP7GZVoTa1jiQ4BWgxjc`;
+- status READY;
+- nenhum erro de runtime encontrado na varredura de 30 minutos após a publicação.
+
 ### Changelog Black Friday
 - **14/11/2026** — adicionadas fontes diretas de Netshoes/Centauro/Boticário/Casas Bahia/Sephora; validação no ambiente confirmou códigos estruturados e o filtro de asset/icon keys foi ampliado antes da liberação.
 - **14/11/2026** — faixa Black Friday da home ampliada para maior visibilidade; radar ficou mais conservador em ofertas com múltiplos percentuais e Samsung foi validada como segunda marca com códigos estruturados e uso recente.
@@ -980,6 +1022,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — Central Black Friday chegou a 48 cupons ativos públicos; 44 via radar. Novas lojas validadas: Netshoes, Centauro, O Boticário, Casas Bahia e Sephora. Apple/Gaston seguem monitoradas sem publicação até aparecer evidência confiável.
 - **14/11/2026** — Amazon restaurada temporariamente ao comportamento anterior por decisão operacional: imagem, preço, condições e link afiliado voltam ao público e os 4 produtos voltam ao monitor automático; Creators API fica estacionada até elegibilidade. Radar Black Friday passa a priorizar fontes oficiais por loja e amplia cobertura para Renner, Nike, Marisa, Apple, Gaston, Amazon, Americanas, Decathlon, Dafiti e Zattini.
 - **14/11/2026** — Central Black Friday com radar de cupons reais: aceita marcas parceiras e não parceiras, publica automaticamente apenas códigos com benefício relevante, validade e uso recente, mantém tráfego direto quando não há afiliado e revalida a cada 3h.
 - **14/11/2026** — bloqueio real da Amazon confirmado no Portal: Creators API só libera criação de Application após aceitação final da conta e vendas qualificadas; FAQ da própria Amazon informa requisito de pelo menos 10 vendas qualificadas nos últimos 30 dias para acesso à API de produtos. Se as vendas já existirem, solicitar final acceptance via Associates Contact Us.
