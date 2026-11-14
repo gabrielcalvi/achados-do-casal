@@ -163,7 +163,7 @@ export async function buscarCuponation(loja: LojaBlackFriday) {
 
 function ultimoCampoAntes(texto: string, indice: number, campo: string, limite = 2500) {
   const trecho = texto.slice(Math.max(0, indice - limite), indice);
-  const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
+  const regex = new RegExp(`"${campo}":"([^"]*)"`, "g");
   let valor: string | null = null;
   for (const match of trecho.matchAll(regex)) valor = match[1] ?? null;
   return valor;
@@ -418,7 +418,7 @@ export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
   const texto = $.root().text().replace(/\s+/g, " ").trim();
   const agora = Date.now();
   const encontrados = new Map<string, CupomDescoberto>();
-  const regex = /cupom\s*["“”']?([A-Z0-9_-]{4,24})["“”']?/gi;
+  const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
 
   for (const match of texto.matchAll(regex)) {
     const codigo = String(match[1] || "").trim().toUpperCase();
