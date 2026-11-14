@@ -9,15 +9,19 @@ type StatusDisponibilidade =
   | "indisponivel"
   | "erro";
 
-type PacoteStatus = {
+type OfertaStatus = {
   id: string;
+  chave: string;
+  origem_tabela: "viagens_pacotes" | "viagens_ingressos";
+  tipo: "pacote" | "hotel" | "ingresso" | "carro" | "cruzeiro" | "passeio" | "outro";
   titulo: string;
   status: string;
   parceiro: string;
-  origem_codigo: string;
-  destino_codigo: string;
-  data_ida: string;
-  data_volta: string;
+  local_resumo?: string | null;
+  origem_codigo?: string | null;
+  destino_codigo?: string | null;
+  data_ida?: string | null;
+  data_volta?: string | null;
   disponibilidade_status: StatusDisponibilidade;
   disponibilidade_falhas: number;
   disponibilidade_verificada_em: string | null;
@@ -28,7 +32,8 @@ type PacoteStatus = {
 type RespostaStatus = {
   sucesso?: boolean;
   erro?: string;
-  pacotes?: PacoteStatus[];
+  ofertas?: OfertaStatus[];
+  pacotes?: OfertaStatus[];
 };
 
 type RespostaVerificacao = {
@@ -66,6 +71,16 @@ const visual: Record<StatusDisponibilidade, { rotulo: string; icone: string; cla
   },
 };
 
+const tipoVisual: Record<OfertaStatus["tipo"], { label: string; icone: string }> = {
+  pacote: { label: "Pacote", icone: "📦" },
+  hotel: { label: "Hotel", icone: "🏨" },
+  ingresso: { label: "Ingresso", icone: "🎟️" },
+  carro: { label: "Carro", icone: "🚗" },
+  cruzeiro: { label: "Cruzeiro", icone: "🚢" },
+  passeio: { label: "Passeio", icone: "🎡" },
+  outro: { label: "Outro", icone: "✨" },
+};
+
 function dataHora(valor: string | null) {
   if (!valor) return "Nunca";
   const data = new Date(valor);
@@ -82,6 +97,8 @@ function motivoLegivel(valor: string | null) {
   const mapa: Record<string, string> = {
     hotel_datas_preco_confirmados: "Hotel, datas e preço confirmados.",
     data_de_ida_passou: "A data de ida já passou.",
+    data_final_passou: "O período da oferta já terminou.",
+    data_de_uso_passou: "A data de uso já passou.",
     validade_expirada: "A validade cadastrada expirou.",
     hotel_nao_confere: "O hotel retornado pela Decolar não confere.",
     datas_nao_conferem: "As datas retornadas pela Decolar mudaram.",
@@ -89,13 +106,24 @@ function motivoLegivel(valor: string | null) {
     extracao_inconclusiva: "A consulta não trouxe dados suficientes.",
     validacao_inconclusiva: "Não foi possível concluir a validação.",
     parceiro_ou_link_nao_suportado: "Parceiro ou link ainda não suportado pelo monitor.",
+    link_ausente: "Oferta sem link original/afiliado para conferir.",
+    link_parceiro_acessivel: "Link do parceiro respondeu normalmente.",
+    link_http_404: "O link retornou página não encontrada (404).",
+    link_http_410: "O link foi removido pelo parceiro (410).",
   };
+
+  if (valor.startsWith("parceiro_bloqueou_verificacao_http_")) {
+    return "O parceiro bloqueou a checagem automática; a oferta não foi inativada.";
+  }
+  if (valor.startsWith("falha_tecnica_link:")) {
+    return "Falha técnica ao consultar o link; a oferta não foi inativada.";
+  }
 
   return mapa[valor] || valor;
 }
 
 export default function PacotesDisponibilidade() {
-  const [pacotes, setPacotes] = useState<PacoteStatus[]>([]);
+  const [ofertas, setOfertas] = useState<OfertaStatus[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [verificando, setVerificando] = useState(false);
   const [erro, setErro] = useState("");
@@ -106,18 +134,16 @@ export default function PacotesDisponibilidade() {
   async function carregar() {
     try {
       setErro("");
-      const resposta = await fetch("/api/admin/viagens/pacotes/status", {
-        cache: "no-store",
-      });
+      const resposta = await fetch("/api/admin/viagens/pacotes/status", { cache: "no-store" });
       const dados = (await resposta.json()) as RespostaStatus;
 
       if (!resposta.ok || !dados.sucesso) {
-        throw new Error(dados.erro || "Falha ao carregar a disponibilidade dos pacotes.");
+        throw new Error(dados.erro || "Falha ao carregar a saúde das ofertas.");
       }
 
-      setPacotes(dados.pacotes ?? []);
+      setOfertas(dados.ofertas ?? dados.pacotes ?? []);
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao carregar disponibilidade.");
+      setErro(error instanceof Error ? error.message : "Erro ao carregar saúde das ofertas.");
     } finally {
       setCarregando(false);
     }
@@ -140,7 +166,7 @@ export default function PacotesDisponibilidade() {
       const dados = (await resposta.json()) as RespostaVerificacao;
 
       if (!resposta.ok || !dados.sucesso) {
-        throw new Error(dados.erro || "Falha ao verificar os pacotes.");
+        throw new Error(dados.erro || "Falha ao verificar as ofertas.");
       }
 
       const resumo = dados.resumo ?? {};
@@ -149,13 +175,11 @@ export default function PacotesDisponibilidade() {
         .map(([status, quantidade]) => `${quantidade} ${status}`);
 
       setAviso(
-        `Verificação concluída: ${dados.verificados ?? 0} pacote(s).${
-          partes.length ? ` ${partes.join(" · ")}.` : ""
-        }`
+        `Verificação concluída: ${dados.verificados ?? 0} oferta(s).${partes.length ? ` ${partes.join(" · ")}.` : ""}`
       );
       await carregar();
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao verificar pacotes.");
+      setErro(error instanceof Error ? error.message : "Erro ao verificar ofertas.");
     } finally {
       setVerificando(false);
     }
@@ -165,7 +189,7 @@ export default function PacotesDisponibilidade() {
     if (selecionados.length === 0) return;
 
     const confirmado = window.confirm(
-      `Excluir permanentemente ${selecionados.length} pacote(s) selecionado(s)? Esta ação não pode ser desfeita.`
+      `Excluir permanentemente ${selecionados.length} oferta(s) selecionada(s)? Esta ação não pode ser desfeita.`
     );
     if (!confirmado) return;
 
@@ -174,39 +198,45 @@ export default function PacotesDisponibilidade() {
       setErro("");
       setAviso("");
 
+      const itens = ofertas
+        .filter((oferta) => selecionados.includes(oferta.chave))
+        .map((oferta) => ({ tabela: oferta.origem_tabela, id: oferta.id }));
+
       const resposta = await fetch("/api/admin/viagens/pacotes", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selecionados }),
+        body: JSON.stringify({ itens }),
       });
       const dados = await resposta.json();
 
       if (!resposta.ok || !dados.sucesso) {
-        throw new Error(dados.erro || "Falha ao excluir pacotes.");
+        throw new Error(dados.erro || "Falha ao excluir ofertas.");
       }
 
-      const idsExcluidos = new Set<string>(dados.ids ?? []);
-      setPacotes((atuais) => atuais.filter((pacote) => !idsExcluidos.has(pacote.id)));
+      const chavesExcluidas = new Set(
+        (dados.itens ?? []).map((item: { tabela: string; id: string }) => `${item.tabela}:${item.id}`)
+      );
+      setOfertas((atuais) => atuais.filter((oferta) => !chavesExcluidas.has(oferta.chave)));
       setSelecionados([]);
-      setAviso(`${dados.excluidos ?? 0} pacote(s) excluído(s) com sucesso.`);
+      setAviso(`${dados.excluidos ?? 0} oferta(s) excluída(s) com sucesso.`);
     } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao excluir pacotes.");
+      setErro(error instanceof Error ? error.message : "Erro ao excluir ofertas.");
     } finally {
       setExcluindo(false);
     }
   }
 
-  function alternarSelecionado(id: string) {
+  function alternarSelecionado(chave: string) {
     setSelecionados((atuais) =>
-      atuais.includes(id) ? atuais.filter((item) => item !== id) : [...atuais, id]
+      atuais.includes(chave) ? atuais.filter((item) => item !== chave) : [...atuais, chave]
     );
   }
 
   function alternarTodos() {
-    if (selecionados.length === pacotes.length) {
+    if (selecionados.length === ofertas.length) {
       setSelecionados([]);
     } else {
-      setSelecionados(pacotes.map((pacote) => pacote.id));
+      setSelecionados(ofertas.map((oferta) => oferta.chave));
     }
   }
 
@@ -219,13 +249,13 @@ export default function PacotesDisponibilidade() {
       erro: 0,
     };
 
-    for (const pacote of pacotes) {
-      const chave = pacote.disponibilidade_status || "nao_verificado";
+    for (const oferta of ofertas) {
+      const chave = oferta.disponibilidade_status || "nao_verificado";
       if (chave in base) base[chave as keyof typeof base] += 1;
     }
 
     return base;
-  }, [pacotes]);
+  }, [ofertas]);
 
   return (
     <section className="mt-6 rounded-3xl border border-sky-200 bg-white p-6 shadow-sm">
@@ -234,9 +264,11 @@ export default function PacotesDisponibilidade() {
           <p className="text-sm font-black uppercase tracking-wider text-sky-600">
             Monitor de disponibilidade
           </p>
-          <h2 className="mt-2 text-2xl font-black">Saúde dos pacotes publicados</h2>
+          <h2 className="mt-2 text-2xl font-black">Saúde das ofertas de viagem</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            A verificação automática roda duas vezes por dia. Uma suspeita isolada não remove o pacote; ele só é inativado após confirmação consecutiva do problema.
+            Pacotes usam validação completa de voo + hotel. Hotéis, ingressos, carros, cruzeiros e passeios
+            são conferidos por validade, datas e resposta do link do parceiro. Bloqueio técnico do parceiro
+            nunca remove a oferta automaticamente.
           </p>
         </div>
 
@@ -251,14 +283,14 @@ export default function PacotesDisponibilidade() {
               {excluindo ? "🗑️ Excluindo..." : `🗑️ Excluir selecionados (${selecionados.length})`}
             </button>
           )}
-        <button
-          type="button"
-          onClick={verificarAgora}
-          disabled={verificando}
-          className="rounded-xl bg-sky-600 px-5 py-3 font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {verificando ? "🔄 Verificando..." : "🔎 Verificar agora"}
-        </button>
+          <button
+            type="button"
+            onClick={verificarAgora}
+            disabled={verificando}
+            className="rounded-xl bg-sky-600 px-5 py-3 font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {verificando ? "🔄 Verificando..." : "🔎 Verificar agora"}
+          </button>
         </div>
       </div>
 
@@ -292,13 +324,14 @@ export default function PacotesDisponibilidade() {
               <th className="w-12 px-4 py-3">
                 <input
                   type="checkbox"
-                  aria-label="Selecionar todos os pacotes"
-                  checked={pacotes.length > 0 && selecionados.length === pacotes.length}
+                  aria-label="Selecionar todas as ofertas"
+                  checked={ofertas.length > 0 && selecionados.length === ofertas.length}
                   onChange={alternarTodos}
                   className="h-4 w-4 rounded border-slate-300"
                 />
               </th>
-              <th className="px-4 py-3 font-black">Pacote</th>
+              <th className="px-4 py-3 font-black">Oferta</th>
+              <th className="px-4 py-3 font-black">Tipo</th>
               <th className="px-4 py-3 font-black">Disponibilidade</th>
               <th className="px-4 py-3 font-black">Última verificação</th>
               <th className="px-4 py-3 font-black">Último OK</th>
@@ -308,56 +341,62 @@ export default function PacotesDisponibilidade() {
           <tbody>
             {carregando ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Carregando monitor...
                 </td>
               </tr>
-            ) : pacotes.length === 0 ? (
+            ) : ofertas.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                  Nenhum pacote cadastrado.
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  Nenhuma oferta cadastrada.
                 </td>
               </tr>
             ) : (
-              pacotes.map((pacote) => {
-                const status = pacote.disponibilidade_status || "nao_verificado";
+              ofertas.map((oferta) => {
+                const status = oferta.disponibilidade_status || "nao_verificado";
                 const estilo = visual[status];
+                const tipo = tipoVisual[oferta.tipo] || tipoVisual.outro;
 
                 return (
-                  <tr key={pacote.id} className="border-t border-slate-100 align-top">
+                  <tr key={oferta.chave} className="border-t border-slate-100 align-top">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
-                        aria-label={`Selecionar ${pacote.titulo}`}
-                        checked={selecionados.includes(pacote.id)}
-                        onChange={() => alternarSelecionado(pacote.id)}
+                        aria-label={`Selecionar ${oferta.titulo}`}
+                        checked={selecionados.includes(oferta.chave)}
+                        onChange={() => alternarSelecionado(oferta.chave)}
                         className="h-4 w-4 rounded border-slate-300"
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-black text-slate-900">{pacote.titulo}</p>
+                      <p className="font-black text-slate-900">{oferta.titulo}</p>
                       <p className="mt-1 text-xs font-bold text-slate-400">
-                        {pacote.origem_codigo} → {pacote.destino_codigo} · {pacote.status}
+                        {oferta.local_resumo || "—"} · {oferta.status}
                       </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700">
+                        {tipo.icone} {tipo.label}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-black ${estilo.classe}`}>
                         {estilo.icone} {estilo.rotulo}
                       </span>
-                      {pacote.disponibilidade_falhas > 0 && (
+                      {oferta.disponibilidade_falhas > 0 && (
                         <p className="mt-1 text-xs font-bold text-amber-700">
-                          {pacote.disponibilidade_falhas} falha(s) consecutiva(s)
+                          {oferta.disponibilidade_falhas} falha(s) consecutiva(s)
                         </p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {dataHora(pacote.disponibilidade_verificada_em)}
+                      {dataHora(oferta.disponibilidade_verificada_em)}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {dataHora(pacote.disponibilidade_ultima_ok_em)}
+                      {dataHora(oferta.disponibilidade_ultima_ok_em)}
                     </td>
                     <td className="max-w-md px-4 py-3 text-slate-600">
-                      {motivoLegivel(pacote.disponibilidade_motivo) || "Aguardando primeira verificação."}
+                      {motivoLegivel(oferta.disponibilidade_motivo) || "Aguardando primeira verificação."}
                     </td>
                   </tr>
                 );
