@@ -112,7 +112,7 @@ export async function GET(
   const visitaId = Number(visita?.id);
   if (Number.isSafeInteger(visitaId) && visitaId > 0) {
     const atribuicao: AtribuicaoCampanha = {
-      versao: 1,
+      versao: 2,
       visitaId,
       codigo: definicao.codigo,
       source: definicao.source,
