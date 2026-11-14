@@ -124,8 +124,9 @@ export async function generateMetadata({
   }
 
   const { produto } = dados;
+  const ehAmazon = produto.loja.trim().toLowerCase() === "amazon";
   const url = `${BASE_URL}/produto/${produto.id}`;
-  const preco = produto.ativo ? moeda(produto.preco_atual) : null;
+  const preco = produto.ativo && !ehAmazon ? moeda(produto.preco_atual) : null;
   const titulo = produto.review_completa
     ? `${produto.nome}: review do casal`
     : `${produto.nome}: preço e oferta`;
@@ -176,6 +177,7 @@ export default async function ProdutoPage({
   if (!dados) notFound();
 
   const { produto, imagens, relacionadas } = dados;
+  const ehAmazon = produto.loja.trim().toLowerCase() === "amazon";
   const url = `${BASE_URL}/produto/${produto.id}`;
   const precoAtual = Number(produto.preco_atual);
   const temPrecoAtivo = Boolean(produto.ativo && Number.isFinite(precoAtual) && precoAtual > 0);
@@ -195,7 +197,7 @@ export default async function ProdutoPage({
     category: produto.categoria || undefined,
   };
 
-  if (temPrecoAtivo) {
+  if (temPrecoAtivo && !ehAmazon) {
     productJsonLd.offers = {
       "@type": "Offer",
       url,
@@ -311,44 +313,60 @@ export default async function ProdutoPage({
 
           {produto.ativo ? (
             <div className="mt-6">
-              {produto.preco_antigo &&
-              Number(produto.preco_antigo) > Number(produto.preco_atual) ? (
-                <p className="text-sm text-slate-400 line-through">
-                  De {Number(produto.preco_antigo).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </p>
-              ) : null}
+              {ehAmazon ? (
+                <>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                    <p className="font-black text-amber-900">Preço e disponibilidade na Amazon</p>
+                    <p className="mt-2 text-sm leading-6 text-amber-800">
+                      Consulte o valor, frete, parcelamento e disponibilidade atuais diretamente na Amazon.
+                    </p>
+                  </div>
+                  <p className="mt-4 text-xs font-bold text-slate-500">
+                    Publicidade · link de afiliado Amazon
+                  </p>
+                </>
+              ) : (
+                <>
+                  {produto.preco_antigo &&
+                  Number(produto.preco_antigo) > Number(produto.preco_atual) ? (
+                    <p className="text-sm text-slate-400 line-through">
+                      De {Number(produto.preco_antigo).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </p>
+                  ) : null}
 
-              <p className="mt-1 text-3xl font-black text-pink-600">
-                {Number(produto.preco_atual).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              </p>
+                  <p className="mt-1 text-3xl font-black text-pink-600">
+                    {Number(produto.preco_atual).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
 
-              {produto.avaliacao || produto.vendas ? (
-                <div className="mt-4 flex flex-wrap gap-4 text-sm font-bold text-slate-700">
-                  {produto.avaliacao ? <span>⭐ {produto.avaliacao}</span> : null}
-                  {produto.vendas ? <span>🛒 {produto.vendas}</span> : null}
-                </div>
-              ) : null}
+                  {produto.avaliacao || produto.vendas ? (
+                    <div className="mt-4 flex flex-wrap gap-4 text-sm font-bold text-slate-700">
+                      {produto.avaliacao ? <span>⭐ {produto.avaliacao}</span> : null}
+                      {produto.vendas ? <span>🛒 {produto.vendas}</span> : null}
+                    </div>
+                  ) : null}
 
-              {produto.parcelas || produto.frete_gratis ? (
-                <div className="mt-4 space-y-2">
-                  {produto.parcelas ? <p className="font-bold text-slate-700">💳 {produto.parcelas}</p> : null}
-                  {produto.frete_gratis ? <p className="font-bold text-green-700">🚚 Frete grátis</p> : null}
-                </div>
-              ) : null}
+                  {produto.parcelas || produto.frete_gratis ? (
+                    <div className="mt-4 space-y-2">
+                      {produto.parcelas ? <p className="font-bold text-slate-700">💳 {produto.parcelas}</p> : null}
+                      {produto.frete_gratis ? <p className="font-bold text-green-700">🚚 Frete grátis</p> : null}
+                    </div>
+                  ) : null}
 
-              {produto.updated_at ? (
-                <p className="mt-3 text-sm font-semibold text-slate-500">
-                  {produto.monitoramento_manual ? "🖐️ Preço atualizado manualmente em " : "✅ Preço atualizado em "}
-                  {new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às{" "}
-                  {new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
-                </p>
-              ) : null}
+                  {produto.updated_at ? (
+                    <p className="mt-3 text-sm font-semibold text-slate-500">
+                      {produto.monitoramento_manual ? "🖐️ Preço atualizado manualmente em " : "✅ Preço atualizado em "}
+                      {new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às{" "}
+                      {new Date(produto.preco_manual_atualizado_em || produto.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+                    </p>
+                  ) : null}
+                </>
+              )}
 
               <a
                 href={`/produto/${produto.id}/ir?origem=site`}
                 className="mt-8 inline-flex w-full justify-center rounded-xl bg-blue-950 px-6 py-4 font-black text-white hover:bg-blue-900"
               >
-                Ver oferta
+                {ehAmazon ? "Ver preço na Amazon" : "Ver oferta"}
               </a>
             </div>
           ) : produto.review_completa ? (
@@ -437,6 +455,11 @@ export default async function ProdutoPage({
               <p className="mt-1 text-sm text-emerald-800">
                 Acesse pelo nosso link afiliado para conferir a oferta atual.
               </p>
+              {ehAmazon ? (
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  Publicidade · link de afiliado Amazon
+                </p>
+              ) : null}
               <a
                 href={`/produto/${produto.id}/review-ir?origem=site`}
                 className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-6 py-4 font-black text-white transition hover:bg-emerald-700"
