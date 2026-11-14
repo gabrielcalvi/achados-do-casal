@@ -230,3 +230,62 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+
+export async function DELETE(request: NextRequest) {
+  const user = await usuarioAtual();
+  if (!user) {
+    return NextResponse.json(
+      { sucesso: false, erro: "Nao autorizado." },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const ids = Array.isArray(body?.ids)
+      ? [...new Set(body.ids.map((id: unknown) => texto(id)).filter(Boolean))]
+      : [];
+
+    if (ids.length === 0) {
+      return NextResponse.json(
+        { sucesso: false, erro: "Selecione ao menos um pacote para excluir." },
+        { status: 400 }
+      );
+    }
+
+    if (ids.length > 100) {
+      return NextResponse.json(
+        { sucesso: false, erro: "Exclusao limitada a 100 pacotes por vez." },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("viagens_pacotes")
+      .delete()
+      .in("id", ids)
+      .eq("tipo", "pacote")
+      .select("id,titulo");
+
+    if (error) throw new Error(error.message);
+
+    const excluidos = data ?? [];
+    return NextResponse.json({
+      sucesso: true,
+      excluidos: excluidos.length,
+      ids: excluidos.map((item) => item.id),
+    });
+  } catch (erro) {
+    return NextResponse.json(
+      {
+        sucesso: false,
+        erro:
+          erro instanceof Error
+            ? erro.message
+            : "Erro inesperado ao excluir pacotes.",
+      },
+      { status: 500 }
+    );
+  }
+}
