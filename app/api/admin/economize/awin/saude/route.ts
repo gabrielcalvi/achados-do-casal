@@ -164,14 +164,26 @@ export async function GET(_request: NextRequest) {
 
       const idade = horasDesde(ultimaExecucao);
       const estado =
-        watchdog?.status ||
-        (statusLoja?.erro ? "erro" : idade === null ? "atencao" : idade > 8 ? "erro" : "ok");
+        statusLoja?.erro
+          ? "erro"
+          : statusCompleto?.sucesso === false
+            ? "erro"
+            : idade === null
+              ? (watchdog?.status || "atencao")
+              : idade > 8
+                ? "erro"
+                : "ok";
 
       lojas.push({
         slug: config.slug,
         nome: config.nome,
         estado,
-        mensagem: watchdog?.mensagem || (statusLoja?.erro ? String(statusLoja.erro) : "Sem diagnóstico do watchdog."),
+        mensagem:
+          statusLoja?.erro
+            ? String(statusLoja.erro)
+            : estado === "ok"
+              ? "Coletor executou dentro da janela e a vitrine está sendo alimentada."
+              : (watchdog?.mensagem || "Sem execução recente confirmada."),
         executar_path: config.executarPath,
         ultima_execucao: ultimaExecucao,
         horas_desde_execucao: idade,
