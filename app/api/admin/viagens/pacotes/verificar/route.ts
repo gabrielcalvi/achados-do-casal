@@ -32,20 +32,6 @@ type OfertaDb = {
   disponibilidade_falhas: number | null;
 };
 
-type IngressoDb = {
-  id: string;
-  status: string;
-  titulo: string;
-  parceiro: string;
-  link_original: string | null;
-  link_afiliado: string;
-  data_uso: string | null;
-  preco_total: number;
-  preco_por_pessoa: number | null;
-  validade: string | null;
-  disponibilidade_falhas: number | null;
-};
-
 function autorizadoCron(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim();
   return Boolean(segredo) && request.headers.get("authorization") === `Bearer ${segredo}`;
@@ -322,39 +308,6 @@ async function verificarOfertaGenerica(oferta: OfertaDb) {
   }
 }
 
-async function verificarIngresso(ingresso: IngressoDb) {
-  if (validadeExpirou(ingresso.validade) || dataPassou(ingresso.data_uso)) {
-    const motivo = validadeExpirou(ingresso.validade) ? "validade_expirada" : "data_de_uso_passou";
-    const avaliacao = { estado: "indisponivel" as Estado, motivo };
-    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
-    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo };
-  }
-
-  const link = ingresso.link_original || ingresso.link_afiliado;
-  if (!link) {
-    const avaliacao = { estado: "erro" as Estado, motivo: "link_ausente" };
-    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
-    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
-  }
-
-  try {
-    const teste = await testarLink(link);
-    const avaliacao =
-      teste.status >= 200 && teste.status < 400
-        ? { estado: "disponivel" as Estado, motivo: "link_parceiro_acessivel" }
-        : teste.status === 404 || teste.status === 410
-          ? { estado: "suspeito" as Estado, motivo: `link_http_${teste.status}` }
-          : { estado: "erro" as Estado, motivo: `parceiro_bloqueou_verificacao_http_${teste.status}` };
-
-    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
-    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
-  } catch (erro) {
-    const avaliacao = { estado: "erro" as Estado, motivo: `falha_tecnica_link: ${mensagemErro(erro).slice(0, 180)}` };
-    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
-    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
-  }
-}
-
 async function executarComConcorrencia<T, R>(itens: T[], limite: number, tarefa: (item: T) => Promise<R>) {
   const resultados: R[] = [];
   let indice = 0;
@@ -375,37 +328,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
   }
 
-  const [ofertasResp, ingressosResp] = await Promise.all([
-    supabaseAdmin
-      .from("viagens_pacotes")
-      .select("id,tipo,status,titulo,parceiro,link_original,link_afiliado,data_ida,data_volta,hotel_nome,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
-      .eq("status", "ativo")
-      .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
-      .limit(30),
-    supabaseAdmin
-      .from("viagens_ingressos")
-      .select("id,status,titulo,parceiro,link_original,link_afiliado,data_uso,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
-      .eq("status", "ativo")
-      .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
-      .limit(30),
-  ]);
+  const ofertasResp = await supabaseAdmin
+    .from("viagens_pacotes")
+    .select("id,tipo,status,titulo,parceiro,link_original,link_afiliado,data_ida,data_volta,hotel_nome,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
+    .eq("status", "ativo")
+    .is("arquivado_em", null)
+    .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
+    .limit(60);
 
   if (ofertasResp.error) {
     return NextResponse.json({ sucesso: false, erro: ofertasResp.error.message }, { status: 500 });
-  }
-  if (ingressosResp.error) {
-    return NextResponse.json({ sucesso: false, erro: ingressosResp.error.message }, { status: 500 });
   }
 
   const ofertas = (ofertasResp.data ?? []) as OfertaDb[];
   const pacotes = ofertas.filter((item) => item.tipo === "pacote");
   const genericas = ofertas.filter((item) => item.tipo !== "pacote");
-  const ingressos = (ingressosResp.data ?? []) as IngressoDb[];
 
   const resultadosPacotes = await executarComConcorrencia(pacotes, MAX_CONCORRENCIA, verificarPacote);
   const resultadosGenericos = await executarComConcorrencia(genericas, 4, verificarOfertaGenerica);
-  const resultadosIngressos = await executarComConcorrencia(ingressos, 4, verificarIngresso);
-  const resultados = [...resultadosPacotes, ...resultadosGenericos, ...resultadosIngressos];
+  const resultados = [...resultadosPacotes, ...resultadosGenericos];
 
   const resumo = resultados.reduce<Record<string, number>>((acc, item: any) => {
     const chave = String(item.status || "desconhecido");
