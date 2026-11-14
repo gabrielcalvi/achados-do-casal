@@ -101,7 +101,7 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Trip.com", slug: "trip-com", dominio: "trip.com", homepage: "https://br.trip.com/" },
   { nome: "ITA Airways", slug: "ita-airways", dominio: "ita-airways.com", homepage: "https://www.ita-airways.com/" },
   { nome: "Iberostar", slug: "iberostar", dominio: "iberostar.com", homepage: "https://www.iberostar.com/" },
-  { nome: "AliExpress", slug: "aliexpress", dominio: "aliexpress.com", homepage: "https://pt.aliexpress.com/" },
+
 ];
 
 type ResultadoBusca = {
