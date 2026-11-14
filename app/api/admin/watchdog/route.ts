@@ -93,12 +93,12 @@ function checkCatalogo(
     };
   }
 
-  if (idade > 10) {
+  if (idade > 8) {
     return {
       chave: `catalogo_${slug}`,
       titulo,
       status: "erro",
-      mensagem: "Catálogo sem atualização há mais de 10 horas.",
+      mensagem: "Catálogo sem atualização há mais de 8 horas.",
       metricas: { ...dados, horas_desde_atualizacao: idade },
       recuperar,
     };
@@ -127,8 +127,8 @@ async function executarRecuperacao(request: NextRequest, check: Check, anterior:
   if (!check.recuperar || check.status !== "erro") return null;
 
   const ultimaTentativa = anterior?.recuperacao_tentada_em as string | null | undefined;
-  if (ultimaTentativa && horasDesde(ultimaTentativa) < 6) {
-    return { sucesso: false, ignorada: true, detalhe: "Recuperação já tentada nas últimas 6 horas." };
+  if (ultimaTentativa && horasDesde(ultimaTentativa) < 2) {
+    return { sucesso: false, ignorada: true, detalhe: "Recuperação já tentada nas últimas 2 horas." };
   }
 
   const segredo = process.env.CRON_SECRET?.trim();
