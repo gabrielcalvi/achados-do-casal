@@ -293,7 +293,12 @@ Regra de segurança:
 
 Pendência:
 - **Creators API oficial ainda não configurada**;
-- elegibilidade da conta para Creators API ainda precisa ser confirmada no Portal de Associados;
+- elegibilidade da conta para Creators API foi conferida no Portal de Associados em 14/11/2026;
+- o portal mostra que o cadastro ainda **não possui aceitação final** para criar aplicações;
+- a documentação exibida pela própria Amazon informa que o acesso à API exige conta aceita e vendas qualificadas;
+- para acesso à API de produtos via Creators API, a FAQ informa **pelo menos 10 vendas qualificadas nos últimos 30 dias**;
+- apenas o titular principal da conta pode criar a aplicação e gerar as credenciais;
+- se já houver as vendas qualificadas, a própria Amazon orienta solicitar aceitação final pelo formulário **Associates Contact Us**, explicando a necessidade de acesso à Creators API;
 - **Cupons Amazon V2 ainda não automatizados**.
 
 ### AWIN
@@ -868,6 +873,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — bloqueio real da Amazon confirmado no Portal: Creators API só libera criação de Application após aceitação final da conta e vendas qualificadas; FAQ da própria Amazon informa requisito de pelo menos 10 vendas qualificadas nos últimos 30 dias para acesso à API de produtos. Se as vendas já existirem, solicitar final acceptance via Associates Contact Us.
 - **14/11/2026** — base técnica da Amazon Creators API preparada: OAuth 2.0 com cache de token, GetItems, SearchItems, marketplace BR, rota administrativa e painel de diagnóstico na Central Economize; faltam apenas elegibilidade/credenciais oficiais para teste real.
 - **14/11/2026** — correção de direção Amazon: documentação oficial atual confirma **Creators API** como caminho atual e migração da PA-API 5.0; próximos passos atualizados para elegibilidade, Application/Credential, OAuth 2.0 e partnerTag oficial antes de reativar preço/imagens automáticos.
 - **14/11/2026** — auditoria Amazon: scraping/Playwright de conteúdo comercial pausado; 4 produtos existentes colocados em monitoramento manual; preço/imagens/avaliações/frete/parcelas raspados ocultados da interface; disclosures de afiliado adicionados; próxima etapa definida como Creators API oficial antes de escalar catálogo/Cupons V2.
