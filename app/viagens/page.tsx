@@ -1,5 +1,4 @@
 import PacotesPublicos from "./PacotesPublicos";
-import IngressosPublicos from "./IngressosPublicos";
 import SolicitarVooWhatsApp from "./SolicitarVooWhatsApp";
 import ExperienciaViagens from "./ExperienciaViagensV2";
 
@@ -145,7 +144,6 @@ export default function ViagensPage() {
 
       <SolicitarVooWhatsApp whatsappNumero={process.env.NEXT_PUBLIC_WHATSAPP_COTACOES || ""} fallbackUrl={GRUPO_VIAGENS} />
       <PacotesPublicos />
-      <IngressosPublicos />
       <ExperienciaViagens />
 
       <footer className="border-t border-slate-200 bg-white">
