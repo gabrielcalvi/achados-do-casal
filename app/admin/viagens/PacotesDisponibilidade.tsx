@@ -100,6 +100,8 @@ export default function PacotesDisponibilidade() {
   const [verificando, setVerificando] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [excluindo, setExcluindo] = useState(false);
 
   async function carregar() {
     try {
@@ -159,6 +161,55 @@ export default function PacotesDisponibilidade() {
     }
   }
 
+  async function excluirSelecionados() {
+    if (selecionados.length === 0) return;
+
+    const confirmado = window.confirm(
+      `Excluir permanentemente ${selecionados.length} pacote(s) selecionado(s)? Esta ação não pode ser desfeita.`
+    );
+    if (!confirmado) return;
+
+    try {
+      setExcluindo(true);
+      setErro("");
+      setAviso("");
+
+      const resposta = await fetch("/api/admin/viagens/pacotes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selecionados }),
+      });
+      const dados = await resposta.json();
+
+      if (!resposta.ok || !dados.sucesso) {
+        throw new Error(dados.erro || "Falha ao excluir pacotes.");
+      }
+
+      const idsExcluidos = new Set<string>(dados.ids ?? []);
+      setPacotes((atuais) => atuais.filter((pacote) => !idsExcluidos.has(pacote.id)));
+      setSelecionados([]);
+      setAviso(`${dados.excluidos ?? 0} pacote(s) excluído(s) com sucesso.`);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Erro ao excluir pacotes.");
+    } finally {
+      setExcluindo(false);
+    }
+  }
+
+  function alternarSelecionado(id: string) {
+    setSelecionados((atuais) =>
+      atuais.includes(id) ? atuais.filter((item) => item !== id) : [...atuais, id]
+    );
+  }
+
+  function alternarTodos() {
+    if (selecionados.length === pacotes.length) {
+      setSelecionados([]);
+    } else {
+      setSelecionados(pacotes.map((pacote) => pacote.id));
+    }
+  }
+
   const contagem = useMemo(() => {
     const base = {
       disponivel: 0,
@@ -189,6 +240,17 @@ export default function PacotesDisponibilidade() {
           </p>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {selecionados.length > 0 && (
+            <button
+              type="button"
+              onClick={excluirSelecionados}
+              disabled={excluindo}
+              className="rounded-xl bg-red-600 px-5 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {excluindo ? "🗑️ Excluindo..." : `🗑️ Excluir selecionados (${selecionados.length})`}
+            </button>
+          )}
         <button
           type="button"
           onClick={verificarAgora}
@@ -197,6 +259,7 @@ export default function PacotesDisponibilidade() {
         >
           {verificando ? "🔄 Verificando..." : "🔎 Verificar agora"}
         </button>
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -226,6 +289,15 @@ export default function PacotesDisponibilidade() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
+              <th className="w-12 px-4 py-3">
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar todos os pacotes"
+                  checked={pacotes.length > 0 && selecionados.length === pacotes.length}
+                  onChange={alternarTodos}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+              </th>
               <th className="px-4 py-3 font-black">Pacote</th>
               <th className="px-4 py-3 font-black">Disponibilidade</th>
               <th className="px-4 py-3 font-black">Última verificação</th>
@@ -236,7 +308,7 @@ export default function PacotesDisponibilidade() {
           <tbody>
             {carregando ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   Carregando monitor...
                 </td>
               </tr>
@@ -253,6 +325,15 @@ export default function PacotesDisponibilidade() {
 
                 return (
                   <tr key={pacote.id} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar ${pacote.titulo}`}
+                        checked={selecionados.includes(pacote.id)}
+                        onChange={() => alternarSelecionado(pacote.id)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-black text-slate-900">{pacote.titulo}</p>
                       <p className="mt-1 text-xs font-bold text-slate-400">
