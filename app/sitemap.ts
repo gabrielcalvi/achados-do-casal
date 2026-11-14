@@ -38,10 +38,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .limit(5000),
     supabaseAdmin
       .from("viagens_pacotes")
-      .select("id,updated_at")
+      .select("id,tipo,updated_at,disponibilidade_status")
       .eq("status", "ativo")
       .is("arquivado_em", null)
-      .in("disponibilidade_status", ["disponivel", "nao_verificado"])
       .or(`validade.is.null,validade.gt.${agora}`)
       .limit(1000),
   ]);
@@ -59,12 +58,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.7,
     })),
-    ...(pacotes.data ?? []).map((item) => ({
-      url: `${BASE}/viagens/pacote/${item.id}`,
-      lastModified: item.updated_at ? new Date(item.updated_at) : new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.8,
-    })),
+    ...(pacotes.data ?? [])
+      .filter((item) =>
+        item.tipo !== "pacote" ||
+        ["disponivel", "nao_verificado"].includes(String(item.disponibilidade_status || "nao_verificado"))
+      )
+      .map((item) => ({
+        url: `${BASE}/viagens/pacote/${item.id}`,
+        lastModified: item.updated_at ? new Date(item.updated_at) : new Date(),
+        changeFrequency: "daily" as const,
+        priority: 0.8,
+      })),
   ];
 
   return [...estaticas, ...dinamicas];
