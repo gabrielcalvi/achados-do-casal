@@ -8,12 +8,43 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-// O Chromium serverless usa arquivos compartilhados em /tmp. Rodar dois browsers ao
-// mesmo tempo podia disputar a extracao do binario e causar ETXTBSY/libnspr4 ausente.
-// A verificacao passa a ser serial: menos agressiva, mas muito mais confiavel.
 const MAX_CONCORRENCIA = 1;
 const FALHAS_PARA_INATIVAR = 2;
 const RETENTATIVAS_BROWSER = 2;
+
+type Estado = "disponivel" | "suspeito" | "indisponivel" | "erro";
+type TipoOferta = "pacote" | "hotel" | "ingresso" | "carro" | "cruzeiro" | "passeio" | "outro";
+
+type OfertaDb = {
+  id: string;
+  tipo: TipoOferta;
+  status: string;
+  titulo: string;
+  parceiro: string;
+  link_original: string | null;
+  link_afiliado: string;
+  data_ida: string | null;
+  data_volta: string | null;
+  hotel_nome: string | null;
+  preco_total: number;
+  preco_por_pessoa: number | null;
+  validade: string | null;
+  disponibilidade_falhas: number | null;
+};
+
+type IngressoDb = {
+  id: string;
+  status: string;
+  titulo: string;
+  parceiro: string;
+  link_original: string | null;
+  link_afiliado: string;
+  data_uso: string | null;
+  preco_total: number;
+  preco_por_pessoa: number | null;
+  validade: string | null;
+  disponibilidade_falhas: number | null;
+};
 
 function autorizadoCron(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim();
@@ -83,23 +114,15 @@ function dormir(ms: number) {
 
 async function extrairBrowserComRetry(link: string) {
   let ultimoErro: unknown = null;
-
   for (let tentativa = 1; tentativa <= RETENTATIVAS_BROWSER; tentativa += 1) {
     try {
       return await extrairPacoteDecolarBrowser(link);
     } catch (erro) {
       ultimoErro = erro;
-      if (!erroTransitorioChromium(erro) || tentativa === RETENTATIVAS_BROWSER) {
-        throw erro;
-      }
-
-      console.warn(
-        `[Pacotes Decolar] Chromium falhou na tentativa ${tentativa}/${RETENTATIVAS_BROWSER}: ${mensagemErro(erro).slice(0, 220)}. Nova tentativa em modo serial.`
-      );
+      if (!erroTransitorioChromium(erro) || tentativa === RETENTATIVAS_BROWSER) throw erro;
       await dormir(1800);
     }
   }
-
   throw ultimoErro instanceof Error ? ultimoErro : new Error(String(ultimoErro || "Falha no Chromium."));
 }
 
@@ -112,65 +135,99 @@ async function extrair(link: string) {
   }
 }
 
-type PacoteDb = {
-  id: string;
-  status: string;
-  titulo: string;
-  parceiro: string;
-  link_original: string | null;
-  data_ida: string;
-  data_volta: string;
-  hotel_nome: string;
-  preco_total: number;
-  preco_por_pessoa: number | null;
-  validade: string | null;
-  disponibilidade_falhas: number | null;
-};
+function dataPassou(valor: string | null | undefined) {
+  if (!valor) return false;
+  const data = new Date(`${String(valor).slice(0, 10)}T23:59:59Z`);
+  return Number.isFinite(data.getTime()) && data.getTime() < Date.now();
+}
 
-function avaliar(pacote: PacoteDb, dados: PacoteDecolarExtraido) {
-  const hoje = new Date();
-  const ida = new Date(`${pacote.data_ida}T23:59:59Z`);
-  if (Number.isFinite(ida.getTime()) && ida.getTime() < hoje.getTime()) {
-    return { estado: "indisponivel" as const, motivo: "data_de_ida_passou" };
+function validadeExpirou(valor: string | null | undefined) {
+  if (!valor) return false;
+  const data = new Date(valor);
+  return Number.isFinite(data.getTime()) && data.getTime() <= Date.now();
+}
+
+function avaliarPacote(pacote: OfertaDb, dados: PacoteDecolarExtraido) {
+  if (dataPassou(pacote.data_ida)) {
+    return { estado: "indisponivel" as Estado, motivo: "data_de_ida_passou" };
   }
-
-  if (pacote.validade) {
-    const validade = new Date(pacote.validade);
-    if (Number.isFinite(validade.getTime()) && validade.getTime() <= hoje.getTime()) {
-      return { estado: "indisponivel" as const, motivo: "validade_expirada" };
-    }
+  if (validadeExpirou(pacote.validade)) {
+    return { estado: "indisponivel" as Estado, motivo: "validade_expirada" };
   }
 
   const hotelIgual = similaridade(pacote.hotel_nome, dados.hotel_nome) >= 0.6;
   const datasDisponiveis = Boolean(dados.data_ida && dados.data_volta);
-  const datasIguais = !datasDisponiveis || (dados.data_ida === pacote.data_ida && dados.data_volta === pacote.data_volta);
+  const datasIguais =
+    !datasDisponiveis ||
+    (dados.data_ida === pacote.data_ida && dados.data_volta === pacote.data_volta);
   const temPreco = Number(dados.preco_total || dados.preco_por_pessoa || 0) > 0;
 
   if (hotelIgual && datasIguais && temPreco) {
-    return { estado: "disponivel" as const, motivo: "hotel_datas_preco_confirmados" };
+    return { estado: "disponivel" as Estado, motivo: "hotel_datas_preco_confirmados" };
   }
-
   const sinaisSuficientes = Boolean(dados.hotel_nome) && (datasDisponiveis || temPreco);
-  if (!sinaisSuficientes) {
-    return { estado: "erro" as const, motivo: "extracao_inconclusiva" };
-  }
-
-  if (!hotelIgual) {
-    return { estado: "suspeito" as const, motivo: "hotel_nao_confere" };
-  }
-
-  if (datasDisponiveis && !datasIguais) {
-    return { estado: "suspeito" as const, motivo: "datas_nao_conferem" };
-  }
-
-  if (!temPreco) {
-    return { estado: "suspeito" as const, motivo: "preco_nao_encontrado" };
-  }
-
-  return { estado: "erro" as const, motivo: "validacao_inconclusiva" };
+  if (!sinaisSuficientes) return { estado: "erro" as Estado, motivo: "extracao_inconclusiva" };
+  if (!hotelIgual) return { estado: "suspeito" as Estado, motivo: "hotel_nao_confere" };
+  if (datasDisponiveis && !datasIguais) return { estado: "suspeito" as Estado, motivo: "datas_nao_conferem" };
+  if (!temPreco) return { estado: "suspeito" as Estado, motivo: "preco_nao_encontrado" };
+  return { estado: "erro" as Estado, motivo: "validacao_inconclusiva" };
 }
 
-async function verificarPacote(pacote: PacoteDb) {
+async function atualizarSaude(
+  tabela: "viagens_pacotes" | "viagens_ingressos",
+  id: string,
+  avaliacao: { estado: Estado; motivo: string },
+  falhasAtuais: number | null,
+  podeInativarPorSuspeita: boolean
+) {
+  const agora = new Date().toISOString();
+
+  if (avaliacao.estado === "disponivel") {
+    await supabaseAdmin.from(tabela).update({
+      disponibilidade_status: "disponivel",
+      disponibilidade_falhas: 0,
+      disponibilidade_motivo: avaliacao.motivo,
+      disponibilidade_verificada_em: agora,
+      disponibilidade_ultima_ok_em: agora,
+    }).eq("id", id);
+    return "disponivel";
+  }
+
+  if (avaliacao.estado === "indisponivel") {
+    await supabaseAdmin.from(tabela).update({
+      status: "expirado",
+      destaque: false,
+      disponibilidade_status: "indisponivel",
+      disponibilidade_falhas: FALHAS_PARA_INATIVAR,
+      disponibilidade_motivo: avaliacao.motivo,
+      disponibilidade_verificada_em: agora,
+    }).eq("id", id);
+    return "indisponivel";
+  }
+
+  if (avaliacao.estado === "erro") {
+    await supabaseAdmin.from(tabela).update({
+      disponibilidade_status: "erro",
+      disponibilidade_motivo: avaliacao.motivo,
+      disponibilidade_verificada_em: agora,
+    }).eq("id", id);
+    return "erro";
+  }
+
+  const falhas = Number(falhasAtuais || 0) + 1;
+  const deveInativar = podeInativarPorSuspeita && falhas >= FALHAS_PARA_INATIVAR;
+  await supabaseAdmin.from(tabela).update({
+    ...(deveInativar ? { status: "inativo", destaque: false } : {}),
+    disponibilidade_status: deveInativar ? "indisponivel" : "suspeito",
+    disponibilidade_falhas: falhas,
+    disponibilidade_motivo: avaliacao.motivo,
+    disponibilidade_verificada_em: agora,
+  }).eq("id", id);
+
+  return deveInativar ? "indisponivel" : "suspeito";
+}
+
+async function verificarPacote(pacote: OfertaDb) {
   const agora = new Date().toISOString();
 
   if (pacote.parceiro.toLowerCase() !== "decolar" || !pacote.link_original) {
@@ -179,82 +236,128 @@ async function verificarPacote(pacote: PacoteDb) {
       disponibilidade_motivo: "parceiro_ou_link_nao_suportado",
       disponibilidade_verificada_em: agora,
     }).eq("id", pacote.id);
-    return { id: pacote.id, titulo: pacote.titulo, status: "erro", motivo: "parceiro_ou_link_nao_suportado" };
+    return { id: pacote.id, tabela: "viagens_pacotes", titulo: pacote.titulo, status: "erro", motivo: "parceiro_ou_link_nao_suportado" };
   }
 
   try {
     const dados = await extrair(pacote.link_original);
-    const avaliacao = avaliar(pacote, dados);
-
-    if (avaliacao.estado === "disponivel") {
-      await supabaseAdmin.from("viagens_pacotes").update({
-        disponibilidade_status: "disponivel",
-        disponibilidade_falhas: 0,
-        disponibilidade_motivo: avaliacao.motivo,
-        disponibilidade_verificada_em: agora,
-        disponibilidade_ultima_ok_em: agora,
-      }).eq("id", pacote.id);
-
-      return { id: pacote.id, titulo: pacote.titulo, status: "disponivel", motivo: avaliacao.motivo };
-    }
-
-    if (avaliacao.estado === "indisponivel") {
-      await supabaseAdmin.from("viagens_pacotes").update({
-        status: "expirado",
-        destaque: false,
-        disponibilidade_status: "indisponivel",
-        disponibilidade_falhas: FALHAS_PARA_INATIVAR,
-        disponibilidade_motivo: avaliacao.motivo,
-        disponibilidade_verificada_em: agora,
-      }).eq("id", pacote.id);
-
-      return { id: pacote.id, titulo: pacote.titulo, status: "expirado", motivo: avaliacao.motivo };
-    }
-
-    if (avaliacao.estado === "erro") {
-      await supabaseAdmin.from("viagens_pacotes").update({
-        disponibilidade_status: "erro",
-        disponibilidade_motivo: avaliacao.motivo,
-        disponibilidade_verificada_em: agora,
-      }).eq("id", pacote.id);
-
-      return { id: pacote.id, titulo: pacote.titulo, status: "erro", motivo: avaliacao.motivo };
-    }
-
-    const falhas = Number(pacote.disponibilidade_falhas || 0) + 1;
-    const deveInativar = falhas >= FALHAS_PARA_INATIVAR;
-
-    await supabaseAdmin.from("viagens_pacotes").update({
-      ...(deveInativar ? { status: "inativo", destaque: false } : {}),
-      disponibilidade_status: deveInativar ? "indisponivel" : "suspeito",
-      disponibilidade_falhas: falhas,
-      disponibilidade_motivo: avaliacao.motivo,
-      disponibilidade_verificada_em: agora,
-    }).eq("id", pacote.id);
-
-    return {
-      id: pacote.id,
-      titulo: pacote.titulo,
-      status: deveInativar ? "inativado" : "suspeito",
-      motivo: avaliacao.motivo,
-      falhas,
-    };
+    const avaliacao = avaliarPacote(pacote, dados);
+    const status = await atualizarSaude(
+      "viagens_pacotes",
+      pacote.id,
+      avaliacao,
+      pacote.disponibilidade_falhas,
+      true
+    );
+    return { id: pacote.id, tabela: "viagens_pacotes", titulo: pacote.titulo, status, motivo: avaliacao.motivo };
   } catch (erro) {
-    const mensagem = mensagemErro(erro);
+    const mensagem = mensagemErro(erro).slice(0, 500);
     await supabaseAdmin.from("viagens_pacotes").update({
       disponibilidade_status: "erro",
-      disponibilidade_motivo: mensagem.slice(0, 500),
+      disponibilidade_motivo: mensagem,
       disponibilidade_verificada_em: agora,
     }).eq("id", pacote.id);
+    return { id: pacote.id, tabela: "viagens_pacotes", titulo: pacote.titulo, status: "erro", motivo: mensagem.slice(0, 180) };
+  }
+}
 
-    return { id: pacote.id, titulo: pacote.titulo, status: "erro", motivo: mensagem.slice(0, 180) };
+async function testarLink(link: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const resposta = await fetch(link, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; AchadosDoCasalHealthCheck/1.0)",
+        "accept-language": "pt-BR,pt;q=0.9,en;q=0.7",
+      },
+    });
+    return { status: resposta.status, url: resposta.url };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function verificarOfertaGenerica(oferta: OfertaDb) {
+  if (validadeExpirou(oferta.validade)) {
+    const avaliacao = { estado: "indisponivel" as Estado, motivo: "validade_expirada" };
+    const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+    return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+  }
+  if (["hotel", "carro", "cruzeiro"].includes(oferta.tipo) && dataPassou(oferta.data_volta || oferta.data_ida)) {
+    const avaliacao = { estado: "indisponivel" as Estado, motivo: "data_final_passou" };
+    const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+    return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+  }
+
+  const link = oferta.link_original || oferta.link_afiliado;
+  if (!link) {
+    const avaliacao = { estado: "erro" as Estado, motivo: "link_ausente" };
+    const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+    return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+  }
+
+  try {
+    const teste = await testarLink(link);
+    if (teste.status >= 200 && teste.status < 400) {
+      const avaliacao = { estado: "disponivel" as Estado, motivo: "link_parceiro_acessivel" };
+      const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+      return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+    }
+    if (teste.status === 404 || teste.status === 410) {
+      const avaliacao = { estado: "suspeito" as Estado, motivo: `link_http_${teste.status}` };
+      const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+      return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+    }
+    const avaliacao = { estado: "erro" as Estado, motivo: `parceiro_bloqueou_verificacao_http_${teste.status}` };
+    const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+    return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+  } catch (erro) {
+    const avaliacao = { estado: "erro" as Estado, motivo: `falha_tecnica_link: ${mensagemErro(erro).slice(0, 180)}` };
+    const status = await atualizarSaude("viagens_pacotes", oferta.id, avaliacao, oferta.disponibilidade_falhas, false);
+    return { id: oferta.id, tabela: "viagens_pacotes", titulo: oferta.titulo, status, motivo: avaliacao.motivo };
+  }
+}
+
+async function verificarIngresso(ingresso: IngressoDb) {
+  if (validadeExpirou(ingresso.validade) || dataPassou(ingresso.data_uso)) {
+    const motivo = validadeExpirou(ingresso.validade) ? "validade_expirada" : "data_de_uso_passou";
+    const avaliacao = { estado: "indisponivel" as Estado, motivo };
+    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
+    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo };
+  }
+
+  const link = ingresso.link_original || ingresso.link_afiliado;
+  if (!link) {
+    const avaliacao = { estado: "erro" as Estado, motivo: "link_ausente" };
+    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
+    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
+  }
+
+  try {
+    const teste = await testarLink(link);
+    const avaliacao =
+      teste.status >= 200 && teste.status < 400
+        ? { estado: "disponivel" as Estado, motivo: "link_parceiro_acessivel" }
+        : teste.status === 404 || teste.status === 410
+          ? { estado: "suspeito" as Estado, motivo: `link_http_${teste.status}` }
+          : { estado: "erro" as Estado, motivo: `parceiro_bloqueou_verificacao_http_${teste.status}` };
+
+    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
+    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
+  } catch (erro) {
+    const avaliacao = { estado: "erro" as Estado, motivo: `falha_tecnica_link: ${mensagemErro(erro).slice(0, 180)}` };
+    const status = await atualizarSaude("viagens_ingressos", ingresso.id, avaliacao, ingresso.disponibilidade_falhas, false);
+    return { id: ingresso.id, tabela: "viagens_ingressos", titulo: ingresso.titulo, status, motivo: avaliacao.motivo };
   }
 }
 
 async function executarComConcorrencia<T, R>(itens: T[], limite: number, tarefa: (item: T) => Promise<R>) {
   const resultados: R[] = [];
   let indice = 0;
-
   async function worker() {
     while (true) {
       const atual = indice;
@@ -263,7 +366,6 @@ async function executarComConcorrencia<T, R>(itens: T[], limite: number, tarefa:
       resultados[atual] = await tarefa(itens[atual]);
     }
   }
-
   await Promise.all(Array.from({ length: Math.min(limite, itens.length) }, () => worker()));
   return resultados;
 }
@@ -273,20 +375,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("viagens_pacotes")
-    .select("id,status,titulo,parceiro,link_original,data_ida,data_volta,hotel_nome,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
-    .eq("status", "ativo")
-    .eq("tipo", "pacote")
-    .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
-    .limit(20);
+  const [ofertasResp, ingressosResp] = await Promise.all([
+    supabaseAdmin
+      .from("viagens_pacotes")
+      .select("id,tipo,status,titulo,parceiro,link_original,link_afiliado,data_ida,data_volta,hotel_nome,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
+      .eq("status", "ativo")
+      .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
+      .limit(30),
+    supabaseAdmin
+      .from("viagens_ingressos")
+      .select("id,status,titulo,parceiro,link_original,link_afiliado,data_uso,preco_total,preco_por_pessoa,validade,disponibilidade_falhas")
+      .eq("status", "ativo")
+      .order("disponibilidade_verificada_em", { ascending: true, nullsFirst: true })
+      .limit(30),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ sucesso: false, erro: error.message }, { status: 500 });
+  if (ofertasResp.error) {
+    return NextResponse.json({ sucesso: false, erro: ofertasResp.error.message }, { status: 500 });
+  }
+  if (ingressosResp.error) {
+    return NextResponse.json({ sucesso: false, erro: ingressosResp.error.message }, { status: 500 });
   }
 
-  const pacotes = (data ?? []) as PacoteDb[];
-  const resultados = await executarComConcorrencia(pacotes, MAX_CONCORRENCIA, verificarPacote);
+  const ofertas = (ofertasResp.data ?? []) as OfertaDb[];
+  const pacotes = ofertas.filter((item) => item.tipo === "pacote");
+  const genericas = ofertas.filter((item) => item.tipo !== "pacote");
+  const ingressos = (ingressosResp.data ?? []) as IngressoDb[];
+
+  const resultadosPacotes = await executarComConcorrencia(pacotes, MAX_CONCORRENCIA, verificarPacote);
+  const resultadosGenericos = await executarComConcorrencia(genericas, 4, verificarOfertaGenerica);
+  const resultadosIngressos = await executarComConcorrencia(ingressos, 4, verificarIngresso);
+  const resultados = [...resultadosPacotes, ...resultadosGenericos, ...resultadosIngressos];
 
   const resumo = resultados.reduce<Record<string, number>>((acc, item: any) => {
     const chave = String(item.status || "desconhecido");
@@ -296,8 +415,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     sucesso: true,
-    modo: "serial",
-    retentativas_browser: RETENTATIVAS_BROWSER,
+    modo: "saude_unificada",
     verificados: resultados.length,
     resumo,
     resultados,
