@@ -127,6 +127,7 @@ export default async function PacotesPublicos() {
       disponibilidade_status
     `)
     .eq("status", "ativo")
+    .is("arquivado_em", null)
     .order("destaque", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(24);
