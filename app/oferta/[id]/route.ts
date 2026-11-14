@@ -17,7 +17,7 @@ type ContextoRota = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NOME_COOKIE_SESSAO = "economize_session";
-const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram"]);
+const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "admin", "instagram", "black_friday"]);
 const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
 function limitarTexto(valor: string | null, limite = 1000) {
