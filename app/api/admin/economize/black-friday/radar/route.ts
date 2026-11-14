@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
+  BLACK_FRIDAY_FIM,
   LOJAS_BLACK_FRIDAY,
   processarLojaBlackFriday,
 } from "@/lib/economize/blackFridayRadar";
@@ -33,6 +34,15 @@ async function executar(request: NextRequest) {
     return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
   }
 
+  if (Date.now() >= Date.parse(BLACK_FRIDAY_FIM)) {
+    return NextResponse.json({
+      sucesso: true,
+      campanha: "black-friday-2026",
+      encerrada: true,
+      mensagem: "Radar Black Friday encerrado.",
+    });
+  }
+
   const slug = request.nextUrl.searchParams.get("loja")?.trim().toLowerCase() || "";
   const lojas = slug
     ? LOJAS_BLACK_FRIDAY.filter((loja) => loja.slug === slug)
@@ -45,22 +55,30 @@ async function executar(request: NextRequest) {
     );
   }
 
-  const resultados = [];
-  for (const loja of lojas) {
-    try {
-      resultados.push(await processarLojaBlackFriday(loja));
-    } catch (error) {
-      resultados.push({
-        loja: loja.slug,
-        ignorada: false,
-        erro: error instanceof Error ? error.message : String(error),
-        encontrados: 0,
-        ativos: 0,
-        pendentes: 0,
-        desativados: 0,
-        fonte: null,
-      });
-    }
+  const resultados: any[] = [];
+  const concorrencia = 4;
+
+  for (let indice = 0; indice < lojas.length; indice += concorrencia) {
+    const lote = lojas.slice(indice, indice + concorrencia);
+    const processados = await Promise.all(
+      lote.map(async (loja) => {
+        try {
+          return await processarLojaBlackFriday(loja);
+        } catch (error) {
+          return {
+            loja: loja.slug,
+            ignorada: false,
+            erro: error instanceof Error ? error.message : String(error),
+            encontrados: 0,
+            ativos: 0,
+            pendentes: 0,
+            desativados: 0,
+            fonte: null,
+          };
+        }
+      })
+    );
+    resultados.push(...processados);
   }
 
   const resumo = resultados.reduce(
