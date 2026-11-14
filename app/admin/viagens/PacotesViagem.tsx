@@ -845,6 +845,11 @@ export default function PacotesViagem() {
               />
             </label>
 
+              </>
+            )}
+
+            {form.tipo === "pacote" && (
+              <>
             <label>
               <span className="text-sm font-black">Companhia aérea</span>
               <input
