@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -6,6 +7,7 @@ export const COOKIE_ATRIBUICAO_CAMPANHA = "economize_campaign_attribution";
 export const COOKIE_SESSAO_ECONOMIZE = "economize_session";
 export const ATRIBUICAO_MAX_AGE_SEGUNDOS = 60 * 60 * 24 * 30;
 
+const VERSAO_ATRIBUICAO = 2 as const;
 const TOKEN_REGEX = /^[a-z0-9][a-z0-9_-]{0,119}$/;
 
 type DefinicaoCampanha = {
@@ -49,7 +51,7 @@ export const CAMPANHAS_RASTREADAS: Record<string, DefinicaoCampanha> = {
 };
 
 export type AtribuicaoCampanha = {
-  versao: 1;
+  versao: typeof VERSAO_ATRIBUICAO;
   visitaId: number;
   codigo: string;
   source: string;
@@ -63,10 +65,35 @@ function tokenValido(valor: unknown) {
   return typeof valor === "string" && TOKEN_REGEX.test(valor);
 }
 
+function segredoAssinatura() {
+  return (
+    process.env.ECONOMIZE_CAMPAIGN_SIGNING_SECRET?.trim() ||
+    process.env.ECONOMIZE_IP_HASH_SALT?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    ""
+  );
+}
+
+function assinarPayload(payload: string) {
+  const segredo = segredoAssinatura();
+  if (!segredo) return null;
+  return createHmac("sha256", segredo).update(payload).digest("base64url");
+}
+
+function assinaturaValida(payload: string, recebida: string) {
+  const esperada = assinarPayload(payload);
+  if (!esperada) return false;
+
+  const bufferEsperado = Buffer.from(esperada, "utf8");
+  const bufferRecebido = Buffer.from(recebida, "utf8");
+  if (bufferEsperado.length !== bufferRecebido.length) return false;
+  return timingSafeEqual(bufferEsperado, bufferRecebido);
+}
+
 function atribuicaoValida(valor: unknown): valor is AtribuicaoCampanha {
   if (!valor || typeof valor !== "object") return false;
   const item = valor as Partial<AtribuicaoCampanha>;
-  if (item.versao !== 1) return false;
+  if (item.versao !== VERSAO_ATRIBUICAO) return false;
   if (!Number.isSafeInteger(item.visitaId) || Number(item.visitaId) <= 0) return false;
   if (!tokenValido(item.codigo)) return false;
   if (!tokenValido(item.source)) return false;
@@ -84,7 +111,11 @@ function atribuicaoValida(valor: unknown): valor is AtribuicaoCampanha {
 }
 
 export function codificarAtribuicaoCampanha(atribuicao: AtribuicaoCampanha) {
-  return Buffer.from(JSON.stringify(atribuicao), "utf8").toString("base64url");
+  const payload = Buffer.from(JSON.stringify(atribuicao), "utf8").toString(
+    "base64url",
+  );
+  const assinatura = assinarPayload(payload);
+  return assinatura ? `${payload}.${assinatura}` : null;
 }
 
 export function lerAtribuicaoCampanha(request: NextRequest) {
@@ -92,7 +123,14 @@ export function lerAtribuicaoCampanha(request: NextRequest) {
   if (!bruto) return null;
 
   try {
-    const json = Buffer.from(bruto, "base64url").toString("utf8");
+    const separador = bruto.lastIndexOf(".");
+    if (separador <= 0 || separador === bruto.length - 1) return null;
+
+    const payload = bruto.slice(0, separador);
+    const assinatura = bruto.slice(separador + 1);
+    if (!assinaturaValida(payload, assinatura)) return null;
+
+    const json = Buffer.from(payload, "base64url").toString("utf8");
     const valor = JSON.parse(json) as unknown;
     return atribuicaoValida(valor) ? valor : null;
   } catch {
@@ -104,9 +142,17 @@ export function aplicarCookieAtribuicao(
   resposta: NextResponse,
   atribuicao: AtribuicaoCampanha,
 ) {
+  const valor = codificarAtribuicaoCampanha(atribuicao);
+  if (!valor) {
+    console.error(
+      "Atribuição de campanha não foi persistida: segredo de assinatura ausente.",
+    );
+    return;
+  }
+
   resposta.cookies.set({
     name: COOKIE_ATRIBUICAO_CAMPANHA,
-    value: codificarAtribuicaoCampanha(atribuicao),
+    value: valor,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -146,10 +192,7 @@ export async function inserirCliqueComAtribuicao(
     .from("economize_cliques")
     .insert(payload);
 
-  if (
-    primeiraTentativa.error?.code === "23503" &&
-    atribuicao
-  ) {
+  if (primeiraTentativa.error?.code === "23503" && atribuicao) {
     const segundaTentativa = await supabaseAdmin
       .from("economize_cliques")
       .insert(dados);
