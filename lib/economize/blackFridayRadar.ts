@@ -341,6 +341,8 @@ const FONTES_OFICIAIS: Record<string, string> = {
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
   nespresso: "https://www.nespresso.com/br/pt",
   gocase: "https://www.gocase.com.br/degocase",
+  "dolce-gusto": "https://www.nescafe-dolcegusto.com.br/sobre/regulamentos2026",
+  "baggio-cafe": "https://baggiocafe.com.br/",
 };
 
 function dataBrasiliaParaIso(
@@ -415,7 +417,20 @@ export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
 
   const html = await resposta.text();
   const $ = load(html);
-  const texto = $.root().text().replace(/\s+/g, " ").trim();
+  let texto = $.root().text().replace(/\s+/g, " ").trim();
+
+  // Dolce Gusto mantém promoções ativas e encerradas na mesma página.
+  // Nunca extrair códigos da seção encerrada.
+  if (loja.slug === "dolce-gusto") {
+    const inicioAtivas = texto.toLocaleUpperCase("pt-BR").indexOf("PROMOÇÕES ATIVAS");
+    const inicioEncerradas = texto.toLocaleUpperCase("pt-BR").indexOf("PROMOÇÕES ENCERRADAS");
+    if (inicioAtivas >= 0) {
+      texto = texto.slice(inicioAtivas, inicioEncerradas > inicioAtivas ? inicioEncerradas : undefined);
+    } else {
+      texto = "";
+    }
+  }
+
   const agora = Date.now();
   const encontrados = new Map<string, CupomDescoberto>();
   const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
