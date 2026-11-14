@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -25,6 +26,24 @@ type HeroDestaqueProps = {
   intervaloMs?: number;
 };
 
+const PALAVRAS_GENERICAS = new Set([
+  "com",
+  "sem",
+  "para",
+  "por",
+  "mais",
+  "pacote",
+  "console",
+  "produto",
+  "edicao",
+  "digital",
+  "controle",
+  "novo",
+  "nova",
+  "sony",
+  "smartphone",
+]);
+
 function formatarPreco(preco: number) {
   return preco.toLocaleString("pt-BR", {
     style: "currency",
@@ -40,6 +59,108 @@ function calcularEconomia(precoAnterior?: number, precoAtual?: number) {
   return precoAnterior - precoAtual;
 }
 
+function normalizarNome(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/playstation\s*®?\s*5|\bps5\b/g, "playstation5")
+    .replace(/nintendo\s+switch/g, "nintendoswitch")
+    .replace(/xbox\s+series\s+([sx])/g, "xboxseries$1")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function palavrasRelevantes(produto: ProdutoDestaque) {
+  return new Set(
+    normalizarNome(produto.nome)
+      .split(/\s+/)
+      .filter(
+        (palavra) =>
+          palavra.length >= 3 &&
+          !PALAVRAS_GENERICAS.has(palavra) &&
+          !/^\d+$/.test(palavra),
+      )
+      .slice(0, 8),
+  );
+}
+
+function produtosParecidos(a: ProdutoDestaque, b: ProdutoDestaque) {
+  const nomeA = normalizarNome(a.nome);
+  const nomeB = normalizarNome(b.nome);
+
+  const familias = [
+    "playstation5",
+    "nintendoswitch",
+    "xboxseriess",
+    "xboxseriesx",
+  ];
+
+  if (familias.some((familia) => nomeA.includes(familia) && nomeB.includes(familia))) {
+    return true;
+  }
+
+  const palavrasA = palavrasRelevantes(a);
+  const palavrasB = palavrasRelevantes(b);
+  if (palavrasA.size === 0 || palavrasB.size === 0) return false;
+
+  let intersecao = 0;
+  for (const palavra of palavrasA) {
+    if (palavrasB.has(palavra)) intersecao += 1;
+  }
+
+  const menorConjunto = Math.min(palavrasA.size, palavrasB.size);
+  return intersecao / menorConjunto >= 0.6;
+}
+
+function selecionarDestaques(produtos: ProdutoDestaque[]) {
+  const candidatos = produtos.filter(
+    (produto) =>
+      Boolean(produto.imagem) &&
+      Number.isFinite(Number(produto.precoAtual)) &&
+      Number(produto.precoAtual) > 0,
+  );
+
+  const selecionados: ProdutoDestaque[] = [];
+  const adiados: ProdutoDestaque[] = [];
+  const quantidadePorLoja = new Map<string, number>();
+  const limite = 6;
+
+  for (const produto of candidatos) {
+    if (selecionados.length >= limite) break;
+
+    const chaveLoja = produto.loja.trim().toLocaleLowerCase("pt-BR");
+    const quantidadeLoja = quantidadePorLoja.get(chaveLoja) ?? 0;
+    const muitoParecido = selecionados.some((selecionado) =>
+      produtosParecidos(selecionado, produto),
+    );
+
+    if (quantidadeLoja >= 2 || muitoParecido) {
+      adiados.push(produto);
+      continue;
+    }
+
+    selecionados.push(produto);
+    quantidadePorLoja.set(chaveLoja, quantidadeLoja + 1);
+  }
+
+  // Quando existem poucos destaques, completa a vitrine para não perder uma
+  // oferta importante. À medida que novos produtos entram, os semelhantes
+  // deixam de ocupar o carrossel automaticamente.
+  for (const produto of adiados) {
+    if (selecionados.length >= limite || selecionados.length >= 3) break;
+
+    const chaveLoja = produto.loja.trim().toLocaleLowerCase("pt-BR");
+    const quantidadeLoja = quantidadePorLoja.get(chaveLoja) ?? 0;
+    if (quantidadeLoja >= 2) continue;
+
+    selecionados.push(produto);
+    quantidadePorLoja.set(chaveLoja, quantidadeLoja + 1);
+  }
+
+  return selecionados.slice(0, limite);
+}
+
 export default function HeroDestaque({
   produtos,
   carregando = false,
@@ -50,7 +171,11 @@ export default function HeroDestaque({
   const [interacaoAtiva, setInteracaoAtiva] = useState(false);
   const [reduzirMovimento, setReduzirMovimento] = useState(false);
   const toqueInicioX = useRef<number | null>(null);
-  const total = produtos.length;
+  const produtosExibidos = useMemo(
+    () => selecionarDestaques(produtos),
+    [produtos],
+  );
+  const total = produtosExibidos.length;
 
   useEffect(() => {
     setIndiceAtual((indice) => {
@@ -68,17 +193,22 @@ export default function HeroDestaque({
     return () => media.removeEventListener?.("change", atualizar);
   }, []);
 
-  const irPara = useCallback((indice: number) => {
-    if (total <= 0) return;
-    setIndiceAtual((indice + total) % total);
-  }, [total]);
+  const irPara = useCallback(
+    (indice: number) => {
+      if (total <= 0) return;
+      setIndiceAtual((indice + total) % total);
+    },
+    [total],
+  );
 
   const anterior = useCallback(() => {
-    setIndiceAtual((indice) => total > 0 ? (indice - 1 + total) % total : 0);
+    setIndiceAtual((indice) =>
+      total > 0 ? (indice - 1 + total) % total : 0,
+    );
   }, [total]);
 
   const proximo = useCallback(() => {
-    setIndiceAtual((indice) => total > 0 ? (indice + 1) % total : 0);
+    setIndiceAtual((indice) => (total > 0 ? (indice + 1) % total : 0));
   }, [total]);
 
   useEffect(() => {
@@ -110,7 +240,8 @@ export default function HeroDestaque({
     );
   }
 
-  const produto = produtos[indiceAtual] ?? produtos[0];
+  const produto =
+    produtosExibidos[indiceAtual] ?? produtosExibidos[0];
 
   if (!produto) {
     return (
@@ -171,9 +302,11 @@ export default function HeroDestaque({
       <div
         key={produto.id}
         className="grid md:grid-cols-[220px_1fr]"
-        style={reduzirMovimento ? undefined : {
-          animation: "heroDestaqueEntrada 360ms ease-out",
-        }}
+        style={
+          reduzirMovimento
+            ? undefined
+            : { animation: "heroDestaqueEntrada 360ms ease-out" }
+        }
       >
         <div className="relative flex min-h-56 items-center justify-center bg-slate-50 p-6">
           {total > 1 && (
@@ -194,9 +327,7 @@ export default function HeroDestaque({
             Achado em destaque
           </span>
 
-          <h2 className="mt-5 text-2xl font-black">
-            {produto.nome}
-          </h2>
+          <h2 className="mt-5 text-2xl font-black">{produto.nome}</h2>
 
           <p className="mt-2 text-slate-500">
             {produto.categoria} — {produto.loja}
@@ -244,8 +375,11 @@ export default function HeroDestaque({
             ‹
           </button>
 
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2" aria-label="Selecionar oferta em destaque">
-            {produtos.map((item, indice) => (
+          <div
+            className="flex min-w-0 flex-1 items-center justify-center gap-2"
+            aria-label="Selecionar oferta em destaque"
+          >
+            {produtosExibidos.map((item, indice) => (
               <button
                 key={item.id}
                 type="button"
@@ -264,7 +398,11 @@ export default function HeroDestaque({
           <button
             type="button"
             onClick={() => setAutoAtivo((ativo) => !ativo)}
-            aria-label={autoAtivo ? "Pausar troca automática" : "Retomar troca automática"}
+            aria-label={
+              autoAtivo
+                ? "Pausar troca automática"
+                : "Retomar troca automática"
+            }
             className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-blue-950 transition hover:border-pink-400 hover:bg-pink-50"
           >
             {autoAtivo ? "Ⅱ" : "▶"}
