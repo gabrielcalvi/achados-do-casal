@@ -53,7 +53,7 @@ export default function HeroDestaque({
       <div className="grid md:grid-cols-[220px_1fr]">
         <div className="flex min-h-56 items-center justify-center bg-slate-50 p-6">
           <img
-            src={produto.imagem}
+            src={ehAmazon ? "/produto-amazon.svg" : produto.imagem}
             alt={produto.nome}
             className="h-52 w-full object-contain"
           />
