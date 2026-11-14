@@ -538,10 +538,19 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
   const status = cupom.autoAprovado ? "ativo" : "pendente";
   const validade = validadeOperacional(cupom);
   const dedupe = `bf2026:${lojaDef.slug}:${cupom.codigo}`;
+  const linkAfiliado = lojaDef.slug === "amazon"
+    ? "https://www.amazon.com.br/?tag=achadosdoca03-20"
+    : null;
   const dadosBrutos = {
     campanha: "black-friday-2026",
     black_friday_trafego: true,
-    sem_afiliado: true,
+    sem_afiliado: !linkAfiliado,
+    ...(linkAfiliado ? {
+      afiliado_configurado: true,
+      affiliate_program: "Amazon Associados Brasil",
+      affiliate_store_id: "achadosdoca03-20",
+      affiliate_url: linkAfiliado,
+    } : {}),
     fonte_confiavel: cupom.fonteNome || (cupom.fonteOficial ? "fonte_oficial" : "cuponation"),
     fonte_oficial: Boolean(cupom.fonteOficial),
     fonte_url: cupom.fonteUrl,
@@ -577,7 +586,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     data_inicio: cupom.inicio,
     validade,
     link_destino: lojaDef.homepage,
-    link_afiliado: null,
+    link_afiliado: linkAfiliado,
     origem: BLACK_FRIDAY_ORIGEM,
     origem_url: cupom.fonteUrl,
     dedupe_key: dedupe,
@@ -620,7 +629,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     regras: "Confira elegibilidade e condições no carrinho da loja.",
     imagem_url: null,
     link_destino: lojaDef.homepage,
-    link_afiliado: null,
+    link_afiliado: linkAfiliado,
     desconto_percentual: cupom.descontoPercentual,
     valor_desconto: cupom.valorDesconto,
     data_inicio: cupom.inicio,
