@@ -99,8 +99,8 @@ export default async function AdminViagensPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-wider text-violet-600">Achados do Casal</p>
-              <h1 className="mt-2 text-3xl font-black sm:text-4xl">✈️ Viagens — Radar + Pacotes + Ingressos</h1>
-              <p className="mt-2 max-w-3xl text-slate-600">O Radar automático de voos está pausado para reduzir custo. Pesquisas de passagens agora são feitas sob demanda; pacotes e ingressos continuam normalmente.</p>
+              <h1 className="mt-2 text-3xl font-black sm:text-4xl">✈️ Viagens — Radar + Ofertas</h1>
+              <p className="mt-2 max-w-3xl text-slate-600">O Radar automático de voos está pausado para reduzir custo. Pesquisas de passagens são feitas sob demanda; pacotes, hotéis, ingressos, carros, cruzeiros e passeios podem ser cadastrados como ofertas.</p>
             </div>
             <Link href="/viagens" target="_blank" className="rounded-xl bg-violet-600 px-5 py-3 font-black text-white transition hover:bg-violet-700">Abrir página pública ↗</Link>
           </div>
