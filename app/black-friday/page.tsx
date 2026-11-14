@@ -314,7 +314,7 @@ export default function BlackFridayPage() {
                   </div>
 
                   <a
-                    href={`/oferta/${cupom.id}?origem=site`}
+                    href={`/oferta/${cupom.id}?origem=black_friday`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => void copiar(cupom)}
