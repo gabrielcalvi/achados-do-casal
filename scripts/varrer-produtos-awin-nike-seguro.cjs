@@ -17,14 +17,17 @@ if (!fs.existsSync(origem)) {
 
 let codigo = fs.readFileSync(origem, "utf8");
 
-const filtroLojas = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia"].includes(loja.slug)`;
+const filtroLojasLegado = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia"].includes(loja.slug)`;
+const filtroLojasLegadoComLauri = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "lauri-esporte"].includes(loja.slug)`;
 const filtroNike = `["nike"].includes(loja.slug)`;
 
-if (!codigo.includes(filtroLojas)) {
-  throw new Error("Nao foi possivel isolar a Nike no coletor Legacy.");
+if (codigo.includes(filtroLojasLegado)) {
+  codigo = codigo.replace(filtroLojasLegado, filtroNike);
+} else if (codigo.includes(filtroLojasLegadoComLauri)) {
+  codigo = codigo.replace(filtroLojasLegadoComLauri, filtroNike);
+} else if (!codigo.includes("AWIN_PRODUTOS_LOJAS")) {
+  throw new Error("Nao foi possivel isolar a Nike no coletor AWIN atual.");
 }
-
-codigo = codigo.replace(filtroLojas, filtroNike);
 
 const filtroMembership = `return !status || status.includes("joined") || status.includes("aprov");`;
 const filtroMembershipNike = `return !status || status.includes("joined") || status.includes("aprov") || status.includes("active") || status.includes("ativo");`;
@@ -277,6 +280,7 @@ try {
         process.env.NIKE_AWIN_DESCONTO_MINIMO ||
         process.env.AWIN_PRODUTOS_DESCONTO_MINIMO ||
         "10",
+      AWIN_PRODUTOS_LOJAS: "nike",
     },
     stdio: "inherit",
   });
