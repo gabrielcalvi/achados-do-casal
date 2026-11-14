@@ -97,6 +97,11 @@ const CUPONATION_DIRETA: Record<string, string> = {
   nike: "https://www.cuponation.com.br/cupom-nike",
   marisa: "https://www.cuponation.com.br/ofertas-marisa",
   amazon: "https://www.cuponation.com.br/cupom-desconto-amazon",
+  netshoes: "https://www.cuponation.com.br/cupom-desconto-netshoes",
+  centauro: "https://www.cuponation.com.br/cupom-centauro",
+  boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
+  "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
+  sephora: "https://www.cuponation.com.br/desconto-sephora",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
@@ -227,11 +232,15 @@ function codigoAceitavel(codigo: string, loja: LojaBlackFriday) {
   const proibidos = new Set([
     "CUPOM", "CODIGO", "DESCONTO", "PROMO", "PROMOCAO", "BLACKFRIDAY",
     "SHOPPING", "CALENDAR", "CHECK", "ARROW", "SALE", "STAR",
+    "PHONE", "TAG", "CREDIT", "COINS", "MESSAGE",
     loja.nome.toUpperCase().replace(/[^A-Z0-9]/g, ""),
     loja.slug.toUpperCase().replace(/[^A-Z0-9]/g, ""),
   ]);
 
-  return !proibidos.has(normalizado) && !/^(ARROW|SHOPPING|CALENDAR|CHECK|SALE|STAR)/.test(normalizado);
+  return (
+    !proibidos.has(normalizado) &&
+    !/^(ARROW|SHOPPING|CALENDAR|CHECK|SALE|STAR|PHONE|TAG|CREDIT|COINS|MESSAGE)/.test(normalizado)
+  );
 }
 
 export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: string) {
