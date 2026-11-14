@@ -104,28 +104,32 @@ export async function GET(request: NextRequest) {
       inicioAnterior.getTime() - ATRIBUICAO_MAX_AGE_SEGUNDOS * 1000,
     );
 
-    const [{ data: visitasDados, error: erroVisitas }, { data: cliquesDados, error: erroCliques }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("economize_campanha_visitas")
-          .select("id,codigo,content,session_id,trafego_tipo,visitado_em")
-          .eq("campaign", CAMPANHA_PADRAO)
-          .gte("visitado_em", inicioAtribuicoes.toISOString())
-          .order("visitado_em", { ascending: false })
-          .limit(10000),
-        supabaseAdmin
-          .from("economize_cliques")
-          .select(
-            "campanha_visita_id,produto_id,oferta_id,session_id,clicado_em,trafego_tipo,trafego_motivo,rota",
-          )
-          .not("campanha_visita_id", "is", null)
-          .gte("clicado_em", inicioAnterior.toISOString())
-          .order("clicado_em", { ascending: false })
-          .limit(10000),
-      ]);
+    const [
+      { data: visitasDados, error: erroVisitas },
+      { data: cliquesDados, error: erroCliques },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("economize_campanha_visitas")
+        .select("id,codigo,content,session_id,trafego_tipo,visitado_em")
+        .eq("campaign", CAMPANHA_PADRAO)
+        .gte("visitado_em", inicioAtribuicoes.toISOString())
+        .order("visitado_em", { ascending: false })
+        .limit(10000),
+      supabaseAdmin
+        .from("economize_cliques")
+        .select(
+          "campanha_visita_id,produto_id,oferta_id,session_id,clicado_em,trafego_tipo,trafego_motivo,rota",
+        )
+        .not("campanha_visita_id", "is", null)
+        .gte("clicado_em", inicioAnterior.toISOString())
+        .order("clicado_em", { ascending: false })
+        .limit(10000),
+    ]);
 
     if (erroVisitas) {
-      throw new Error(`Falha ao carregar visitas de campanha: ${erroVisitas.message}`);
+      throw new Error(
+        `Falha ao carregar visitas de campanha: ${erroVisitas.message}`,
+      );
     }
     if (erroCliques) {
       throw new Error(`Falha ao carregar cliques atribuídos: ${erroCliques.message}`);
@@ -133,7 +137,9 @@ export async function GET(request: NextRequest) {
 
     const visitas = (visitasDados ?? []) as VisitaCampanha[];
     const cliques = (cliquesDados ?? []) as CliqueAtribuido[];
-    const visitaPorId = new Map(visitas.map((visita) => [Number(visita.id), visita]));
+    const visitaPorId = new Map(
+      visitas.map((visita) => [Number(visita.id), visita]),
+    );
 
     const visitasAtuais = visitas.filter(
       (visita) =>
@@ -164,6 +170,9 @@ export async function GET(request: NextRequest) {
     );
     const visitasHumanasAnteriores = visitasAnteriores.filter(
       (visita) => visita.trafego_tipo === "humano_provavel",
+    );
+    const idsVisitasHumanasAtuais = new Set(
+      visitasHumanasAtuais.map((visita) => Number(visita.id)),
     );
 
     const produtoIds = Array.from(
@@ -197,10 +206,14 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (produtosResposta.error) {
-      throw new Error(`Falha ao carregar produtos da campanha: ${produtosResposta.error.message}`);
+      throw new Error(
+        `Falha ao carregar produtos da campanha: ${produtosResposta.error.message}`,
+      );
     }
     if (ofertasResposta.error) {
-      throw new Error(`Falha ao carregar ofertas da campanha: ${ofertasResposta.error.message}`);
+      throw new Error(
+        `Falha ao carregar ofertas da campanha: ${ofertasResposta.error.message}`,
+      );
     }
 
     const catalogo = new Map<string, ItemCatalogo>();
@@ -210,7 +223,8 @@ export async function GET(request: NextRequest) {
         tipo: "produto",
         titulo: produto.nome || "Produto não identificado",
         loja: produto.loja || "Loja",
-        preco: produto.preco_atual === null ? null : Number(produto.preco_atual),
+        preco:
+          produto.preco_atual === null ? null : Number(produto.preco_atual),
       });
     }
     for (const oferta of ofertasResposta.data ?? []) {
@@ -219,7 +233,8 @@ export async function GET(request: NextRequest) {
         tipo: "oferta",
         titulo: oferta.titulo || "Oferta não identificada",
         loja: lojaRelacionada(oferta.loja),
-        preco: oferta.preco_oferta === null ? null : Number(oferta.preco_oferta),
+        preco:
+          oferta.preco_oferta === null ? null : Number(oferta.preco_oferta),
       });
     }
 
@@ -231,6 +246,9 @@ export async function GET(request: NextRequest) {
       const visitasPerfilAnterior = visitasHumanasAnteriores.filter(
         (visita) => visita.content === definicao.content,
       );
+      const idsVisitasPerfil = new Set(
+        visitasPerfil.map((visita) => Number(visita.id)),
+      );
       const cliquesPerfil = cliquesAtuais.filter((clique) => {
         const visita = visitaPorId.get(Number(clique.campanha_visita_id));
         return visita?.content === definicao.content;
@@ -239,9 +257,19 @@ export async function GET(request: NextRequest) {
         const visita = visitaPorId.get(Number(clique.campanha_visita_id));
         return visita?.content === definicao.content;
       });
-      const sessoesVisita = new Set(visitasPerfil.map((visita) => visita.session_id));
+      const cliquesCoortePerfil = cliquesPerfil.filter((clique) =>
+        idsVisitasPerfil.has(Number(clique.campanha_visita_id)),
+      );
+      const sessoesVisita = new Set(
+        visitasPerfil.map((visita) => visita.session_id),
+      );
       const sessoesComClique = new Set(
-        cliquesPerfil.map((clique) => clique.session_id).filter(Boolean),
+        cliquesCoortePerfil
+          .map(
+            (clique) =>
+              visitaPorId.get(Number(clique.campanha_visita_id))?.session_id,
+          )
+          .filter((sessao): sessao is string => Boolean(sessao)),
       );
       const porItem = new Map<string, number>();
 
@@ -276,8 +304,12 @@ export async function GET(request: NextRequest) {
         sessoesComClique: sessoesComClique.size,
         conversao: percentual(sessoesComClique.size, sessoesVisita.size),
         cliquesReview: cliquesPerfil.filter(ehCliqueReview).length,
-        cliquesProdutos: cliquesPerfil.filter((clique) => Boolean(clique.produto_id)).length,
-        cliquesOfertas: cliquesPerfil.filter((clique) => Boolean(clique.oferta_id)).length,
+        cliquesProdutos: cliquesPerfil.filter((clique) =>
+          Boolean(clique.produto_id),
+        ).length,
+        cliquesOfertas: cliquesPerfil.filter((clique) =>
+          Boolean(clique.oferta_id),
+        ).length,
         variacaoVisitas: percentualVariacao(
           visitasPerfil.length,
           visitasPerfilAnterior.length,
@@ -293,8 +325,16 @@ export async function GET(request: NextRequest) {
     const sessoesHumanas = new Set(
       visitasHumanasAtuais.map((visita) => visita.session_id),
     );
+    const cliquesCoorteAtual = cliquesAtuais.filter((clique) =>
+      idsVisitasHumanasAtuais.has(Number(clique.campanha_visita_id)),
+    );
     const sessoesComClique = new Set(
-      cliquesAtuais.map((clique) => clique.session_id).filter(Boolean),
+      cliquesCoorteAtual
+        .map(
+          (clique) =>
+            visitaPorId.get(Number(clique.campanha_visita_id))?.session_id,
+        )
+        .filter((sessao): sessao is string => Boolean(sessao)),
     );
 
     return NextResponse.json(
@@ -304,9 +344,7 @@ export async function GET(request: NextRequest) {
           nome: "Black Friday 2026",
           source: "instagram",
           medium: "social",
-          atribuicaoDias: Math.round(
-            ATRIBUICAO_MAX_AGE_SEGUNDOS / 86400,
-          ),
+          atribuicaoDias: Math.round(ATRIBUICAO_MAX_AGE_SEGUNDOS / 86400),
         },
         periodo: {
           dias,
@@ -320,8 +358,12 @@ export async function GET(request: NextRequest) {
           sessoesComClique: sessoesComClique.size,
           conversao: percentual(sessoesComClique.size, sessoesHumanas.size),
           cliquesReview: cliquesAtuais.filter(ehCliqueReview).length,
-          cliquesProdutos: cliquesAtuais.filter((clique) => Boolean(clique.produto_id)).length,
-          cliquesOfertas: cliquesAtuais.filter((clique) => Boolean(clique.oferta_id)).length,
+          cliquesProdutos: cliquesAtuais.filter((clique) =>
+            Boolean(clique.produto_id),
+          ).length,
+          cliquesOfertas: cliquesAtuais.filter((clique) =>
+            Boolean(clique.oferta_id),
+          ).length,
           variacaoVisitas: percentualVariacao(
             visitasHumanasAtuais.length,
             visitasHumanasAnteriores.length,
@@ -333,8 +375,11 @@ export async function GET(request: NextRequest) {
         },
         diagnostico: {
           humanos: visitasHumanasAtuais.length,
-          bots: visitasAtuais.filter((visita) => visita.trafego_tipo === "bot").length,
-          internos: visitasAtuais.filter((visita) => visita.trafego_tipo === "interno").length,
+          bots: visitasAtuais.filter((visita) => visita.trafego_tipo === "bot")
+            .length,
+          internos: visitasAtuais.filter(
+            (visita) => visita.trafego_tipo === "interno",
+          ).length,
           naoClassificados: visitasAtuais.filter(
             (visita) => visita.trafego_tipo === "nao_classificado",
           ).length,
