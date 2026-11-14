@@ -227,23 +227,23 @@ Estado auditado em 14/11/2026:
 - todos possuem link afiliado;
 - 0 ofertas Amazon em `economize_ofertas`;
 - 0 cliques humanos registrados nos 4 produtos no momento da auditoria;
-- não havia credenciais/configuração de PA API identificadas nas variáveis do projeto Vercel.
+- não havia credenciais/configuração de Creators API identificadas nas variáveis do projeto Vercel.
 
 #### Regra operacional Amazon — 14/11/2026
 A coleta automática por scraping/Playwright foi **pausada**.
 
 Motivo:
 - o monitor e o preparador automático extraíam preço, disponibilidade, imagens, avaliação, parcelamento e frete diretamente das páginas Amazon;
-- as políticas atuais do Programa de Associados determinam que preço/disponibilidade exibidos pelo site devem vir de mecanismos autorizados pela Amazon, como a API de Divulgação de Produtos (PA API), observando os requisitos do programa;
+- as políticas atuais do Programa de Associados determinam que preço/disponibilidade exibidos pelo site devem vir de mecanismos autorizados pela Amazon. Em 14/11/2026 a documentação oficial atual foi revisada e o caminho recomendado para novos desenvolvimentos passou a ser a **Creators API**; a antiga PA-API 5.0 está em migração/depreciação;
 - conteúdo comercial Amazon não deve continuar sendo tratado como um feed próprio obtido por scraping.
 
 Mudanças aplicadas:
 - produtos Amazon existentes passam a `monitoramento_manual=true`;
 - qualquer novo produto Amazon cadastrado também é forçado para modo manual;
 - o monitor automático ignora Amazon;
-- a preparação automática/IA por link Amazon fica bloqueada até PA API;
+- a preparação automática/IA por link Amazon fica bloqueada até Creators API;
 - preço antigo/atual, avaliação, vendas, parcelas e frete raspados não são exibidos publicamente;
-- imagens raspadas da Amazon deixam de ser exibidas; é usado placeholder local neutro até PA API;
+- imagens raspadas da Amazon deixam de ser exibidas; é usado placeholder local neutro até Creators API;
 - CTA passa a orientar `Ver na Amazon` / `Ver preço na Amazon`;
 - identificação `Publicidade · link de afiliado Amazon` fica próxima aos links;
 - foi adicionada ao site a declaração exigida pelo Programa: `Como associado da Amazon, eu ganho com compras qualificadas.`
@@ -252,17 +252,20 @@ Cadastro operacional atualizado:
 - integrações: Produtos + Links afiliados;
 - automação: parcial;
 - scraping automático: pausado;
-- próxima integração técnica: PA API oficial.
+- próxima integração técnica: Creators API oficial.
 
 Próxima etapa obrigatória:
-1. verificar/ativar acesso em **Portal de Associados → Ferramentas → API de publicidade do produto**;
-2. criar as credenciais oficiais da PA API na conta Amazon;
-3. configurar as credenciais diretamente no ambiente seguro da Vercel (não registrar segredos em GitHub/conversa);
-4. implementar cliente PA API para ASIN, título, preço, disponibilidade, imagens e demais conteúdo permitido;
-5. somente depois expandir catálogo Amazon e avaliar automação de Cupons V2.
+1. confirmar que a conta Amazon Associados está com **aceitação final** e possui vendas qualificadas;
+2. acessar **Portal de Associados → Ferramentas → Creators API** usando o titular principal da conta;
+3. criar uma **Application** e gerar **Credential ID + Credential Secret + Version**;
+4. configurar essas credenciais diretamente no ambiente seguro da Vercel (nunca registrar segredo em GitHub ou conversa);
+5. integrar a Creators API com OAuth 2.0, token em cache e `partnerTag` correto para Amazon Brasil;
+6. usar a API oficial para ASIN, título, preço, disponibilidade, imagens e links retornados pela Amazon;
+7. somente depois ampliar o catálogo Amazon e avançar para Cupons Amazon V2.
 
 Pendência:
-- **PA API oficial ainda não configurada**;
+- **Creators API oficial ainda não configurada**;
+- elegibilidade da conta para Creators API ainda precisa ser confirmada no Portal de Associados;
 - **Cupons Amazon V2 ainda não automatizados**.
 
 ### AWIN
@@ -796,7 +799,7 @@ Não manter essas informações somente em conversa.
 ## 15. Pontos ainda pendentes / próximos passos
 
 1. Fechar cobertura remota do monitor do Mercado Livre para todos os formatos de link.
-2. Ativar e integrar **Amazon PA API oficial**; depois implementar/automatizar **Cupons Amazon V2**.
+2. Confirmar elegibilidade e integrar **Amazon Creators API oficial**; depois implementar/automatizar **Cupons Amazon V2**.
 3. Continuar evolução das integrações prioritárias ainda não fechadas.
 4. Confirmar comissões/regras que o banco marca como pendentes.
 5. Validar continuamente o fluxo ponta a ponta de pacotes Decolar.
@@ -837,7 +840,8 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
-- **14/11/2026** — auditoria Amazon: scraping/Playwright de conteúdo comercial pausado; 4 produtos existentes colocados em monitoramento manual; preço/imagens/avaliações/frete/parcelas raspados ocultados da interface; disclosures de afiliado adicionados; próxima etapa definida como PA API oficial antes de escalar catálogo/Cupons V2.
+- **14/11/2026** — correção de direção Amazon: documentação oficial atual confirma **Creators API** como caminho atual e migração da PA-API 5.0; próximos passos atualizados para elegibilidade, Application/Credential, OAuth 2.0 e partnerTag oficial antes de reativar preço/imagens automáticos.
+- **14/11/2026** — auditoria Amazon: scraping/Playwright de conteúdo comercial pausado; 4 produtos existentes colocados em monitoramento manual; preço/imagens/avaliações/frete/parcelas raspados ocultados da interface; disclosures de afiliado adicionados; próxima etapa definida como Creators API oficial antes de escalar catálogo/Cupons V2.
 - **14/11/2026** — criado Painel de Saúde AWIN na Central Economize, reaproveitando coletores, Sandbox, watchdog e Supabase; inclui C&A, Nike, KaBuM, Cobasi e Lauri, métricas operacionais e botão Executar agora. Cadastro da Cobasi alinhado à automação real.
 - **14/11/2026** — definida regra permanente para novas lojas AWIN: replicar/adaptar pipelines já estáveis em vez de reinventar a coleta; rota dedicada, cron, status, logs e watchdog devem seguir o padrão comprovado sempre que aplicável.
 - **14/11/2026** — diagnosticada vitrine Lauri em 0/0/—: cron das 08:40 UTC usava coletor antigo `33d809...` e ignorava o filtro de loja, deixando Lauri por último numa varredura multiloja pesada. Criada rota/cron dedicado para Lauri e adicionado check específico no watchdog.
