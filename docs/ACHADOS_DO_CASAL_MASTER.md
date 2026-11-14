@@ -426,6 +426,24 @@ Esses valores são referências históricas do produto e podem mudar; não devem
 ### Ofertas flexíveis de viagem
 Em 14/11/2026 a estrutura de `viagens_pacotes` foi ampliada sem quebrar os registros existentes.
 
+#### Saúde unificada das ofertas
+Também em 14/11/2026 o monitor de disponibilidade passou a cobrir **todas as modalidades de viagem**:
+- pacote;
+- hotel;
+- ingresso;
+- carro;
+- cruzeiro;
+- passeio;
+- outro.
+
+Regras do monitor:
+- `pacote`: mantém validação profunda com dados de voo + hotel;
+- demais tipos: validação por validade, datas e resposta do link do parceiro;
+- bloqueios técnicos do parceiro (ex.: 403/429) viram **erro técnico**, sem inativar automaticamente;
+- expiração objetiva por validade/data pode marcar a oferta como indisponível/expirada;
+- ingressos da tabela `viagens_ingressos` receberam os mesmos campos de saúde;
+- o painel do admin passou a mostrar todos os tipos em uma única tabela e permite exclusão manual das ofertas selecionadas.
+
 Tipos suportados no cadastro flexível:
 - `pacote` — aéreo + hotel; mantém Radar, aeroportos, companhia aérea, bagagem, datas e noites;
 - `hotel` — hotel + cidade/destino + check-in/check-out + noites; **não exige aeroportos**;
@@ -681,6 +699,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — monitor de disponibilidade ampliado para todas as ofertas de viagem, com regras próprias por modalidade e painel unificado de saúde/exclusão.
 - **14/11/2026** — Viagens ampliado para ofertas flexíveis: pacote, hotel, ingresso, carro, cruzeiro, passeio e outro; hotel não exige aeroportos; verificador Decolar permanece exclusivo de pacotes; estrutura existente preservada.
 - **14/11/2026** — reconfirmado como regra permanente: lançamento de produtos do Mercado Livre é manual; não reativar automação de produtos sem decisão explícita do Gabriel.
 - **14/11/2026** — SEO de produtos reforçado: server-side rendering em `/produto/[id]`, metadata dinâmica, Product/Review/Breadcrumb JSON-LD e links internos; commit de produção `32c52e7520c0066aa93191924f7f127182d07546`, deploy `dpl_9n7omXWrHiBkSG1rTLqAQWpAgoma` READY.
