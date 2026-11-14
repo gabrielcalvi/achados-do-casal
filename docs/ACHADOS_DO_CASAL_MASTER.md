@@ -183,10 +183,14 @@ Há histórico explícito de:
 ### Mercado Livre
 Status: ativo.
 
-Integrações registradas:
-- Produtos
-- Cupons V2
-- Monitor de preços
+**Decisão operacional fixa (reconfirmada em 14/11/2026): o lançamento/cadastro de produtos do Mercado Livre é MANUAL.**
+Motivo: a automação de produtos do Mercado Livre apresentou dificuldades recorrentes e não deve ser reativada nem tratada como obrigação do pipeline sem decisão explícita do Gabriel.
+Isso é diferente do monitor de preços dos produtos já cadastrados, que pode continuar conforme as regras atuais e deve ignorar produtos marcados como manuais.
+
+Integrações registradas/históricas:
+- Produtos — lançamento manual
+- Cupons V2 — automação pausada quando sessão expirada
+- Monitor de preços — ativo para itens elegíveis, respeitando produtos manuais
 
 Pontos importantes:
 - houve publicação segura do Mercado Livre V2;
@@ -655,6 +659,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — reconfirmado como regra permanente: lançamento de produtos do Mercado Livre é manual; não reativar automação de produtos sem decisão explícita do Gabriel.
 - **14/11/2026** — SEO de produtos reforçado: server-side rendering em `/produto/[id]`, metadata dinâmica, Product/Review/Breadcrumb JSON-LD e links internos; commit de produção `32c52e7520c0066aa93191924f7f127182d07546`, deploy `dpl_9n7omXWrHiBkSG1rTLqAQWpAgoma` READY.
 - **14/11/2026** — registrado estado de indexação no Search Console: `/economize` e `/viagens` indexadas; `/reviews` rastreada com sucesso, indexação permitida, ainda aguardando entrada no índice.
 - **14/11/2026** — registrado que o sitemap do site foi enviado/validado manualmente no Google Search Console.
