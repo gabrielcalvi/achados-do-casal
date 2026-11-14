@@ -318,7 +318,9 @@ vendas: formulario.vendas || null,
   gamer: formulario.gamer,
     ativo: formulario.ativo,
     monitoramento_manual:
-      formulario.loja.toLowerCase().includes("mercado livre") || formulario.monitoramentoManual,
+      formulario.loja.toLowerCase().includes("mercado livre") ||
+      formulario.loja.toLowerCase().includes("amazon") ||
+      formulario.monitoramentoManual,
     updated_at: new Date().toISOString(),
     preco_manual_atualizado_em:
       formulario.loja.toLowerCase().includes("mercado livre") || formulario.monitoramentoManual
