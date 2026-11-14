@@ -190,6 +190,58 @@ Há histórico explícito de:
 
 ---
 
+### Black Friday 2026 — Central de Cupons
+Campanha temporária criada em 14/11/2026 para aproveitar o pico de busca por cupons durante a Black Friday sem depender somente das lojas afiliadas.
+
+Objetivo:
+- gerar tráfego qualificado;
+- ampliar autoridade do Achados do Casal como central de economia;
+- monetizar quando existir parceria;
+- não descartar cupom bom de marca não parceira.
+
+Arquitetura:
+- página pública `/black-friday`;
+- banner de acesso na home;
+- sitemap com prioridade alta durante a campanha;
+- radar automático `/api/admin/economize/black-friday/radar`;
+- cron a cada 3 horas (`25 */3 * * *`);
+- encerramento automático após `2026-12-03T03:00:00Z`;
+- dados continuam usando `economize_cupons`, `economize_ofertas`, `economize_cupons_ofertas` e `economize_cliques`; não foi criado sistema paralelo.
+
+Regra comercial:
+- lojas com automação de cupons já ativa continuam usando seu pipeline comprovado;
+- radar Black Friday não duplica essas lojas;
+- marcas sem parceria podem entrar como **tráfego**;
+- sem afiliado, o clique vai diretamente para o site oficial da loja e continua sendo rastreado pelo Achados;
+- nunca inventar link afiliado.
+
+Critério automático de qualidade do radar:
+- código precisa ter formato plausível;
+- cupom precisa estar publicado na fonte;
+- validade ainda ativa;
+- benefício relevante: pelo menos 10% OFF, pelo menos R$ 20 OFF ou frete grátis;
+- precisa existir registro de uso recente (até 72h) na fonte monitorada;
+- apenas candidatos que cumprem todos os critérios entram automaticamente como ativos;
+- candidatos insuficientes ficam `pendente`, não aparecem ao público;
+- cupons que deixam de ser encontrados na revalidação são inativados;
+- validade operacional é limitada para obrigar rechecagem frequente.
+
+Fonte inicial validada no ambiente:
+- Cuponation responde com dados estruturados contendo código, título, início, validade, publicação e `lastUsedDate`;
+- Méliuz responde, mas mascara o código na página, portanto não é usado como fonte principal de código no primeiro radar;
+- Cuponomia bloqueou o servidor com HTTP 403 e não é dependência do radar.
+
+Lojas iniciais do radar incluem Adidas, Magalu, Casas Bahia, Renner, Nike, Samsung, Dell, Lenovo, Riachuelo, Centauro, Netshoes, Sephora, O Boticário, Natura, Petz, Fast Shop, Carrefour, Pichau, Electrolux e Brastemp. A lista pode crescer, sempre preservando a regra de qualidade.
+
+Tracking:
+- `/oferta/[id]` reconhece ofertas `black_friday_radar_2026` com `black_friday_trafego=true`;
+- permite link direto quando não há afiliado;
+- cliques continuam gravados em `economize_cliques`;
+- origem `black_friday` é aceita para medir desempenho da campanha.
+
+### Changelog Black Friday
+- **14/11/2026** — criada Central Black Friday e radar de cupons com inclusão de marcas não parceiras para tráfego, critérios fortes de validação, rechecagem automática e rastreamento de cliques.
+
 ## 6. Integrações e parceiros
 
 ### Mercado Livre
@@ -873,6 +925,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — Central Black Friday com radar de cupons reais: aceita marcas parceiras e não parceiras, publica automaticamente apenas códigos com benefício relevante, validade e uso recente, mantém tráfego direto quando não há afiliado e revalida a cada 3h.
 - **14/11/2026** — bloqueio real da Amazon confirmado no Portal: Creators API só libera criação de Application após aceitação final da conta e vendas qualificadas; FAQ da própria Amazon informa requisito de pelo menos 10 vendas qualificadas nos últimos 30 dias para acesso à API de produtos. Se as vendas já existirem, solicitar final acceptance via Associates Contact Us.
 - **14/11/2026** — base técnica da Amazon Creators API preparada: OAuth 2.0 com cache de token, GetItems, SearchItems, marketplace BR, rota administrativa e painel de diagnóstico na Central Economize; faltam apenas elegibilidade/credenciais oficiais para teste real.
 - **14/11/2026** — correção de direção Amazon: documentação oficial atual confirma **Creators API** como caminho atual e migração da PA-API 5.0; próximos passos atualizados para elegibilidade, Application/Credential, OAuth 2.0 e partnerTag oficial antes de reativar preço/imagens automáticos.
