@@ -97,6 +97,11 @@ const CUPONATION_DIRETA: Record<string, string> = {
   nike: "https://www.cuponation.com.br/cupom-nike",
   marisa: "https://www.cuponation.com.br/ofertas-marisa",
   amazon: "https://www.cuponation.com.br/cupom-desconto-amazon",
+  netshoes: "https://www.cuponation.com.br/cupom-desconto-netshoes",
+  centauro: "https://www.cuponation.com.br/cupom-centauro",
+  boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
+  "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
+  sephora: "https://www.cuponation.com.br/desconto-sephora",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
