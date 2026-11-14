@@ -538,10 +538,19 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
   const status = cupom.autoAprovado ? "ativo" : "pendente";
   const validade = validadeOperacional(cupom);
   const dedupe = `bf2026:${lojaDef.slug}:${cupom.codigo}`;
+  const linkAfiliado = lojaDef.slug === "amazon"
+    ? "https://www.amazon.com.br/?tag=achadosdoca03-20"
+    : null;
   const dadosBrutos = {
     campanha: "black-friday-2026",
     black_friday_trafego: true,
-    sem_afiliado: true,
+    sem_afiliado: !linkAfiliado,
+    ...(linkAfiliado ? {
+      afiliado_configurado: true,
+      affiliate_program: "Amazon Associados Brasil",
+      affiliate_store_id: "achadosdoca03-20",
+      affiliate_url: linkAfiliado,
+    } : {}),
     fonte_confiavel: cupom.fonteNome || (cupom.fonteOficial ? "fonte_oficial" : "cuponation"),
     fonte_oficial: Boolean(cupom.fonteOficial),
     fonte_url: cupom.fonteUrl,
