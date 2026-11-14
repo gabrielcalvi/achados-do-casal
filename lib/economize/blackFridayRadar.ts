@@ -41,6 +41,18 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Decathlon", slug: "decathlon", dominio: "decathlon.com.br", homepage: "https://www.decathlon.com.br/" },
   { nome: "Dafiti", slug: "dafiti", dominio: "dafiti.com.br", homepage: "https://www.dafiti.com.br/" },
   { nome: "Zattini", slug: "zattini", dominio: "zattini.com.br", homepage: "https://www.zattini.com.br/" },
+  { nome: "Nespresso", slug: "nespresso", dominio: "nespresso.com", homepage: "https://www.nespresso.com/br/pt/" },
+  { nome: "Nescafe Dolce Gusto", slug: "dolce-gusto", dominio: "nescafe-dolcegusto.com.br", homepage: "https://www.nescafe-dolcegusto.com.br/" },
+  { nome: "Cafe L'OR", slug: "cafe-lor", dominio: "br.lorcoffee.com", homepage: "https://www.br.lorcoffee.com/" },
+  { nome: "Baggio Cafe", slug: "baggio-cafe", dominio: "baggiocafe.com.br", homepage: "https://www.baggiocafe.com.br/" },
+  { nome: "GoCase", slug: "gocase", dominio: "gocase.com.br", homepage: "https://www.gocase.com.br/" },
+  { nome: "Superlegal Brinquedos", slug: "superlegal", dominio: "superlegalbrinquedos.com.br", homepage: "https://www.superlegalbrinquedos.com.br/" },
+  { nome: "Ri Happy", slug: "ri-happy", dominio: "rihappy.com.br", homepage: "https://www.rihappy.com.br/" },
+  { nome: "PBKIDS", slug: "pbkids", dominio: "pbkids.com.br", homepage: "https://www.pbkids.com.br/" },
+  { nome: "Lojas Colombo", slug: "colombo", dominio: "colombo.com.br", homepage: "https://www.colombo.com.br/" },
+  { nome: "Pontofrio", slug: "ponto-frio", dominio: "pontofrio.com.br", homepage: "https://www.pontofrio.com.br/" },
+  { nome: "LEGO", slug: "lego", dominio: "lego.com", homepage: "https://www.lego.com/pt-br" },
+  { nome: "Mattel", slug: "mattel", dominio: "mattel.com", homepage: "https://shop.mattel.com/pt-br" },
 ];
 
 type ResultadoBusca = {
@@ -327,6 +339,8 @@ const FONTES_OFICIAIS: Record<string, string> = {
   cea: "https://www.cea.com.br/cupons-de-desconto",
   marisa: "https://www.marisa.com.br/institucional/rules-promotions",
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
+  nespresso: "https://www.nespresso.com/br/pt",
+  gocase: "https://www.gocase.com.br/degocase",
 };
 
 function dataBrasiliaParaIso(
@@ -404,7 +418,7 @@ export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
   const texto = $.root().text().replace(/\s+/g, " ").trim();
   const agora = Date.now();
   const encontrados = new Map<string, CupomDescoberto>();
-  const regex = /cupom\s*["“”']?([A-Z0-9_-]{4,24})["“”']?/gi;
+  const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
 
   for (const match of texto.matchAll(regex)) {
     const codigo = String(match[1] || "").trim().toUpperCase();

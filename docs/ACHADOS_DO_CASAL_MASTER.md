@@ -256,6 +256,25 @@ Fontes oficiais já incorporadas ao radar:
 
 Cuponation continua como fonte estruturada secundária para lojas em que entrega código, validade, publicação e `lastUsedDate`.
 
+#### Expansão de cobertura — 14/11/2026
+O radar foi ampliado para acompanhar novas categorias solicitadas:
+- **Cafés:** Nespresso, Nescafé Dolce Gusto, Café L'OR e Baggio Café;
+- **Acessórios/lifestyle:** GoCase;
+- **Brinquedos:** Superlegal Brinquedos, Ri Happy, PBKIDS, LEGO e Mattel;
+- **Varejo/eletro:** Lojas Colombo e Pontofrio;
+- **Magalu** permanece no radar existente.
+
+Fontes oficiais de código incorporadas:
+- Nespresso → página oficial Brasil;
+- GoCase → página oficial de campanhas/cupons.
+
+O extrator de fonte oficial agora reconhece tanto padrões "Cupom CODIGO" quanto "Use o cupom: CODIGO". Isso permite capturar códigos apresentados no conteúdo promocional oficial sem depender de URL presumida de agregador.
+
+Para as demais lojas, a descoberta usa a busca do radar e fontes secundárias; nenhuma URL de agregador foi fixada sem validação. A inclusão no radar significa monitorar, não publicar automaticamente: permanecem obrigatórios código real, benefício relevante, validade e critérios de evidência da fonte. Lojas com automação de cupons já ativa continuam protegidas contra duplicação.
+
+A cobertura deve ser reavaliada continuamente pelo cron existente (a cada 3 horas). Cupons que deixam de aparecer na fonte são inativados; códigos novos são deduplicados antes de serem inseridos.
+
+
 Em 14/11/2026 foram validadas e fixadas URLs diretas da Cuponation para **Netshoes, Centauro, O Boticário, Casas Bahia e Sephora**. Todas responderam HTTP 200 no ambiente Vercel e retornaram códigos estruturados. Antes da publicação, o radar continua exigindo `published=true`, validade ativa, benefício relevante e `lastUsedDate` recente.
 
 O filtro de códigos foi endurecido para descartar nomes de ícones/asset keys como `arrow`, `shopping`, `calendar`, `star`, `phone`, `tag`, `credit`, `coins` e `message`, evitando falsos cupons.
@@ -319,6 +338,7 @@ Produção após a ampliação:
 - nenhum erro de runtime encontrado na varredura de 30 minutos após a publicação.
 
 ### Changelog Black Friday
+- **14/11/2026** — ampliado o radar para cafés, GoCase, brinquedos e varejo/eletro; fontes oficiais Nespresso e GoCase e extração de padrões explícitos de cupom;
 - **14/11/2026** — adicionadas fontes diretas de Netshoes/Centauro/Boticário/Casas Bahia/Sephora; validação no ambiente confirmou códigos estruturados e o filtro de asset/icon keys foi ampliado antes da liberação.
 - **14/11/2026** — faixa Black Friday da home ampliada para maior visibilidade; radar ficou mais conservador em ofertas com múltiplos percentuais e Samsung foi validada como segunda marca com códigos estruturados e uso recente.
 - **14/11/2026** — criada Central Black Friday e radar de cupons com inclusão de marcas não parceiras para tráfego, critérios fortes de validação, rechecagem automática e rastreamento de cliques.
