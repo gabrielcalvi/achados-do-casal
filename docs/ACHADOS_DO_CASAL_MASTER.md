@@ -216,6 +216,7 @@ Regra comercial:
 - nunca inventar link afiliado.
 
 Critério automático de qualidade do radar:
+- regra conservadora de múltiplos percentuais: se a fonte misturar desconto geral da promoção com desconto extra do cupom (ex.: 60% OFF + cupom de 20%), o radar registra o menor percentual para não inflar o benefício anunciado;
 - código precisa ter formato plausível;
 - cupom precisa estar publicado na fonte;
 - validade ainda ativa;
@@ -227,6 +228,7 @@ Critério automático de qualidade do radar:
 - validade operacional é limitada para obrigar rechecagem frequente.
 
 Fonte inicial validada no ambiente:
+- Samsung validada no radar via Cuponation, com códigos estruturados, validade e `lastUsedDate`; exemplos atuais encontrados incluem `LIVE1111`, `BF2026`, `APPWEEK` e `LIVESHOP`, enquanto códigos abaixo de 10% não passam pela regra de benefício relevante;
 - Cuponation responde com dados estruturados contendo código, título, início, validade, publicação e `lastUsedDate`;
 - Méliuz responde, mas mascara o código na página, portanto não é usado como fonte principal de código no primeiro radar;
 - Cuponomia bloqueou o servidor com HTTP 403 e não é dependência do radar.
@@ -240,6 +242,7 @@ Tracking:
 - origem `black_friday` é aceita para medir desempenho da campanha.
 
 ### Changelog Black Friday
+- **14/11/2026** — faixa Black Friday da home ampliada para maior visibilidade; radar ficou mais conservador em ofertas com múltiplos percentuais e Samsung foi validada como segunda marca com códigos estruturados e uso recente.
 - **14/11/2026** — criada Central Black Friday e radar de cupons com inclusão de marcas não parceiras para tráfego, critérios fortes de validação, rechecagem automática e rastreamento de cliques.
 
 ## 6. Integrações e parceiros

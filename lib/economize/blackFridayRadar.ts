@@ -154,9 +154,16 @@ function beneficio(titulo: string, caption1: string, caption2: string) {
     };
   }
 
-  const percentualMatch = tudo.match(/(\d{1,2}(?:[.,]\d+)?)\s*%/);
-  if (percentualMatch) {
-    const percentual = Number(percentualMatch[1].replace(",", "."));
+  const percentuais = Array.from(
+    tudo.matchAll(/(\d{1,2}(?:[.,]\d+)?)\s*%/g),
+    (match) => Number(match[1].replace(",", "."))
+  ).filter((valor) => Number.isFinite(valor) && valor > 0 && valor <= 90);
+
+  if (percentuais.length > 0) {
+    // Regra conservadora: quando a fonte mistura desconto geral da campanha
+    // com desconto extra do cupom, usamos o menor percentual para não inflar
+    // o benefício anunciado. Ex.: "60% OFF + cupom de +20%" => 20%.
+    const percentual = Math.min(...percentuais);
     return {
       tipo: "percentual" as const,
       percentual,
@@ -165,9 +172,13 @@ function beneficio(titulo: string, caption1: string, caption2: string) {
     };
   }
 
-  const valorMatch = tudo.match(/R\$\s*(\d{1,4}(?:[.,]\d{1,2})?)/i);
-  if (valorMatch) {
-    const valor = Number(valorMatch[1].replace(".", "").replace(",", "."));
+  const valores = Array.from(
+    tudo.matchAll(/R\$\s*(\d{1,4}(?:[.,]\d{1,2})?)/gi),
+    (match) => Number(match[1].replace(".", "").replace(",", "."))
+  ).filter((valor) => Number.isFinite(valor) && valor > 0);
+
+  if (valores.length > 0) {
+    const valor = Math.min(...valores);
     return {
       tipo: "valor_fixo" as const,
       percentual: null,

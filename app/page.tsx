@@ -98,13 +98,14 @@ export default function Home() {
       </div>
       <div className="border-t border-slate-100"><div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-5 py-3">{categorias.map((c)=><button key={c} type="button" onClick={()=>setCategoriaAtiva(c)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition ${categoriaAtiva===c?"bg-blue-950 text-white":"border border-slate-200 bg-white text-slate-600 hover:border-pink-400 hover:text-pink-500"}`}>{c}</button>)}</div></div>
     </header>
-    <section className="border-b border-zinc-800 bg-black text-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">🖤 Black Friday 2026</p>
-          <p className="mt-1 font-black">Central de cupons verificados — parceiros e marcas monitoradas pelo radar.</p>
+    <section className="border-y-4 border-yellow-400 bg-black text-white shadow-lg">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:py-8">
+        <div className="max-w-4xl">
+          <p className="text-sm font-black uppercase tracking-[0.24em] text-yellow-400 sm:text-base">🖤 BLACK FRIDAY 2026</p>
+          <p className="mt-2 text-xl font-black leading-tight sm:text-2xl">Central de cupons verificados — parceiros e marcas monitoradas pelo nosso radar.</p>
+          <p className="mt-2 text-sm font-bold text-zinc-300 sm:text-base">Cupons reais, revalidados automaticamente e com marcas não parceiras quando a oferta vale a pena.</p>
         </div>
-        <Link href="/black-friday" className="w-fit rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-black transition hover:bg-yellow-300">
+        <Link href="/black-friday" className="inline-flex w-fit shrink-0 items-center justify-center rounded-2xl bg-yellow-400 px-8 py-4 text-base font-black uppercase tracking-wide text-black shadow-lg transition hover:-translate-y-0.5 hover:bg-yellow-300 sm:px-10 sm:py-5 sm:text-lg">
           Ver cupons →
         </Link>
       </div>
