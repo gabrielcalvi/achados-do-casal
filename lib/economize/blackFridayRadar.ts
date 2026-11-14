@@ -44,7 +44,7 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Nespresso", slug: "nespresso", dominio: "nespresso.com", homepage: "https://www.nespresso.com/br/pt/" },
   { nome: "Nescafe Dolce Gusto", slug: "dolce-gusto", dominio: "nescafe-dolcegusto.com.br", homepage: "https://www.nescafe-dolcegusto.com.br/" },
   { nome: "Cafe L'OR", slug: "cafe-lor", dominio: "br.lorcoffee.com", homepage: "https://www.br.lorcoffee.com/" },
-  { nome: "Baggio Cafe", slug: "baggio-cafe", dominio: "baggio cafe.com.br", homepage: "https://www.baggiocafe.com.br/" },
+  { nome: "Baggio Cafe", slug: "baggio-cafe", dominio: "baggiocafe.com.br", homepage: "https://www.baggiocafe.com.br/" },
   { nome: "GoCase", slug: "gocase", dominio: "gocase.com.br", homepage: "https://www.gocase.com.br/" },
   { nome: "Superlegal Brinquedos", slug: "superlegal", dominio: "superlegalbrinquedos.com.br", homepage: "https://www.superlegalbrinquedos.com.br/" },
   { nome: "Ri Happy", slug: "ri-happy", dominio: "rihappy.com.br", homepage: "https://www.rihappy.com.br/" },
@@ -114,16 +114,6 @@ const CUPONATION_DIRETA: Record<string, string> = {
   boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
   "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
   sephora: "https://www.cuponation.com.br/desconto-sephora",
-  nespresso: "https://www.cuponation.com.br/cupom-desconto-nespresso",
-  "dolce-gusto": "https://www.cuponation.com.br/cupom-desconto-dolce-gusto",
-  "cafe-lor": "https://www.cuponation.com.br/cupom-cafe-lor",
-  "baggio-cafe": "https://www.cuponation.com.br/cupom-baggio-cafe",
-  gocase: "https://www.cuponation.com.br/cupom-go-case",
-  "ri-happy": "https://www.cuponation.com.br/cupom-desconto-ri-happy",
-  pbkids: "https://www.cuponation.com.br/cupom-desconto-pbkids",
-  colombo: "https://www.cuponation.com.br/cupom-desconto-colombo",
-  "ponto-frio": "https://www.cuponation.com.br/descontos-ponto-frio",
-  magalu: "https://www.cuponation.com.br/cupom-desconto-magazine-luiza",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
@@ -173,7 +163,7 @@ export async function buscarCuponation(loja: LojaBlackFriday) {
 
 function ultimoCampoAntes(texto: string, indice: number, campo: string, limite = 2500) {
   const trecho = texto.slice(Math.max(0, indice - limite), indice);
-  const regex = new RegExp(`"${campo}":"([^"]*)"`, "g");
+  const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
   let valor: string | null = null;
   for (const match of trecho.matchAll(regex)) valor = match[1] ?? null;
   return valor;
@@ -349,6 +339,8 @@ const FONTES_OFICIAIS: Record<string, string> = {
   cea: "https://www.cea.com.br/cupons-de-desconto",
   marisa: "https://www.marisa.com.br/institucional/rules-promotions",
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
+  nespresso: "https://www.nespresso.com/br/pt",
+  gocase: "https://www.gocase.com.br/degocase",
 };
 
 function dataBrasiliaParaIso(
