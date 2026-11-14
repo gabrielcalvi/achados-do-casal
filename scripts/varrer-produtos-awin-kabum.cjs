@@ -11,10 +11,16 @@ if (!fs.existsSync(origem)) {
 
 let codigo = fs.readFileSync(origem, "utf8");
 
-const filtroLojas = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia"].includes(loja.slug)`;
+const filtroLojasLegado = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia"].includes(loja.slug)`;
+const filtroLojasLegadoComLauri = `["cea", "renner", "calvin-klein", "stanley", "casas-bahia", "lauri-esporte"].includes(loja.slug)`;
 const filtroKabum = `["kabum"].includes(loja.slug)`;
-if (!codigo.includes(filtroLojas)) throw new Error("Nao foi possivel isolar a KaBuM no coletor Legacy.");
-codigo = codigo.replace(filtroLojas, filtroKabum);
+if (codigo.includes(filtroLojasLegado)) {
+  codigo = codigo.replace(filtroLojasLegado, filtroKabum);
+} else if (codigo.includes(filtroLojasLegadoComLauri)) {
+  codigo = codigo.replace(filtroLojasLegadoComLauri, filtroKabum);
+} else if (!codigo.includes("AWIN_PRODUTOS_LOJAS")) {
+  throw new Error("Nao foi possivel isolar a KaBuM no coletor AWIN atual.");
+}
 
 const limiteBase = `Math.min(30, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))`;
 const limiteAmpliado = `Math.min(160, Number(process.env.AWIN_PRODUTOS_LIMITE_POR_LOJA || 15))`;
@@ -125,6 +131,7 @@ try {
         process.env.KABUM_AWIN_DESCONTO_MINIMO ||
         process.env.AWIN_PRODUTOS_DESCONTO_MINIMO ||
         "10",
+      AWIN_PRODUTOS_LOJAS: "kabum",
     },
     stdio: "inherit",
   });
