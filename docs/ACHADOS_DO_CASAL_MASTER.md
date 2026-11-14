@@ -263,6 +263,34 @@ Próxima etapa obrigatória:
 6. usar a API oficial para ASIN, título, preço, disponibilidade, imagens e links retornados pela Amazon;
 7. somente depois ampliar o catálogo Amazon e avançar para Cupons Amazon V2.
 
+#### Creators API — base técnica preparada
+Em 14/11/2026 foi preparada a primeira integração oficial da Amazon Creators API no projeto.
+
+Implementado:
+- cliente server-side em `lib/amazon/creatorsApi.ts`;
+- OAuth 2.0 via Login with Amazon com cache do access token por ~1h;
+- endpoint de token NA para Brasil: `https://api.amazon.com/auth/o2/token`;
+- endpoint global da API: `https://creatorsapi.amazon`;
+- marketplace fixado por padrão em `www.amazon.com.br`;
+- `GetItems` por ASIN, até 10 itens por chamada;
+- `SearchItems` por palavras-chave;
+- recursos solicitados: título, imagens oficiais, OffersV2/preço, disponibilidade e seller;
+- rota administrativa `/api/admin/economize/amazon/creators` protegida por autenticação;
+- painel **Amazon Creators API oficial** dentro da Central Economize;
+- painel mostra credenciais faltantes sem revelar segredo e permite testar OAuth + GetItems com um ASIN real.
+
+Variáveis seguras esperadas na Vercel:
+- `AMAZON_CREATORS_CREDENTIAL_ID`
+- `AMAZON_CREATORS_CREDENTIAL_SECRET`
+- `AMAZON_CREATORS_CREDENTIAL_VERSION`
+- `AMAZON_CREATORS_PARTNER_TAG`
+- `AMAZON_CREATORS_MARKETPLACE` é opcional; default `www.amazon.com.br`.
+
+Regra de segurança:
+- Credential Secret nunca deve ser enviado por chat nem commitado no GitHub;
+- configurar diretamente no Vercel Environment Variables;
+- só reativar automação/preço/imagem Amazon depois de OAuth + GetItems passarem no painel.
+
 Pendência:
 - **Creators API oficial ainda não configurada**;
 - elegibilidade da conta para Creators API ainda precisa ser confirmada no Portal de Associados;
@@ -840,6 +868,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — base técnica da Amazon Creators API preparada: OAuth 2.0 com cache de token, GetItems, SearchItems, marketplace BR, rota administrativa e painel de diagnóstico na Central Economize; faltam apenas elegibilidade/credenciais oficiais para teste real.
 - **14/11/2026** — correção de direção Amazon: documentação oficial atual confirma **Creators API** como caminho atual e migração da PA-API 5.0; próximos passos atualizados para elegibilidade, Application/Credential, OAuth 2.0 e partnerTag oficial antes de reativar preço/imagens automáticos.
 - **14/11/2026** — auditoria Amazon: scraping/Playwright de conteúdo comercial pausado; 4 produtos existentes colocados em monitoramento manual; preço/imagens/avaliações/frete/parcelas raspados ocultados da interface; disclosures de afiliado adicionados; próxima etapa definida como Creators API oficial antes de escalar catálogo/Cupons V2.
 - **14/11/2026** — criado Painel de Saúde AWIN na Central Economize, reaproveitando coletores, Sandbox, watchdog e Supabase; inclui C&A, Nike, KaBuM, Cobasi e Lauri, métricas operacionais e botão Executar agora. Cadastro da Cobasi alinhado à automação real.
