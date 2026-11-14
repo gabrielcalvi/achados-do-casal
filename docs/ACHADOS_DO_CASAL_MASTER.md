@@ -244,6 +244,22 @@ Características já implementadas:
 - advertiser ID por parceiro;
 - exigência de link afiliado.
 
+
+
+### Regra permanente para novas lojas AWIN
+Ao adicionar uma nova loja AWIN, **não reinventar o pipeline se já existir um fluxo estável que atende o caso**.
+
+Padrão obrigatório:
+- copiar/adaptar o modelo de uma loja AWIN já estável e semelhante;
+- manter a mesma arquitetura de cron, rota dedicada, Sandbox, status, log, resultado, publicação e watchdog quando aplicável;
+- alterar apenas o necessário: slug, advertiser ID, domínio, limites, regras comerciais e particularidades reais do feed;
+- preservar as validações já comprovadas de link afiliado, preço, desconto e publicação;
+- só criar lógica nova quando o feed/parceiro realmente exigir e houver evidência de que o padrão existente não atende;
+- evitar coletores genéricos/multiloja quando uma rota dedicada já se mostrou mais confiável para operação crítica;
+- antes de colocar em produção, validar o fluxo ponta a ponta com uma execução real e conferir os dados gravados no Supabase.
+
+Objetivo: reduzir regressões, evitar duplicação desnecessária e replicar o que já funciona no projeto.
+
 ### Parceiros AWIN relevantes
 
 #### C&A
@@ -747,6 +763,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **14/11/2026** — definida regra permanente para novas lojas AWIN: replicar/adaptar pipelines já estáveis em vez de reinventar a coleta; rota dedicada, cron, status, logs e watchdog devem seguir o padrão comprovado sempre que aplicável.
 - **14/11/2026** — diagnosticada vitrine Lauri em 0/0/—: cron das 08:40 UTC usava coletor antigo `33d809...` e ignorava o filtro de loja, deixando Lauri por último numa varredura multiloja pesada. Criada rota/cron dedicado para Lauri e adicionado check específico no watchdog.
 - **14/11/2026** — pós-validação final: produção em `14fd7fb` / deploy `dpl_EK8LgBhDHN3FVc4AESdUA58nX5kA` READY; erro social marcado como resolvido após testes PNG 200 e zero runtime errors; Beto Carrero confirmado na fonte unificada com mesmo UUID/preço/link; `viagens_ingressos` confirmado com 0 registros; sitemap corrigido para aplicar disponibilidade profunda somente a pacotes; PRs #33 e #34 registrados.
 - **14/11/2026** — correções estruturais: rota social endurecida para materializar PNG antes da resposta; ingressos migrados para a tabela única de ofertas de viagem preservando IDs/URLs via redirecionamento; arquivamento reversível adicionado com restauração no admin e exclusão definitiva mantida como ação separada.
