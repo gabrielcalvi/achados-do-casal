@@ -3,7 +3,6 @@ import PacotesViagem from "./PacotesViagem";
 import PacotesDisponibilidade from "./PacotesDisponibilidade";
 import CapturadorDecolarLocal from "./CapturadorDecolarLocal";
 import DemandaRadar from "./DemandaRadar";
-import IngressosViagem from "./IngressosViagem";
 import RadarManual from "./RadarManual";
 
 export const dynamic = "force-dynamic";
@@ -140,7 +139,6 @@ export default async function AdminViagensPage() {
         <DemandaRadar />
         <CapturadorDecolarLocal />
         <PacotesDisponibilidade />
-        <IngressosViagem />
         <PacotesViagem />
       </div>
     </main>
