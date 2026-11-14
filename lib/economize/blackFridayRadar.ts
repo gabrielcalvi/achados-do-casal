@@ -53,6 +53,10 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Pontofrio", slug: "ponto-frio", dominio: "pontofrio.com.br", homepage: "https://www.pontofrio.com.br/" },
   { nome: "LEGO", slug: "lego", dominio: "lego.com", homepage: "https://www.lego.com/pt-br" },
   { nome: "Mattel", slug: "mattel", dominio: "mattel.com", homepage: "https://shop.mattel.com/pt-br" },
+  { nome: "Steam", slug: "steam", dominio: "steampowered.com", homepage: "https://store.steampowered.com/" },
+  { nome: "PlayStation Store", slug: "playstation-store", dominio: "playstation.com", homepage: "https://store.playstation.com/pt-br/" },
+  { nome: "Sony", slug: "sony", dominio: "sony.com.br", homepage: "https://www.sony.com.br/" },
+  { nome: "LG", slug: "lg", dominio: "lg.com", homepage: "https://www.lg.com/br/" },
 ];
 
 type ResultadoBusca = {
