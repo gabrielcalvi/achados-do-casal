@@ -53,6 +53,7 @@ type RespostaPerformance = {
     cliquesReviewsHumanos: number;
   };
   filaGravacao: ItemConteudo[];
+  candidatosFila: ItemConteudo[];
   videosPublicados: ItemConteudo[];
   oportunidadesDemanda: ItemConteudo[];
   origens: Array<{ origem: string; quantidade: number; percentual: number }>;
@@ -131,6 +132,11 @@ export default function PerformancePage() {
   const [dados, setDados] = useState<RespostaPerformance | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [atualizacao, setAtualizacao] = useState(0);
+  const [modalFilaAberto, setModalFilaAberto] = useState(false);
+  const [buscaFila, setBuscaFila] = useState("");
+  const [adicionandoId, setAdicionandoId] = useState<number | null>(null);
+  const [mensagemFila, setMensagemFila] = useState("");
 
   useEffect(() => {
     let ativo = true;
@@ -165,7 +171,7 @@ export default function PerformancePage() {
     return () => {
       ativo = false;
     };
-  }, [dias]);
+  }, [dias, atualizacao]);
 
   const maiorOrigem = useMemo(
     () =>
@@ -180,6 +186,44 @@ export default function PerformancePage() {
   const metaCumprida = Boolean(
     dados && dados.conteudo.videosSemana >= dados.conteudo.metaSemanal,
   );
+
+  const candidatosFiltrados = useMemo(() => {
+    const termo = buscaFila.trim().toLocaleLowerCase("pt-BR");
+    const itens = dados?.candidatosFila ?? [];
+    if (!termo) return itens;
+    return itens.filter((item) =>
+      [item.nome, item.loja, item.categoria]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(termo),
+    );
+  }, [buscaFila, dados?.candidatosFila]);
+
+  async function adicionarAFila(item: ItemConteudo) {
+    setAdicionandoId(item.id);
+    setMensagemFila("");
+    setErro("");
+    try {
+      const resposta = await fetch("/api/admin/economize/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ produtoId: item.id }),
+      });
+      const resultado = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(resultado.error || "Não foi possível adicionar à fila.");
+      }
+
+      setMensagemFila(`${item.nome} foi adicionado aos próximos vídeos.`);
+      setAtualizacao((valor) => valor + 1);
+    } catch (error) {
+      setErro(
+        error instanceof Error ? error.message : "Erro inesperado ao adicionar.",
+      );
+    } finally {
+      setAdicionandoId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-950 sm:px-8">
@@ -325,12 +369,25 @@ export default function PerformancePage() {
                 preparação da opinião do casal.
               </p>
             </div>
-            <Link
-              href="/admin"
-              className="w-fit rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-            >
-              Editar produtos →
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBuscaFila("");
+                  setMensagemFila("");
+                  setModalFilaAberto(true);
+                }}
+                className="w-fit rounded-xl bg-fuchsia-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-fuchsia-700"
+              >
+                + Adicionar à fila
+              </button>
+              <Link
+                href="/admin"
+                className="w-fit rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                Editar produtos →
+              </Link>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -659,6 +716,99 @@ export default function PerformancePage() {
             ))}
           </div>
         </section>
+
+        {modalFilaAberto ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setModalFilaAberto(false);
+            }}
+          >
+            <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wide text-fuchsia-600">
+                    Planejamento de conteúdo
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">
+                    + Adicionar próximo produto para vídeo
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Escolha um produto já cadastrado e sem vídeo. Ao adicionar,
+                    ele passa para a fila “Próximos vídeos para gravar”.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalFilaAberto(false)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 font-black text-slate-500 hover:bg-slate-50"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-6">
+                <input
+                  type="search"
+                  value={buscaFila}
+                  onChange={(event) => setBuscaFila(event.target.value)}
+                  placeholder="Buscar produto, loja ou categoria..."
+                  className="h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-fuchsia-500"
+                  autoFocus
+                />
+
+                {mensagemFila ? (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+                    ✅ {mensagemFila}
+                  </div>
+                ) : null}
+
+                <div className="mt-5 max-h-[54vh] space-y-3 overflow-y-auto pr-1">
+                  {candidatosFiltrados.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-4 rounded-2xl border border-slate-200 p-3"
+                    >
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 p-2">
+                        {item.imagem ? (
+                          <img
+                            src={item.imagem}
+                            alt={item.nome}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-2xl">📦</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black">{nomeCurto(item.nome, 84)}</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {item.loja} · {item.categoria}
+                          {moeda(item.preco) ? ` · ${moeda(item.preco)}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={adicionandoId === item.id}
+                        onClick={() => void adicionarAFila(item)}
+                        className="shrink-0 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {adicionandoId === item.id ? "Adicionando..." : "Adicionar"}
+                      </button>
+                    </div>
+                  ))}
+
+                  {!carregando && candidatosFiltrados.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                      Nenhum produto disponível neste filtro.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <details>

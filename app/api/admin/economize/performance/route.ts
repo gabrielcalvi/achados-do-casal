@@ -495,6 +495,15 @@ export async function GET(request: NextRequest) {
           cliquesReviewsHumanos,
         },
         filaGravacao,
+        candidatosFila: produtosAtivos
+          .filter(
+            (produto) =>
+              !produto.tem_em_casa &&
+              !textoPreenchido(produto.video_url),
+          )
+          .map(enriquecer)
+          .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+          .slice(0, 200),
         videosPublicados,
         oportunidadesDemanda,
         origens,
@@ -507,6 +516,75 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("Erro na API de performance:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro interno." },
+      { status: 500 },
+    );
+  }
+}
+
+
+export async function POST(request: NextRequest) {
+  if (!(await usuarioAutenticado())) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  try {
+    const corpo = (await request.json()) as Record<string, unknown>;
+    const produtoId = Number(corpo.produtoId);
+
+    if (!Number.isInteger(produtoId) || produtoId <= 0) {
+      return NextResponse.json(
+        { error: "Produto inválido." },
+        { status: 400 },
+      );
+    }
+
+    const { data: produto, error: erroProduto } = await supabaseAdmin
+      .from("produtos")
+      .select("id,nome,ativo,tem_em_casa,video_url")
+      .eq("id", produtoId)
+      .maybeSingle();
+
+    if (erroProduto) {
+      throw new Error(`Falha ao localizar produto: ${erroProduto.message}`);
+    }
+    if (!produto || produto.ativo === false) {
+      return NextResponse.json(
+        { error: "Produto não encontrado ou inativo." },
+        { status: 404 },
+      );
+    }
+    if (textoPreenchido(produto.video_url)) {
+      return NextResponse.json(
+        { error: "Este produto já possui vídeo publicado." },
+        { status: 409 },
+      );
+    }
+
+    const { data: atualizado, error: erroAtualizacao } = await supabaseAdmin
+      .from("produtos")
+      .update({
+        tem_em_casa: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", produtoId)
+      .select("id,nome,tem_em_casa")
+      .single();
+
+    if (erroAtualizacao || !atualizado) {
+      throw new Error(
+        `Falha ao adicionar à fila: ${erroAtualizacao?.message || "erro desconhecido"}`,
+      );
+    }
+
+    return NextResponse.json({
+      sucesso: true,
+      produto: atualizado,
+      mensagem: "Produto adicionado à fila de próximos vídeos.",
+    });
+  } catch (error) {
+    console.error("Erro ao adicionar produto à fila de vídeos:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erro interno." },
       { status: 500 },
