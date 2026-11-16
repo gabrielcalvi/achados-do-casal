@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: produto } = await supabaseAdmin
     .from("produtos")
-    .select("id,nome,loja,imagem,preco_atual,preco_antigo,ativo,review_completa,nota_casal,tempo_de_uso")
+    .select("id,nome,loja,imagem,preco_atual,preco_antigo,ativo,review_completa,nota_casal,tempo_de_uso,compartilhamento_titulo,compartilhamento_descricao")
     .eq("id", numero)
     .maybeSingle();
 
@@ -45,15 +45,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     Number(produto.preco_antigo) > Number(produto.preco_atual)
       ? moeda(produto.preco_antigo)
       : null;
-  const tituloCompartilhamento =
+  const tituloAutomatico =
     produto.ativo && preco
       ? `🔥 ${preco} • ${produto.nome}`
       : produto.nome;
-  const descricao = produto.review_completa
+  const descricaoAutomatica = produto.review_completa
     ? `Review real do Achados do Casal: ${produto.nome}. ${produto.nota_casal ? `Nota ${produto.nota_casal}/10. ` : ""}${produto.tempo_de_uso ? `Tempo de uso: ${produto.tempo_de_uso}.` : ""}`
     : preco
       ? `${precoAntigo ? `De ${precoAntigo} por ${preco}. ` : `${preco}. `}${produto.loja} • Oferta encontrada pelo Achados do Casal. Confira preço e disponibilidade.`
       : `Confira este achado na ${produto.loja}. Preço e disponibilidade podem mudar.`;
+  const tituloCompartilhamento =
+    produto.compartilhamento_titulo?.trim() || tituloAutomatico;
+  const descricao =
+    produto.compartilhamento_descricao?.trim() || descricaoAutomatica;
 
   const canonical = `https://achadosdocasal.com.br/produto/${produto.id}`;
   const imagem = produto.imagem || undefined;

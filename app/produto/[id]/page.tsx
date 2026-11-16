@@ -36,6 +36,8 @@ type Produto = {
   monitoramento_manual: boolean | null;
   preco_manual_atualizado_em: string | null;
   review_link_compra: string | null;
+  compartilhamento_titulo: string | null;
+  compartilhamento_descricao: string | null;
 };
 
 type ImagemExtra = {
@@ -132,7 +134,7 @@ export async function generateMetadata({
     Number(produto.preco_antigo) > Number(produto.preco_atual)
       ? moeda(produto.preco_antigo)
       : null;
-  const titulo = produto.review_completa
+  const tituloAutomatico = produto.review_completa
     ? `${produto.nome}: review do casal`
     : preco
       ? `🔥 ${preco} • ${produto.nome}`
@@ -143,11 +145,15 @@ export async function generateMetadata({
       ? produto.opiniao_casal
       : produto.descricao;
 
-  const description =
+  const descricaoAutomatica =
     produto.ativo && preco
       ? `${precoAntigo ? `De ${precoAntigo} por ${preco}. ` : `${preco}. `}${produto.loja} • Oferta encontrada pelo Achados do Casal. Confira preço e disponibilidade.`
       : textoLimpo(baseDescricao) ||
         `${produto.nome} na ${produto.loja}. Confira detalhes no Achados do Casal.`;
+
+  const titulo = produto.compartilhamento_titulo?.trim() || tituloAutomatico;
+  const description =
+    produto.compartilhamento_descricao?.trim() || descricaoAutomatica;
 
   return {
     title: { absolute: `${titulo} | Achados do Casal` },

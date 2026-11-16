@@ -67,6 +67,8 @@ vendas: "",
   reviewCompleta: false,
   videoUrl: "",
   reviewLinkCompra: "",
+  compartilhamentoTitulo: "",
+  compartilhamentoDescricao: "",
   opiniaoCasal: "",
 notaCasal: "",
 tempoDeUso: "",
@@ -141,6 +143,8 @@ async function editarProduto(produto: any) {
     reviewCompleta: produto.review_completa ?? false,
     videoUrl: produto.video_url ?? "",
     reviewLinkCompra: produto.review_link_compra ?? "",
+    compartilhamentoTitulo: produto.compartilhamento_titulo ?? "",
+    compartilhamentoDescricao: produto.compartilhamento_descricao ?? "",
     opiniaoCasal: produto.opiniao_casal ?? "",
     notaCasal: produto.nota_casal?.toString() ?? "",
     tempoDeUso: produto.tempo_de_uso ?? "",
@@ -349,6 +353,8 @@ function limparFormularioProduto() {
     reviewCompleta: false,
     videoUrl: "",
     reviewLinkCompra: "",
+    compartilhamentoTitulo: "",
+    compartilhamentoDescricao: "",
     opiniaoCasal: "",
     notaCasal: "",
     tempoDeUso: "",
@@ -409,6 +415,8 @@ vendas: formulario.vendas || null,
     review_completa: formulario.reviewCompleta,
     video_url: formulario.videoUrl || null,
     review_link_compra: formulario.reviewLinkCompra || null,
+    compartilhamento_titulo: formulario.compartilhamentoTitulo.trim() || null,
+    compartilhamento_descricao: formulario.compartilhamentoDescricao.trim() || null,
     opiniao_casal: formulario.opiniaoCasal || null,
 nota_casal: formulario.notaCasal
   ? Number(formulario.notaCasal)
@@ -1553,6 +1561,55 @@ function selecionarTodosFiltrados() {
   </label>
 </div>
 </div>
+<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+  <h3 className="text-lg font-black text-emerald-900">
+    📲 Compartilhamento no WhatsApp
+  </h3>
+  <p className="mt-1 text-sm leading-6 text-emerald-800">
+    Opcional. Se deixar em branco, o site usa automaticamente o preço + nome do produto.
+  </p>
+
+  <label className="mt-4 block text-sm font-black text-emerald-950">
+    Título para compartilhamento
+  </label>
+  <input
+    type="text"
+    maxLength={110}
+    placeholder="Ex.: 🔥 R$ 121,74 • Kit 2 Refis Electrolux Acqua Pure"
+    value={formulario.compartilhamentoTitulo}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        compartilhamentoTitulo: e.target.value,
+      })
+    }
+    className="mt-2 w-full rounded-xl border border-emerald-200 bg-white p-4"
+  />
+  <p className="mt-1 text-right text-xs font-bold text-emerald-700">
+    {formulario.compartilhamentoTitulo.length}/110
+  </p>
+
+  <label className="mt-4 block text-sm font-black text-emerald-950">
+    Descrição para compartilhamento
+  </label>
+  <textarea
+    rows={3}
+    maxLength={180}
+    placeholder="Ex.: De R$ 130,90 por R$ 121,74 • Mercado Livre • Frete grátis"
+    value={formulario.compartilhamentoDescricao}
+    onChange={(e) =>
+      setFormulario({
+        ...formulario,
+        compartilhamentoDescricao: e.target.value,
+      })
+    }
+    className="mt-2 w-full rounded-xl border border-emerald-200 bg-white p-4"
+  />
+  <p className="mt-1 text-right text-xs font-bold text-emerald-700">
+    {formulario.compartilhamentoDescricao.length}/180
+  </p>
+</div>
+
 <div className="mt-5">
   <label className="mb-2 block font-medium">
     🎥 Vídeo da análise (YouTube)
