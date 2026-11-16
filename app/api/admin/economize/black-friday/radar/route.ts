@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
-  BLACK_FRIDAY_FIM,
   LOJAS_BLACK_FRIDAY,
   processarLojaBlackFriday,
   type LojaBlackFriday,
@@ -51,15 +50,6 @@ async function executar(request: NextRequest) {
     );
   }
 
-  if (Date.now() >= Date.parse(BLACK_FRIDAY_FIM)) {
-    return NextResponse.json({
-      sucesso: true,
-      campanha: "black-friday-2026",
-      encerrada: true,
-      mensagem: "Radar Black Friday encerrado.",
-    });
-  }
-
   const slug =
     request.nextUrl.searchParams.get("loja")?.trim().toLowerCase() || "";
   const lojas = slug
@@ -68,7 +58,7 @@ async function executar(request: NextRequest) {
 
   if (slug && lojas.length === 0) {
     return NextResponse.json(
-      { sucesso: false, erro: "Loja nao cadastrada no radar Black Friday." },
+      { sucesso: false, erro: "Loja nao cadastrada no radar de cupons." },
       { status: 404 },
     );
   }
@@ -126,7 +116,7 @@ async function executar(request: NextRequest) {
   return NextResponse.json(
     {
       sucesso: true,
-      campanha: "black-friday-2026",
+      campanha: Date.now() < Date.parse("2026-12-03T03:00:00.000Z") ? "black-friday-2026" : "radar-cupons-permanente",
       executado_em: new Date().toISOString(),
       resumo,
       resultados,
