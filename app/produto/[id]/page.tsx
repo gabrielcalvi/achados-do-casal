@@ -280,7 +280,7 @@ export default async function ProdutoPage({
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
+    <main className="mx-auto max-w-6xl px-5 py-10 pb-28 lg:pb-10">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
@@ -350,6 +350,24 @@ export default async function ProdutoPage({
                 <div className="mt-4 space-y-2">
                   {produto.parcelas ? <p className="font-bold text-slate-700">💳 {produto.parcelas}</p> : null}
                   {produto.frete_gratis ? <p className="font-bold text-green-700">🚚 Frete grátis</p> : null}
+                </div>
+              ) : null}
+
+              {produto.tem_em_casa || produto.review_completa ? (
+                <div className="mt-6 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5">
+                  <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                    Experiência do Achados
+                  </p>
+                  <div className="mt-3 grid gap-2 text-sm font-bold text-slate-700 sm:grid-cols-2">
+                    {produto.tem_em_casa ? <p>🏠 Temos este produto em casa</p> : null}
+                    {Number.isFinite(notaCasal) && notaCasal > 0 ? (
+                      <p>⭐ Nossa nota: {notaCasal.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/10</p>
+                    ) : null}
+                    {produto.data_inicio_uso || produto.tempo_de_uso ? (
+                      <p>📅 Usamos há {formatarTempoDeUso(produto.data_inicio_uso, produto.tempo_de_uso)}</p>
+                    ) : null}
+                    {produto.video_url ? <p>🎥 Review em vídeo disponível</p> : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -479,6 +497,25 @@ export default async function ProdutoPage({
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {temPrecoAtivo ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(15,23,42,0.12)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-6xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-500">Oferta atual</p>
+              <p className="truncate text-lg font-black text-pink-600">
+                {Number(produto.preco_atual).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </div>
+            <a
+              href={`/produto/${produto.id}/ir?origem=barra_fixa`}
+              className="shrink-0 rounded-xl bg-blue-950 px-5 py-3 text-sm font-black text-white"
+            >
+              Ver oferta
+            </a>
+          </div>
+        </div>
       ) : null}
 
       {produto.review_completa ? (
