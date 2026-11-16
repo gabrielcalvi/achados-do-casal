@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { LOJAS_BLACK_FRIDAY } from "@/lib/economize/blackFridayRadar";
+import { LOJAS_BLACK_FRIDAY_EXTRAS } from "@/lib/economize/blackFridayRadarExtras";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,10 +118,17 @@ export async function GET() {
       console.error("Erro ao contar cupons retirados:", erroRetirados);
     }
 
+    const lojasMonitoradas = new Set(
+      [...LOJAS_BLACK_FRIDAY, ...LOJAS_BLACK_FRIDAY_EXTRAS].map(
+        (loja) => loja.slug,
+      ),
+    ).size;
+
     return NextResponse.json(
       {
         cuponsAtivos: cupons.length,
         lojasComCupons: lojas.size,
+        lojasMonitoradas,
         novosUltimas24Horas,
         retiradosUltimas24Horas: retiradosUltimas24Horas ?? 0,
         maiorPercentual,
