@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
 import PartnerPromoBar from "@/components/PartnerPromoBar";
+import WhatsAppGrupoFlutuante from "@/components/WhatsAppGrupoFlutuante";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -60,6 +61,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-950">
         <PartnerPromoBar />
         {children}
+        <WhatsAppGrupoFlutuante />
         <Analytics />
       </body>
     </html>
