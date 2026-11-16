@@ -102,6 +102,8 @@ Qualidade dos dados:
 - 0 produtos ativos sem link de destino
 - 0 produtos ativos sem preço
 - 1 produto ativo sem imagem: produto 105, Galão 5L Speed Power do Mercado Livre
+- o produto 105 estava classificado incorretamente como `Tecnologia`; foi corrigido no Supabase para `Automotivo` em 16/11/2026
+- a imagem do produto 105 continua pendente; não inventar/substituir por imagem sem fonte confiável
 - 0 ofertas ativas vencidas por data
 - 0 cupons ativos vencidos
 - 0 cupons ativos sem código
@@ -116,11 +118,14 @@ Ocorrências recentes encontradas no histórico de 24h/7d:
 2. `/api/preparar-produto`: erro ao tentar identificar catálogo/User Product em um link Mercado Livre. Isso reforça a decisão operacional de manter o cadastro de produtos ML manual quando o formato não for reconhecido.
 3. Radar de Viagens Expandido: histórico de respostas Ignav HTTP 424 em várias rotas; manter diagnóstico/watchdog e não tratar como erro do frontend público.
 
-### Supabase Advisors — 16/11/2026
+### Supabase Advisors e grants — 16/11/2026
 - Health: sem lints.
 - Security: `Leaked Password Protection Disabled` continua como aviso real do Auth.
-- `RLS enabled no policy` aparece em tabelas internas; para tabelas server-only com acesso público revogado isso é comportamento esperado, mas grants devem continuar sendo verificados antes de qualquer mudança.
-- Performance: 5 foreign keys sem índice de cobertura foram sinalizadas como oportunidade de otimização.
+- `RLS enabled no policy` aparece em várias tabelas. A auditoria confirmou dois cenários:
+  - tabelas server-only já sem grants para `anon/authenticated`, como `economize_vendas`, `economize_campanha_visitas`, watchdog e algumas tabelas de viagens;
+  - tabelas antigas que ainda possuem grants amplos para `anon/authenticated`, porém continuam sem políticas RLS. Nelas, o RLS bloqueia o acesso a linhas por padrão, então o grant não significa exposição pública efetiva; ainda assim os grants são mais permissivos do que o necessário e devem ser reduzidos de forma gradual após conferir quem usa cada tabela.
+- Prioridade de hardening: revisar primeiro tabelas sensíveis/operacionais como `mercado_livre_tokens`, `monitor_alteracoes`, `monitor_execucoes`, `economize_execucoes` e `economize_verificacoes`; não fazer revogação em massa sem conferir os consumidores existentes.
+- Performance: 5 foreign keys sem índice de cobertura foram sinalizadas: `economize_execucoes.loja_id`, `economize_verificacoes.execucao_id`, `produto_imagens.produto_id`, `viagens_pacotes.created_by` e `viagens_precos.execucao_id`.
 - Índices não utilizados não devem ser removidos automaticamente apenas pelo advisor.
 
 ### Histórico anterior — 14/11/2026
@@ -1172,6 +1177,7 @@ Toda mudança importante deve acrescentar uma nota curta em uma das seções aci
 - **16/11/2026** — Performance ampliado com botão `+ Adicionar à fila` para selecionar próximos produtos a gravar.
 - **16/11/2026** — radar de cupons tornado permanente; Cobasi, Microsoft Store/Xbox e Nuuvem incluídas; próxima campanha sazonal definida como **Achados de Natal**.
 - **16/11/2026** — auditoria registrou ocorrências históricas a acompanhar: JWT `issued at future` intermitente no catálogo, link ML não reconhecido pelo preparador e Ignav HTTP 424 no radar expandido de viagens.
+- **16/11/2026** — corrigida categoria do produto 105 (Galão 5L Speed Power) de Tecnologia para Automotivo; imagem continua pendente. Auditoria de grants confirmou RLS bloqueando tabelas sem policy, mas identificou grants legados amplos em parte das tabelas internas para hardening gradual.
 - **14/11/2026** — Central Black Friday chegou a 48 cupons ativos públicos; 44 via radar. Novas lojas validadas: Netshoes, Centauro, O Boticário, Casas Bahia e Sephora. Apple/Gaston seguem monitoradas sem publicação até aparecer evidência confiável.
 - **14/11/2026** — Amazon restaurada temporariamente ao comportamento anterior por decisão operacional: imagem, preço, condições e link afiliado voltam ao público e os 4 produtos voltam ao monitor automático; Creators API fica estacionada até elegibilidade. Radar Black Friday passa a priorizar fontes oficiais por loja e amplia cobertura para Renner, Nike, Marisa, Apple, Gaston, Amazon, Americanas, Decathlon, Dafiti e Zattini.
 - **14/11/2026** — Central Black Friday com radar de cupons reais: aceita marcas parceiras e não parceiras, publica automaticamente apenas códigos com benefício relevante, validade e uso recente, mantém tráfego direto quando não há afiliado e revalida a cada 3h.
