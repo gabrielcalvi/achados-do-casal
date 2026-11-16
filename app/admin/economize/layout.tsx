@@ -30,6 +30,12 @@ export default function AdminEconomizeLayout({
               📣 Campanhas
             </Link>
             <Link
+              href="/admin/economize/resultados-comerciais"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white transition hover:bg-emerald-500"
+            >
+              💰 Resultados
+            </Link>
+            <Link
               href="/admin/economize/nike"
               className="rounded-lg bg-white px-4 py-2 text-xs font-black text-black transition hover:bg-zinc-200"
             >
