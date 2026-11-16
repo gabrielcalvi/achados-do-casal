@@ -39,6 +39,7 @@ type RespostaCupons = {
 type StatusRadar = {
   cuponsAtivos: number;
   lojasComCupons: number;
+  lojasMonitoradas: number;
   novosUltimas24Horas: number;
   retiradosUltimas24Horas: number;
   maiorPercentual: number;
@@ -64,6 +65,43 @@ type FiltroRapido =
   | "radar";
 
 type EstadoRelato = "enviando" | "enviado" | "erro";
+
+type CategoriaVisual = {
+  id: string;
+  rotulo: string;
+  icone: string;
+  slugs: string[];
+};
+
+const CATEGORIAS_VISUAIS: CategoriaVisual[] = [
+  { id: "farmacias", rotulo: "Farmácias", icone: "💊", slugs: ["drogasil","droga-raia","pague-menos","panvel","drogaria-sp","farmacias-sao-joao"] },
+  { id: "viagens", rotulo: "Viagens", icone: "✈️", slugs: ["decolar","booking","hoteis-com","airbnb","latam","gol","avianca","msc-cruzeiros","localiza","movida","rentcars","rentalcars","unidas","cvc","trip-com","ita-airways","iberostar","assist-card","universal-assistance","allianz-travel","seguros-promo","airalo","holafly","nomad-esim"] },
+  { id: "brinquedos", rotulo: "Brinquedos", icone: "🧸", slugs: ["superlegal","ri-happy","pbkids","lego","mattel"] },
+  { id: "mercado", rotulo: "Mercado", icone: "🛒", slugs: ["carrefour","zaffari-bourbon","assai","atacadao","sams-club","pao-de-acucar","angeloni","swift","cacau-show","kopenhagen","lindt"] },
+  { id: "delivery", rotulo: "Delivery", icone: "🍔", slugs: ["ifood","rappi","99food","dominos","pizza-hut","mcdonalds","burger-king"] },
+  { id: "bebe", rotulo: "Bebê", icone: "👶", slugs: ["alo-bebe","pampers","huggies"] },
+  { id: "casa", rotulo: "Casa", icone: "🏠", slugs: ["electrolux","brastemp","tramontina","havan","leroy-merlin","tokstok","madeira-madeira","mobly","westwing","camicado","madesa","ferreira-costa","telhanorte","obramax","dutra-maquinas","loja-do-mecanico","stanley"] },
+  { id: "beleza", rotulo: "Beleza", icone: "💄", slugs: ["sephora","boticario","natura","eudora","beleza-na-web","epoca-cosmeticos","granado"] },
+  { id: "pet", rotulo: "Pet", icone: "🐾", slugs: ["petz","cobasi"] },
+  { id: "cafes", rotulo: "Cafés", icone: "☕", slugs: ["nespresso","dolce-gusto","cafe-lor","baggio-cafe"] },
+  { id: "games", rotulo: "Games", icone: "🎮", slugs: ["steam","playstation-store","microsoft-store","nuuvem"] },
+  { id: "auto", rotulo: "Auto", icone: "🚗", slugs: ["autozone","pneustore"] },
+  { id: "esporte", rotulo: "Esporte", icone: "👟", slugs: ["adidas","nike","centauro","netshoes","decathlon","olympikus","puma","fila","mizuno","growth-supplements","integralmedica","max-titanium"] },
+  { id: "moda", rotulo: "Moda", icone: "👕", slugs: ["renner","cea","riachuelo","marisa","gaston","dafiti","zattini","havaianas","vivara","chilli-beans","sunglass-hut","oticas-carol","lenscope","calvin-klein"] },
+  { id: "tecnologia", rotulo: "Tecnologia", icone: "📱", slugs: ["samsung","dell","lenovo","fast-shop","pichau","apple","amazon","americanas","magalu","casas-bahia","ponto-frio","colombo","sony","lg","motorola","aliexpress","temu","kabum"] },
+  { id: "passeios", rotulo: "Passeios", icone: "🎟️", slugs: ["beach-park","beto-carrero","snowland","acquamotion","civitatis","sympla","ticketmaster","eventim","cinemark","uci-cinemas","kinoplex"] },
+  { id: "digital", rotulo: "Digital", icone: "💻", slugs: ["canva","adobe","microsoft-365","nordvpn","surfshark","hostinger"] },
+  { id: "outros", rotulo: "Outros", icone: "✨", slugs: [] },
+];
+
+function categoriaVisual(cupom: Cupom) {
+  const slug = cupom.loja?.slug || "";
+  return (
+    CATEGORIAS_VISUAIS.find(
+      (categoria) => categoria.id !== "outros" && categoria.slugs.includes(slug),
+    )?.id || "outros"
+  );
+}
 
 const MOEDA = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -177,6 +215,7 @@ export default function BlackFridayPage() {
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("relevancia");
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>("todos");
   const [copiado, setCopiado] = useState<string | null>(null);
+  const [compartilhado, setCompartilhado] = useState<string | null>(null);
   const [relatos, setRelatos] = useState<Record<string, EstadoRelato>>({});
 
   useEffect(() => {
@@ -231,14 +270,39 @@ export default function BlackFridayPage() {
     );
   }, [cupons]);
 
-  const categorias = useMemo(() => {
-    return Array.from(
-      new Set(
-        cupons
-          .map((cupom) => cupom.categoria?.trim())
-          .filter((categoria): categoria is string => Boolean(categoria)),
-      ),
-    ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const categoriasDisponiveis = useMemo(
+    () =>
+      CATEGORIAS_VISUAIS.map((categoria) => ({
+        ...categoria,
+        quantidade: cupons.filter(
+          (cupom) => categoriaVisual(cupom) === categoria.id,
+        ).length,
+      })).filter((categoria) => categoria.quantidade > 0),
+    [cupons],
+  );
+
+  const melhoresCupons = useMemo(() => {
+    const pontuar = (cupom: Cupom) =>
+      (cupom.destaque ? 10_000_000 : 0) +
+      (aconteceuNasUltimasHoras(cupom.verificado_em || cupom.updated_at, 24)
+        ? 1_000_000
+        : 0) +
+      beneficioParaOrdenacao(cupom) +
+      (cupom.parceiro_monetizado ? 5_000 : 0);
+
+    const ordenados = [...cupons].sort((a, b) => pontuar(b) - pontuar(a));
+    const lojasVistas = new Set<string>();
+    const escolhidos: Cupom[] = [];
+
+    for (const cupom of ordenados) {
+      const chave = cupom.loja?.slug || cupom.id;
+      if (lojasVistas.has(chave)) continue;
+      lojasVistas.add(chave);
+      escolhidos.push(cupom);
+      if (escolhidos.length === 6) break;
+    }
+
+    return escolhidos;
   }, [cupons]);
 
   const filtrados = useMemo(() => {
@@ -254,7 +318,7 @@ export default function BlackFridayPage() {
       }
       if (
         categoriaSelecionada !== "todas" &&
-        cupom.categoria !== categoriaSelecionada
+        categoriaVisual(cupom) !== categoriaSelecionada
       ) {
         return false;
       }
@@ -353,6 +417,42 @@ export default function BlackFridayPage() {
     }
   }
 
+  async function compartilhar(cupom: Cupom) {
+    const url = `${window.location.origin}/oferta/${cupom.id}?origem=black_friday`;
+    const beneficio = formatarBeneficio(cupom);
+    const texto = `🔥 ${beneficio} ${cupom.loja?.nome ? `na ${cupom.loja.nome}` : ""}${cupom.codigo ? ` • Cupom ${cupom.codigo}` : ""} • Achados do Casal`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: cupom.titulo,
+          text: texto,
+          url,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${texto}\n${url}`);
+      setCompartilhado(cupom.id);
+      window.setTimeout(
+        () => setCompartilhado((atual) => (atual === cupom.id ? null : atual)),
+        2500,
+      );
+    } catch (error) {
+      if ((error as DOMException)?.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setCompartilhado(cupom.id);
+        window.setTimeout(
+          () => setCompartilhado((atual) => (atual === cupom.id ? null : atual)),
+          2500,
+        );
+      } catch {
+        // Compartilhar é conveniência e não bloqueia o uso do cupom.
+      }
+    }
+  }
+
   async function reportar(cupom: Cupom) {
     if (relatos[cupom.id] === "enviando" || relatos[cupom.id] === "enviado") {
       return;
@@ -390,12 +490,14 @@ export default function BlackFridayPage() {
                 Achados do Casal · Black Friday 2026
               </p>
               <h1 className="mt-4 text-4xl font-black leading-tight sm:text-6xl">
-                🖤 Central de Cupons Black Friday
+                🖤 Black Friday Achados do Casal
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300 sm:text-lg">
-                Um radar que procura, valida, publica e retira cupons
-                automaticamente — sem esconder quando uma oferta deixa de
-                funcionar.
+              <p className="mt-4 text-xl font-black text-white sm:text-2xl">
+                Cupons que encontramos e verificamos para você
+              </p>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-300 sm:text-lg">
+                Nosso radar procura novas oportunidades, revalida os códigos e
+                retira automaticamente o que deixa de funcionar.
               </p>
             </div>
 
@@ -407,71 +509,174 @@ export default function BlackFridayPage() {
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs font-black uppercase tracking-wider text-zinc-400">
                 Cupons ativos
               </p>
-              <p className="mt-2 text-3xl font-black">
+              <p className="mt-2 text-4xl font-black">
                 {statusRadar?.cuponsAtivos ?? cupons.length}
               </p>
             </div>
-            <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+            <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
               <p className="text-xs font-black uppercase tracking-wider text-yellow-300">
-                Lojas com cupom
+                Lojas monitoradas
               </p>
-              <p className="mt-2 text-3xl font-black text-yellow-300">
-                {statusRadar?.lojasComCupons ?? lojas.length}
+              <p className="mt-2 text-4xl font-black text-yellow-300">
+                {statusRadar?.lojasMonitoradas ?? statusRadar?.lojasComCupons ?? lojas.length}
               </p>
             </div>
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
               <p className="text-xs font-black uppercase tracking-wider text-emerald-300">
                 Novos em 24h
               </p>
-              <p className="mt-2 text-3xl font-black text-emerald-300">
+              <p className="mt-2 text-4xl font-black text-emerald-300">
                 {statusRadar?.novosUltimas24Horas ?? 0}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
-              <p className="text-xs font-black uppercase tracking-wider text-red-300">
-                Retirados em 24h
-              </p>
-              <p className="mt-2 text-3xl font-black text-red-300">
-                {statusRadar?.retiradosUltimas24Horas ?? 0}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-4">
-              <p className="text-xs font-black uppercase tracking-wider text-sky-300">
-                Última verificação
-              </p>
-              <p className="mt-2 text-lg font-black text-sky-200">
-                {tempoRelativo(statusRadar?.ultimaVerificacao)}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4">
-              <p className="text-xs font-black uppercase tracking-wider text-violet-300">
-                Próxima varredura
-              </p>
-              <p className="mt-2 text-lg font-black text-violet-200">
-                {formatarHora(statusRadar?.proximaExecucao)}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-bold text-zinc-400">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-zinc-400">
+            <span>✅ Verificados automaticamente</span>
+            <span>🕒 Última verificação {tempoRelativo(statusRadar?.ultimaVerificacao)}</span>
+            <span>🔄 Próxima ronda {formatarHora(statusRadar?.proximaExecucao)}</span>
             <span>🔎 {radar.length} encontrados pelo radar</span>
-            <span>💰 {parceiros.length} com monetização confirmada</span>
-            {statusRadar && (
-              <span>
-                🏆 Até {statusRadar.maiorPercentual}% ou {MOEDA.format(statusRadar.maiorValor)} OFF
-              </span>
-            )}
-            <span>🔁 Ronda automática a cada 3 horas</span>
+            <span>💰 {parceiros.length} parceiros monetizados</span>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
+        {!carregando && !erro && (
+          <>
+            <div className="mb-6">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
+                    Explore por categoria
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                    Encontre o tipo de desconto que você procura
+                  </h2>
+                </div>
+                {categoriaSelecionada !== "todas" && (
+                  <button
+                    type="button"
+                    onClick={() => setCategoriaSelecionada("todas")}
+                    className="hidden text-sm font-black text-yellow-300 hover:text-yellow-200 sm:block"
+                  >
+                    Ver todas
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  type="button"
+                  onClick={() => setCategoriaSelecionada("todas")}
+                  className={`min-w-[132px] shrink-0 rounded-2xl border p-4 text-left transition ${
+                    categoriaSelecionada === "todas"
+                      ? "border-yellow-400 bg-yellow-400 text-black"
+                      : "border-white/10 bg-zinc-950 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <span className="text-2xl">🔥</span>
+                  <span className="mt-2 block font-black">Todos</span>
+                  <span className={`mt-1 block text-xs font-bold ${categoriaSelecionada === "todas" ? "text-black/60" : "text-zinc-500"}`}>
+                    {cupons.length} cupons
+                  </span>
+                </button>
+
+                {categoriasDisponiveis.map((categoria) => (
+                  <button
+                    key={categoria.id}
+                    type="button"
+                    onClick={() => setCategoriaSelecionada(categoria.id)}
+                    className={`min-w-[132px] shrink-0 rounded-2xl border p-4 text-left transition ${
+                      categoriaSelecionada === categoria.id
+                        ? "border-yellow-400 bg-yellow-400 text-black"
+                        : "border-white/10 bg-zinc-950 hover:border-yellow-400/50"
+                    }`}
+                  >
+                    <span className="text-2xl">{categoria.icone}</span>
+                    <span className="mt-2 block font-black">{categoria.rotulo}</span>
+                    <span className={`mt-1 block text-xs font-bold ${categoriaSelecionada === categoria.id ? "text-black/60" : "text-zinc-500"}`}>
+                      {categoria.quantidade} {categoria.quantidade === 1 ? "cupom" : "cupons"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {melhoresCupons.length > 0 && (
+              <div className="mb-6 rounded-3xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/10 via-zinc-950 to-zinc-950 p-5 sm:p-6">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
+                    🔥 Melhores cupons agora
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                    Os descontos que mais chamam atenção neste momento
+                  </h2>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {melhoresCupons.map((cupom) => (
+                    <article
+                      key={`destaque-${cupom.id}`}
+                      className="rounded-2xl border border-white/10 bg-black/40 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-black uppercase tracking-wider text-zinc-400">
+                            {cupom.loja?.nome || "Loja"}
+                          </p>
+                          <h3 className="mt-2 line-clamp-2 font-black leading-6">
+                            {cupom.titulo}
+                          </h3>
+                        </div>
+                        <span className="shrink-0 rounded-xl bg-yellow-400 px-3 py-2 text-sm font-black text-black">
+                          {formatarBeneficio(cupom)}
+                        </span>
+                      </div>
+
+                      {cupom.codigo && (
+                        <button
+                          type="button"
+                          onClick={() => void copiar(cupom)}
+                          className="mt-4 w-full rounded-xl border border-dashed border-yellow-400/60 bg-yellow-400/10 px-3 py-3 text-center"
+                        >
+                          <span className="text-xs font-black uppercase tracking-wider text-yellow-300">
+                            {copiado === cupom.id ? "✅ Copiado!" : cupom.codigo}
+                          </span>
+                        </button>
+                      )}
+
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <a
+                          href={`/oferta/${cupom.id}?origem=black_friday`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => void copiar(cupom)}
+                          className="rounded-xl bg-yellow-400 px-3 py-2.5 text-center text-sm font-black text-black hover:bg-yellow-300"
+                        >
+                          Usar agora
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => void compartilhar(cupom)}
+                          className="rounded-xl border border-white/15 px-3 py-2.5 text-sm font-black text-white hover:border-yellow-400/60"
+                        >
+                          {compartilhado === cupom.id ? "✅ Copiado" : "📲 Compartilhar"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -537,9 +742,9 @@ export default function BlackFridayPage() {
                 className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
               >
                 <option value="todas">Todas as categorias</option>
-                {categorias.map((categoria) => (
-                  <option key={categoria} value={categoria}>
-                    {categoria}
+                {categoriasDisponiveis.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.icone} {categoria.rotulo}
                   </option>
                 ))}
               </select>
@@ -614,6 +819,9 @@ export default function BlackFridayPage() {
               const validade = formatarData(cupom.validade);
               const beneficio = formatarBeneficio(cupom);
               const relato = relatos[cupom.id];
+              const novo = aconteceuNasUltimasHoras(cupom.created_at, 24);
+              const terminaHoje = venceNasProximasHoras(cupom, 24);
+              const maiorDesconto = melhoresCupons[0]?.id === cupom.id;
 
               return (
                 <article
@@ -627,18 +835,31 @@ export default function BlackFridayPage() {
                         {cupom.categoria ? ` · ${cupom.categoria}` : ""}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {cupom.parceiro_monetizado ? (
-                          <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">
-                            💰 Parceiro monetizado
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-black">
-                            🔎 Radar verificado
+                        {novo && (
+                          <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-black text-sky-300">
+                            🆕 NOVO
                           </span>
                         )}
-                        {cupom.destaque && (
+                        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">
+                          ✅ VERIFICADO
+                        </span>
+                        {terminaHoje && (
+                          <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-black text-orange-300">
+                            ⏰ TERMINA HOJE
+                          </span>
+                        )}
+                        {maiorDesconto && (
                           <span className="rounded-full bg-fuchsia-500/20 px-3 py-1 text-xs font-black text-fuchsia-300">
-                            ⭐ Destaque
+                            🔥 MAIOR DESCONTO
+                          </span>
+                        )}
+                        {cupom.parceiro_monetizado ? (
+                          <span className="rounded-full bg-violet-500/20 px-3 py-1 text-xs font-black text-violet-300">
+                            💰 PARCEIRO
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-black text-yellow-300">
+                            🔎 RADAR
                           </span>
                         )}
                       </div>
@@ -712,18 +933,25 @@ export default function BlackFridayPage() {
                     </details>
                   )}
 
-                  <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-[1fr_auto]">
+                  <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
                     <a
                       href={`/oferta/${cupom.id}?origem=black_friday`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => void copiar(cupom)}
-                      className="rounded-xl bg-yellow-400 px-5 py-3.5 text-center font-black uppercase tracking-wide text-black transition hover:bg-yellow-300"
+                      className="rounded-xl bg-yellow-400 px-5 py-3.5 text-center font-black uppercase tracking-wide text-black transition hover:bg-yellow-300 sm:col-span-2"
                     >
                       {copiado === cupom.id
                         ? "✅ Copiado · Ir para a loja"
                         : "Usar cupom"}
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => void compartilhar(cupom)}
+                      className="rounded-xl border border-white/15 px-4 py-3 text-sm font-black text-white transition hover:border-yellow-400/60 hover:text-yellow-300"
+                    >
+                      {compartilhado === cupom.id ? "✅ Link copiado" : "📲 Compartilhar"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => void reportar(cupom)}
