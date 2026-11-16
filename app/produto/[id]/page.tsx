@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 import ProdutoGaleria from "./ProdutoGaleria";
+import ProdutoCompartilhar from "./ProdutoCompartilhar";
 
 export const dynamic = "force-dynamic";
 
@@ -366,6 +367,22 @@ export default async function ProdutoPage({
               >
                 Ver oferta
               </a>
+
+              <ProdutoCompartilhar
+                titulo={
+                  produto.compartilhamento_titulo?.trim() ||
+                  (temPrecoAtivo
+                    ? `🔥 ${moeda(produto.preco_atual)} • ${produto.nome}`
+                    : produto.nome)
+                }
+                descricao={
+                  produto.compartilhamento_descricao?.trim() ||
+                  (temPrecoAtivo
+                    ? `${produto.preco_antigo && Number(produto.preco_antigo) > Number(produto.preco_atual) ? `De ${moeda(produto.preco_antigo)} por ${moeda(produto.preco_atual)}. ` : `${moeda(produto.preco_atual)}. `}${produto.loja} • Oferta encontrada pelo Achados do Casal. Confira preço e disponibilidade.`
+                    : `Confira este achado no Achados do Casal.`)
+                }
+                url={url}
+              />
             </div>
           ) : produto.review_completa ? (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
