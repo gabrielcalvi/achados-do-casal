@@ -311,6 +311,12 @@ export default function Home() {
             >
               ✈️ Viagens
             </Link>
+            <Link
+              href="/gamer"
+              className="whitespace-nowrap rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-red-600"
+            >
+              🎮 Gamer
+            </Link>
           </div>
         </div>
 
@@ -334,7 +340,6 @@ export default function Home() {
           <div className="border-t border-slate-100 bg-slate-50">
             <div className="mx-auto flex max-w-7xl gap-4 overflow-x-auto px-5 py-2 text-xs font-bold text-slate-500">
               <Link href="/economize" className="whitespace-nowrap hover:text-emerald-700">Central Economize</Link>
-              <a href="https://chat.whatsapp.com/DMC6VCIcuMBJMfbfdIk8SZ?s=sh&p=i&ilr=4&amv=0" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-green-700">WhatsApp</a>
               <a href="https://www.instagram.com/achadosdocasal26/" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-pink-600">Instagram</a>
               <Link href="/gamer" className="whitespace-nowrap hover:text-red-600">Gamer</Link>
             </div>
