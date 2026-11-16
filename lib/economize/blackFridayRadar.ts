@@ -163,6 +163,7 @@ const CUPONATION_DIRETA: Record<string, string> = {
   boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
   "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
   sephora: "https://www.cuponation.com.br/desconto-sephora",
+  decolar: "https://www.cuponation.com.br/cupom-de-desconto-decolar",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
@@ -390,6 +391,7 @@ const FONTES_OFICIAIS: Record<string, string> = {
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
   nespresso: "https://www.nespresso.com/br/pt",
   gocase: "https://www.gocase.com.br/degocase",
+  decolar: "https://www.decolar.com/black-friday",
 };
 
 function dataBrasiliaParaIso(
