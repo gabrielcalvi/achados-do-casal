@@ -353,13 +353,20 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
       ultimoUsoMs <= agora + 5 * 60_000 &&
       agora - ultimoUsoMs <= 72 * 60 * 60 * 1000;
 
+    const beneficioBom =
+      benef.bom ||
+      (loja.slug === "decolar" &&
+        benef.tipo === "percentual" &&
+        (benef.percentual ?? 0) >= 5);
+
     let score = 5;
     if (publicado) score += 20;
     if (vigente) score += 20;
-    if (benef.bom) score += 20;
+    if (beneficioBom) score += 20;
     if (usoRecente) score += 35;
 
-    const autoAprovado = publicado && vigente && benef.bom && usoRecente && score >= 95;
+    const autoAprovado =
+      publicado && vigente && beneficioBom && usoRecente && score >= 95;
 
     descobertos.set(codigo, {
       codigo,
@@ -905,7 +912,30 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
   let cupons = oficiais;
   let fonte = oficiais[0]?.fonteUrl || null;
 
-  if (cupons.length === 0) {
+  if (lojaDef.slug === "decolar") {
+    // Para a Decolar, combinamos a página oficial com a fonte pública
+    // verificada. A página oficial confirma códigos destacados, enquanto
+    // a Cuponation expõe um conjunto maior com validade e uso recente.
+    const resultados = await buscarCuponation(lojaDef);
+    const fonteCuponation = resultados[0]?.url || null;
+    const externos = fonteCuponation
+      ? await extrairCuponsCuponation(lojaDef, fonteCuponation)
+      : [];
+    const agora = Date.now();
+    const vigentes = externos.filter((cupom) => {
+      if (!cupom.validade) return true;
+      const validade = Date.parse(cupom.validade);
+      return Number.isFinite(validade) && validade > agora;
+    });
+
+    const porCodigo = new Map<string, CupomDescoberto>();
+    for (const cupom of vigentes) porCodigo.set(cupom.codigo, cupom);
+    // Se o mesmo código aparecer nas duas fontes, a confirmação oficial vence.
+    for (const cupom of oficiais) porCodigo.set(cupom.codigo, cupom);
+
+    cupons = Array.from(porCodigo.values()).sort((a, b) => b.score - a.score);
+    fonte = oficiais[0]?.fonteUrl || fonteCuponation;
+  } else if (cupons.length === 0) {
     const resultados = await buscarCuponation(lojaDef);
     fonte = resultados[0]?.url || null;
     if (fonte) {
@@ -930,7 +960,8 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
   let ativos = 0;
   let pendentes = 0;
 
-  for (const cupom of cupons.slice(0, 20)) {
+  const limiteCupons = lojaDef.slug === "decolar" ? 40 : 20;
+  for (const cupom of cupons.slice(0, limiteCupons)) {
     const salvo = await salvarCupomBlackFriday(lojaDef, cupom);
     dedupes.push(`bf2026:${lojaDef.slug}:${cupom.codigo}`);
     if ((salvo as any).ignoradoDuplicado) continue;
