@@ -59,7 +59,7 @@ export default function ViagensPage() {
             <p className="text-sm font-black uppercase tracking-widest text-cyan-200">Pesquisa sob demanda</p>
             <h2 className="mt-3 text-3xl font-black">Menos robô procurando vazio.<br />Mais pesquisa para quem quer viajar.</h2>
             <p className="mt-5 text-sm leading-6 text-sky-100">
-              O Radar automático de voos foi pausado para reduzir custo. A estrutura continua disponível no admin e as pesquisas são feitas manualmente quando alguém solicita uma rota.
+              Você informa destino, período e número de passageiros. A gente pesquisa as melhores possibilidades para a sua viagem, considerando preço, duração, escalas e condições de pagamento.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-sky-200">Voos</p><p className="mt-1 text-xl font-black">Sob demanda</p></div>
