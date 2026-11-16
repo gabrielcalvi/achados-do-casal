@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 import ProdutoGaleria from "./ProdutoGaleria";
+import CompartilharProduto from "./CompartilharProduto";
 
 export const dynamic = "force-dynamic";
 
@@ -366,6 +367,15 @@ export default async function ProdutoPage({
               >
                 Ver oferta
               </a>
+
+              <CompartilharProduto
+                url={url}
+                titulo={
+                  produto.compartilhamento_titulo?.trim() ||
+                  `🔥 ${moeda(produto.preco_atual) || ""} • ${produto.nome}`
+                }
+                descricao={produto.compartilhamento_descricao}
+              />
             </div>
           ) : produto.review_completa ? (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
