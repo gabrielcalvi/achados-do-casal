@@ -6,6 +6,12 @@ import type { LojaBlackFriday } from "@/lib/economize/blackFridayRadar";
  */
 export const LOJAS_BLACK_FRIDAY_EXTRAS: LojaBlackFriday[] = [
   {
+    nome: "Decolar",
+    slug: "decolar",
+    dominio: "decolar.com",
+    homepage: "https://www.decolar.com/",
+  },
+  {
     nome: "Tramontina",
     slug: "tramontina",
     dominio: "tramontina.com.br",
