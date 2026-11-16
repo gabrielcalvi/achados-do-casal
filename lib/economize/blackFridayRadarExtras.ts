@@ -12,6 +12,24 @@ export const LOJAS_BLACK_FRIDAY_EXTRAS: LojaBlackFriday[] = [
     homepage: "https://www.tramontina.com.br/",
   },
   {
+    nome: "Cobasi",
+    slug: "cobasi",
+    dominio: "cobasi.com.br",
+    homepage: "https://www.cobasi.com.br/",
+  },
+  {
+    nome: "Microsoft Store / Xbox",
+    slug: "microsoft-store",
+    dominio: "microsoft.com",
+    homepage: "https://www.microsoft.com/pt-br/store/b/home",
+  },
+  {
+    nome: "Nuuvem",
+    slug: "nuuvem",
+    dominio: "nuuvem.com",
+    homepage: "https://www.nuuvem.com/br-pt/",
+  },
+  {
     nome: "Farmácias São João",
     slug: "farmacias-sao-joao",
     dominio: "saojoaofarmacias.com.br",
