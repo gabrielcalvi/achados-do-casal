@@ -261,6 +261,13 @@ export default function Home() {
     pesquisa.trim() === "" &&
     ofertasAwin.length > 0;
 
+  function irParaResultados() {
+    document.getElementById("ofertas")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <header className="relative z-50 border-b border-slate-200 bg-white shadow-sm lg:sticky lg:top-0">
@@ -273,7 +280,13 @@ export default function Home() {
             />
           </a>
 
-          <div className="flex min-w-0 flex-1 gap-2 xl:max-w-2xl">
+          <form
+            className="flex min-w-0 flex-1 gap-2 xl:max-w-2xl"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+              irParaResultados();
+            }}
+          >
             <input
               type="search"
               value={pesquisa}
@@ -281,10 +294,13 @@ export default function Home() {
               placeholder="Pesquisar produtos, categorias ou lojas..."
               className="h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-4 outline-none transition focus:border-blue-900 focus:bg-white"
             />
-            <button className="hidden rounded-xl bg-blue-950 px-6 font-bold text-white hover:bg-blue-900 sm:block">
+            <button
+              type="submit"
+              className="hidden rounded-xl bg-blue-950 px-6 font-bold text-white hover:bg-blue-900 sm:block"
+            >
               Buscar
             </button>
-          </div>
+          </form>
 
           <div className="flex shrink-0 items-center gap-2 overflow-x-auto">
             <a
@@ -321,7 +337,7 @@ export default function Home() {
         </div>
 
         <div className="border-t border-slate-100">
-          <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-5 py-3">
+          <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categorias.map((categoria) => (
               <button
                 key={categoria}
@@ -341,7 +357,6 @@ export default function Home() {
             <div className="mx-auto flex max-w-7xl gap-4 overflow-x-auto px-5 py-2 text-xs font-bold text-slate-500">
               <Link href="/economize" className="whitespace-nowrap hover:text-emerald-700">Central Economize</Link>
               <a href="https://www.instagram.com/achadosdocasal26/" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-pink-600">Instagram</a>
-              <Link href="/gamer" className="whitespace-nowrap hover:text-red-600">Gamer</Link>
             </div>
           </div>
         </div>
@@ -392,14 +407,12 @@ export default function Home() {
               >
                 Ver ofertas
               </a>
-              <a
-                href="https://chat.whatsapp.com/DMC6VCIcuMBJMfbfdIk8SZ?s=sh&p=i&ilr=4&amv=0"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href="/reviews"
                 className="rounded-xl border border-white/40 px-6 py-4 font-black text-white hover:bg-white/10"
               >
-                Entrar no grupo
-              </a>
+                ⭐ Ver reviews
+              </Link>
             </div>
           </div>
 
