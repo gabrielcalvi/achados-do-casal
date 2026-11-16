@@ -289,31 +289,31 @@ export default function Home() {
           <div className="flex shrink-0 items-center gap-2 overflow-x-auto">
             <a
               href="#ofertas"
-              className="whitespace-nowrap rounded-xl bg-blue-950 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-900"
+              className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-blue-950 px-3 text-sm font-black text-white transition hover:bg-blue-900"
             >
               🔥 Ofertas
             </a>
             <Link
               href="/reviews"
-              className="whitespace-nowrap rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+              className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-amber-400 px-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
             >
               ⭐ Reviews
             </Link>
             <Link
               href="/black-friday"
-              className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+              className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-black text-white transition hover:bg-emerald-700"
             >
               💰 Cupons
             </Link>
             <Link
               href="/viagens"
-              className="whitespace-nowrap rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
+              className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-sky-600 px-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
             >
               ✈️ Viagens
             </Link>
             <Link
               href="/gamer"
-              className="whitespace-nowrap rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-red-600"
+              className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-red-600"
             >
               🎮 Gamer
             </Link>
