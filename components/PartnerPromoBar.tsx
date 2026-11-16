@@ -44,7 +44,7 @@ export default function PartnerPromoBar() {
         const dados = (await resposta.json()) as RespostaParceiros;
         if (ativo) setParceiros((dados.parceiros ?? []).slice(0, 6));
       } catch {
-        // A barra continua útil com o acesso aos reviews mesmo se a API falhar.
+        // A barra permanece oculta quando não há destaques carregados.
       }
     }
 
@@ -64,13 +64,6 @@ export default function PartnerPromoBar() {
   return (
     <div className="bg-black text-white">
       <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-5 py-2.5 text-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <Link
-          href="/reviews"
-          className="inline-flex shrink-0 items-center rounded-full bg-amber-400 px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-slate-950 transition hover:bg-amber-300"
-        >
-          ⭐ Reviews do Casal
-        </Link>
-
         {parceiros.map((parceiro) => (
           <Link
             key={parceiro.slug}
