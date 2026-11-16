@@ -126,9 +126,17 @@ export async function generateMetadata({
   const { produto } = dados;
   const url = `${BASE_URL}/produto/${produto.id}`;
   const preco = produto.ativo ? moeda(produto.preco_atual) : null;
+  const precoAntigo =
+    produto.ativo &&
+    produto.preco_antigo &&
+    Number(produto.preco_antigo) > Number(produto.preco_atual)
+      ? moeda(produto.preco_antigo)
+      : null;
   const titulo = produto.review_completa
     ? `${produto.nome}: review do casal`
-    : `${produto.nome}: preço e oferta`;
+    : preco
+      ? `🔥 ${preco} • ${produto.nome}`
+      : `${produto.nome}: preço e oferta`;
 
   const baseDescricao =
     produto.review_completa && produto.opiniao_casal
@@ -136,8 +144,10 @@ export async function generateMetadata({
       : produto.descricao;
 
   const description =
-    textoLimpo(baseDescricao) ||
-    `${produto.nome} na ${produto.loja}${preco ? ` por ${preco}` : ""}. Confira detalhes no Achados do Casal.`;
+    produto.ativo && preco
+      ? `${precoAntigo ? `De ${precoAntigo} por ${preco}. ` : `${preco}. `}${produto.loja} • Oferta encontrada pelo Achados do Casal. Confira preço e disponibilidade.`
+      : textoLimpo(baseDescricao) ||
+        `${produto.nome} na ${produto.loja}. Confira detalhes no Achados do Casal.`;
 
   return {
     title: { absolute: `${titulo} | Achados do Casal` },
