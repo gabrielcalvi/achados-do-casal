@@ -95,6 +95,8 @@ export const LOJAS_BLACK_FRIDAY: LojaBlackFriday[] = [
   { nome: "Localiza", slug: "localiza", dominio: "localiza.com", homepage: "https://www.localiza.com/brasil/pt-br" },
   { nome: "Movida", slug: "movida", dominio: "movida.com.br", homepage: "https://www.movida.com.br/" },
   { nome: "Rentcars", slug: "rentcars", dominio: "rentcars.com", homepage: "https://www.rentcars.com/" },
+  { nome: "Rentalcars.com", slug: "rentalcars", dominio: "rentalcars.com", homepage: "https://www.rentalcars.com/br/" },
+  { nome: "Unidas", slug: "unidas", dominio: "unidas.com.br", homepage: "https://www.unidas.com.br/" },
   { nome: "Civitatis", slug: "civitatis", dominio: "civitatis.com", homepage: "https://www.civitatis.com/pt/" },
   { nome: "Beach Park", slug: "beach-park", dominio: "beachpark.com.br", homepage: "https://www.beachpark.com.br/" },
   { nome: "CVC", slug: "cvc", dominio: "cvc.com.br", homepage: "https://www.cvc.com.br/" },
