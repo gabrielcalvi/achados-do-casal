@@ -163,6 +163,7 @@ const CUPONATION_DIRETA: Record<string, string> = {
   boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
   "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
   sephora: "https://www.cuponation.com.br/desconto-sephora",
+  decolar: "https://www.cuponation.com.br/cupom-de-desconto-decolar",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
@@ -352,13 +353,20 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
       ultimoUsoMs <= agora + 5 * 60_000 &&
       agora - ultimoUsoMs <= 72 * 60 * 60 * 1000;
 
+    const beneficioBom =
+      benef.bom ||
+      (loja.slug === "decolar" &&
+        benef.tipo === "percentual" &&
+        (benef.percentual ?? 0) >= 5);
+
     let score = 5;
     if (publicado) score += 20;
     if (vigente) score += 20;
-    if (benef.bom) score += 20;
+    if (beneficioBom) score += 20;
     if (usoRecente) score += 35;
 
-    const autoAprovado = publicado && vigente && benef.bom && usoRecente && score >= 95;
+    const autoAprovado =
+      publicado && vigente && beneficioBom && usoRecente && score >= 95;
 
     descobertos.set(codigo, {
       codigo,
@@ -390,6 +398,7 @@ const FONTES_OFICIAIS: Record<string, string> = {
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
   nespresso: "https://www.nespresso.com/br/pt",
   gocase: "https://www.gocase.com.br/degocase",
+  decolar: "https://www.decolar.com/black-friday",
 };
 
 function dataBrasiliaParaIso(
@@ -447,7 +456,124 @@ function tituloOficial(loja: LojaBlackFriday, codigo: string, benef: ReturnType<
   return `Cupom ${loja.nome} ${codigo}`;
 }
 
+function beneficioExplicitoDecolar(contexto: string) {
+  const trecho = contexto.replace(/\s+/g, " ").trim();
+
+  const percentual = trecho.match(/(?:at[eé]\s+)?(\d{1,2}(?:[.,]\d+)?)\s*%\s*(?:OFF|de\s+desconto|menos)/i);
+  if (percentual) {
+    const valor = Number(percentual[1].replace(",", "."));
+    if (Number.isFinite(valor) && valor > 0 && valor <= 90) {
+      return {
+        tipo: "percentual" as const,
+        percentual: valor,
+        valor: null,
+      };
+    }
+  }
+
+  const fixo = trecho.match(/(?:at[eé]\s+)?R\$\s*([\d.]+(?:,\d{1,2})?)\s*(?:OFF|de\s+desconto|menos|extra)/i);
+  if (fixo) {
+    const valor = Number(fixo[1].replace(/\./g, "").replace(",", "."));
+    if (Number.isFinite(valor) && valor > 0) {
+      return {
+        tipo: "valor_fixo" as const,
+        percentual: null,
+        valor,
+      };
+    }
+  }
+
+  return {
+    tipo: "outro" as const,
+    percentual: null,
+    valor: null,
+  };
+}
+
+async function extrairCuponsDecolarOficial() {
+  const fontes = [
+    "https://www.decolar.com/black-friday",
+    "https://www.decolar.com/black-friday?highlight=azul",
+    "https://www.decolar.com/black-friday?highlight=brisa",
+    "https://www.decolar.com/black-friday?highlight=sky",
+  ];
+
+  const encontrados = new Map<string, CupomDescoberto>();
+
+  for (const fonteUrl of fontes) {
+    const resposta = await fetch(fonteUrl, {
+      cache: "no-store",
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+      },
+    });
+    if (!resposta.ok) continue;
+
+    const html = await resposta.text();
+    const $ = load(html);
+    $("script,style,noscript").remove();
+    const corpo = $("body").html() || $.root().html() || html;
+    const texto = corpo
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&#x27;|&#39;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const regex = /(?:cupom\s*:?\s*|aproveite\s+o\s+cupom\s+)([A-Z0-9_-]{4,24})(?=\s|$)/gi;
+
+    for (const match of texto.matchAll(regex)) {
+      const codigo = String(match[1] || "").trim().toUpperCase();
+      if (!codigoAceitavel(codigo, {
+        nome: "Decolar",
+        slug: "decolar",
+        dominio: "decolar.com",
+        homepage: "https://www.decolar.com/",
+      })) continue;
+
+      const indice = match.index ?? 0;
+      const antes = texto.slice(Math.max(0, indice - 140), indice);
+      const benef = beneficioExplicitoDecolar(antes);
+      const titulo =
+        benef.tipo === "percentual" && benef.percentual
+          ? `Cupom Decolar ${codigo}: ${benef.percentual}% OFF`
+          : benef.tipo === "valor_fixo" && benef.valor
+            ? `Cupom Decolar ${codigo}: R$ ${benef.valor} OFF`
+            : `Cupom Decolar ${codigo}`;
+
+      encontrados.set(codigo, {
+        codigo,
+        titulo,
+        tipoDesconto: benef.tipo,
+        descontoPercentual: benef.percentual,
+        valorDesconto: benef.valor,
+        inicio: null,
+        validade: null,
+        ultimoUso: null,
+        publicadoNaFonte: true,
+        score: 100,
+        autoAprovado: true,
+        fonteUrl,
+        fonteHost: "www.decolar.com",
+        fonteOficial: true,
+        fonteNome: "Decolar oficial",
+      });
+    }
+  }
+
+  return Array.from(encontrados.values());
+}
+
 export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
+  if (loja.slug === "decolar") {
+    return extrairCuponsDecolarOficial();
+  }
+
   const fonteUrl = FONTES_OFICIAIS[loja.slug];
   if (!fonteUrl) return [] as CupomDescoberto[];
 
@@ -786,7 +912,30 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
   let cupons = oficiais;
   let fonte = oficiais[0]?.fonteUrl || null;
 
-  if (cupons.length === 0) {
+  if (lojaDef.slug === "decolar") {
+    // Para a Decolar, combinamos a página oficial com a fonte pública
+    // verificada. A página oficial confirma códigos destacados, enquanto
+    // a Cuponation expõe um conjunto maior com validade e uso recente.
+    const resultados = await buscarCuponation(lojaDef);
+    const fonteCuponation = resultados[0]?.url || null;
+    const externos = fonteCuponation
+      ? await extrairCuponsCuponation(lojaDef, fonteCuponation)
+      : [];
+    const agora = Date.now();
+    const vigentes = externos.filter((cupom) => {
+      if (!cupom.validade) return true;
+      const validade = Date.parse(cupom.validade);
+      return Number.isFinite(validade) && validade > agora;
+    });
+
+    const porCodigo = new Map<string, CupomDescoberto>();
+    for (const cupom of vigentes) porCodigo.set(cupom.codigo, cupom);
+    // Se o mesmo código aparecer nas duas fontes, a confirmação oficial vence.
+    for (const cupom of oficiais) porCodigo.set(cupom.codigo, cupom);
+
+    cupons = Array.from(porCodigo.values()).sort((a, b) => b.score - a.score);
+    fonte = oficiais[0]?.fonteUrl || fonteCuponation;
+  } else if (cupons.length === 0) {
     const resultados = await buscarCuponation(lojaDef);
     fonte = resultados[0]?.url || null;
     if (fonte) {
@@ -811,7 +960,8 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
   let ativos = 0;
   let pendentes = 0;
 
-  for (const cupom of cupons.slice(0, 20)) {
+  const limiteCupons = lojaDef.slug === "decolar" ? 40 : 20;
+  for (const cupom of cupons.slice(0, limiteCupons)) {
     const salvo = await salvarCupomBlackFriday(lojaDef, cupom);
     dedupes.push(`bf2026:${lojaDef.slug}:${cupom.codigo}`);
     if ((salvo as any).ignoradoDuplicado) continue;
