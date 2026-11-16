@@ -449,7 +449,124 @@ function tituloOficial(loja: LojaBlackFriday, codigo: string, benef: ReturnType<
   return `Cupom ${loja.nome} ${codigo}`;
 }
 
+function beneficioExplicitoDecolar(contexto: string) {
+  const trecho = contexto.replace(/\s+/g, " ").trim();
+
+  const percentual = trecho.match(/(?:at[eé]\s+)?(\d{1,2}(?:[.,]\d+)?)\s*%\s*(?:OFF|de\s+desconto|menos)/i);
+  if (percentual) {
+    const valor = Number(percentual[1].replace(",", "."));
+    if (Number.isFinite(valor) && valor > 0 && valor <= 90) {
+      return {
+        tipo: "percentual" as const,
+        percentual: valor,
+        valor: null,
+      };
+    }
+  }
+
+  const fixo = trecho.match(/(?:at[eé]\s+)?R\$\s*([\d.]+(?:,\d{1,2})?)\s*(?:OFF|de\s+desconto|menos|extra)/i);
+  if (fixo) {
+    const valor = Number(fixo[1].replace(/\./g, "").replace(",", "."));
+    if (Number.isFinite(valor) && valor > 0) {
+      return {
+        tipo: "valor_fixo" as const,
+        percentual: null,
+        valor,
+      };
+    }
+  }
+
+  return {
+    tipo: "outro" as const,
+    percentual: null,
+    valor: null,
+  };
+}
+
+async function extrairCuponsDecolarOficial() {
+  const fontes = [
+    "https://www.decolar.com/black-friday",
+    "https://www.decolar.com/black-friday?highlight=azul",
+    "https://www.decolar.com/black-friday?highlight=brisa",
+    "https://www.decolar.com/black-friday?highlight=sky",
+  ];
+
+  const encontrados = new Map<string, CupomDescoberto>();
+
+  for (const fonteUrl of fontes) {
+    const resposta = await fetch(fonteUrl, {
+      cache: "no-store",
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+      },
+    });
+    if (!resposta.ok) continue;
+
+    const html = await resposta.text();
+    const $ = load(html);
+    $("script,style,noscript").remove();
+    const corpo = $("body").html() || $.root().html() || html;
+    const texto = corpo
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&#x27;|&#39;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const regex = /(?:cupom\s*:?\s*|aproveite\s+o\s+cupom\s+)([A-Z0-9_-]{4,24})(?=\s|$)/gi;
+
+    for (const match of texto.matchAll(regex)) {
+      const codigo = String(match[1] || "").trim().toUpperCase();
+      if (!codigoAceitavel(codigo, {
+        nome: "Decolar",
+        slug: "decolar",
+        dominio: "decolar.com",
+        homepage: "https://www.decolar.com/",
+      })) continue;
+
+      const indice = match.index ?? 0;
+      const antes = texto.slice(Math.max(0, indice - 140), indice);
+      const benef = beneficioExplicitoDecolar(antes);
+      const titulo =
+        benef.tipo === "percentual" && benef.percentual
+          ? `Cupom Decolar ${codigo}: ${benef.percentual}% OFF`
+          : benef.tipo === "valor_fixo" && benef.valor
+            ? `Cupom Decolar ${codigo}: R$ ${benef.valor} OFF`
+            : `Cupom Decolar ${codigo}`;
+
+      encontrados.set(codigo, {
+        codigo,
+        titulo,
+        tipoDesconto: benef.tipo,
+        descontoPercentual: benef.percentual,
+        valorDesconto: benef.valor,
+        inicio: null,
+        validade: null,
+        ultimoUso: null,
+        publicadoNaFonte: true,
+        score: 100,
+        autoAprovado: true,
+        fonteUrl,
+        fonteHost: "www.decolar.com",
+        fonteOficial: true,
+        fonteNome: "Decolar oficial",
+      });
+    }
+  }
+
+  return Array.from(encontrados.values());
+}
+
 export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
+  if (loja.slug === "decolar") {
+    return extrairCuponsDecolarOficial();
+  }
+
   const fonteUrl = FONTES_OFICIAIS[loja.slug];
   if (!fonteUrl) return [] as CupomDescoberto[];
 
