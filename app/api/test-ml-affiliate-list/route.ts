@@ -86,6 +86,7 @@ export async function GET() {
       url_final: r.urlFinal,
       bytes: r.texto.length,
       jsonld: extrairPrecos(r.texto),
+      item_ids: [...new Set((r.texto.match(/MLB-?\\d{8,}/gi) || []).map((id) => id.toUpperCase().replace(/-/g, "")))].slice(0, 200),
       precos_texto: dados.precos,
       amostra_texto: dados.amostra,
       bloqueio: /captcha|account-verification|verifica[cç][aã]o de seguran[cç]a/i.test(r.texto) || /account-verification/.test(r.urlFinal),
