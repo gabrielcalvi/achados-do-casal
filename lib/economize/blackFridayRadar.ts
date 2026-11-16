@@ -623,8 +623,8 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     titulo: cupom.titulo,
     descricao: cupom.fonteOficial
       ? `Cupom ${lojaDef.nome} confirmado diretamente em fonte oficial da loja.`
-      : `Cupom ${lojaDef.nome} encontrado pelo Radar Black Friday e verificado em fonte pública com registro de uso recente.`,
-    regras: "Confira as condições finais no carrinho da loja. Cupom monitorado durante a Black Friday.",
+      : `Cupom ${lojaDef.nome} encontrado pelo Radar de Cupons e verificado em fonte pública com registro de uso recente.`,
+    regras: "Confira as condições finais no carrinho da loja. Cupom monitorado e revalidado automaticamente.",
     tipo_desconto: cupom.tipoDesconto,
     desconto_percentual: cupom.descontoPercentual,
     valor_desconto: cupom.valorDesconto,
@@ -670,7 +670,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
       ? `Código ${cupom.codigo} confirmado na fonte oficial da ${lojaDef.nome}.`
       : `Código ${cupom.codigo} com uso recente registrado. Confira as condições na ${lojaDef.nome}.`,
     codigo: cupom.codigo,
-    categoria: "Black Friday",
+    categoria: Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? "Black Friday" : "Cupons",
     regras: "Confira elegibilidade e condições no carrinho da loja.",
     imagem_url: null,
     link_destino: lojaDef.homepage,
@@ -680,7 +680,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     data_inicio: cupom.inicio,
     validade,
     destaque: (cupom.descontoPercentual ?? 0) >= 20 || (cupom.valorDesconto ?? 0) >= 50,
-    selos: ["BLACK FRIDAY", "VERIFICADO", "TRÁFEGO"],
+    selos: Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? ["BLACK FRIDAY", "VERIFICADO", "TRÁFEGO"] : ["CUPOM", "VERIFICADO", "TRÁFEGO"],
     origem: BLACK_FRIDAY_ORIGEM,
     origem_url: cupom.fonteUrl,
     dedupe_key: dedupe,
