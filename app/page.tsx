@@ -49,6 +49,9 @@ type ReviewHome = {
   data_inicio_uso: string | null;
   video_url: string | null;
   tem_em_casa: boolean | null;
+  ativo: boolean | null;
+  preco_atual: number | null;
+  preco_antigo: number | null;
 };
 
 const categorias = [
@@ -141,7 +144,7 @@ export default function Home() {
     async function carregarReviews() {
       const { data, error } = await supabase
         .from("produtos")
-        .select("id,nome,loja,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa")
+        .select("id,nome,loja,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa,ativo,preco_atual,preco_antigo")
         .eq("review_completa", true)
         .order("id", { ascending: false })
         .limit(3);
@@ -244,9 +247,11 @@ export default function Home() {
 
   const produtosFiltrados = useMemo(() => {
     const termo = pesquisa.trim().toLowerCase();
+    const reviewsNoTopo = new Set(reviewsRecentes.map((review) => review.id));
 
     return produtos.filter(
       (produto) =>
+        !reviewsNoTopo.has(produto.id) &&
         (categoriaAtiva === "Todos" ||
           produto.categoria === categoriaAtiva) &&
         (!termo ||
@@ -254,7 +259,7 @@ export default function Home() {
           produto.loja.toLowerCase().includes(termo) ||
           produto.categoria.toLowerCase().includes(termo)),
     );
-  }, [pesquisa, categoriaAtiva, produtos]);
+  }, [pesquisa, categoriaAtiva, produtos, reviewsRecentes]);
 
   const mostrarSelecaoAwin =
     categoriaAtiva === "Todos" &&
@@ -483,12 +488,39 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
-                  <Link
-                    href={`/produto/${review.id}`}
-                    className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-blue-950 px-4 text-sm font-black text-white hover:bg-blue-900"
-                  >
-                    Ver review
-                  </Link>
+                  {review.ativo && Number(review.preco_atual) > 0 ? (
+                    <div className="mt-4 rounded-xl bg-emerald-50 px-3 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">
+                        Oferta atual
+                      </p>
+                      {review.preco_antigo &&
+                      Number(review.preco_antigo) > Number(review.preco_atual) ? (
+                        <p className="mt-1 text-xs text-slate-400 line-through">
+                          De {formatarPreco(Number(review.preco_antigo))}
+                        </p>
+                      ) : null}
+                      <p className="mt-0.5 text-xl font-black text-emerald-700">
+                        {formatarPreco(Number(review.preco_atual))}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className={`mt-4 grid gap-2 ${review.ativo && Number(review.preco_atual) > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    <Link
+                      href={`/produto/${review.id}`}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border-2 border-blue-950 bg-white px-3 text-center text-sm font-black text-blue-950 transition hover:bg-slate-50"
+                    >
+                      🔎 Ver review
+                    </Link>
+                    {review.ativo && Number(review.preco_atual) > 0 ? (
+                      <a
+                        href={`/produto/${review.id}/ir?origem=home_review`}
+                        className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-950 px-3 text-center text-sm font-black text-white transition hover:bg-blue-900"
+                      >
+                        🛒 Ver oferta
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}
