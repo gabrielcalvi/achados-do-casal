@@ -116,7 +116,8 @@ Nos 30 minutos finais da auditoria:
 Ocorrências recentes encontradas no histórico de 24h/7d:
 1. `/api/admin/economize/catalogo/revisar`: falhas esporádicas `JWT issued at future` ao falar com Supabase. O Supabase Health Advisor não reportou falhas e a produção terminou a auditoria sem novos erros; acompanhar como incidente intermitente, não como quebra estrutural confirmada.
 2. `/api/preparar-produto`: erro ao tentar identificar catálogo/User Product em um link Mercado Livre. Isso reforça a decisão operacional de manter o cadastro de produtos ML manual quando o formato não for reconhecido.
-3. Radar de Viagens Expandido: histórico de respostas Ignav HTTP 424 em várias rotas; manter diagnóstico/watchdog e não tratar como erro do frontend público.
+3. **Piloto ML Price Monitor V3 — 16/11/2026:** foi testada a API oficial nova de preços do Mercado Livre em **todos os 7 produtos ML ativos**. Para cada ITEM_ID conhecido, foram consultados `GET /items/{ITEM_ID}/sale_price?context=channel_marketplace` e `GET /items/{ITEM_ID}/prices` com o OAuth válido do projeto. Resultado: **7/7 retornaram HTTP 403 `Access to the requested resource is forbidden` nos dois endpoints**. Nenhum preço foi alterado. Conclusão operacional atual: manter produtos Mercado Livre com `monitoramento_manual=true`; não reativar automação de preço baseada em API até existir permissão/integração oficial que permita ler preços de anúncios de terceiros. O endpoint temporário usado no preview foi removido após o teste.
+4. Radar de Viagens Expandido: histórico de respostas Ignav HTTP 424 em várias rotas; manter diagnóstico/watchdog e não tratar como erro do frontend público.
 
 ### Supabase Advisors e grants — 16/11/2026
 - Health: sem lints.
@@ -1171,6 +1172,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **16/11/2026** — piloto oficial de preço Mercado Livre executado nos 7 produtos ativos: `/sale_price` e `/prices` retornaram 403 para todos os anúncios de terceiros; nenhuma alteração de preço foi feita e o ML permanece em monitoramento manual.
 - **16/11/2026** — auditoria geral: principais rotas públicas, sitemap e robots validados com HTTP 200; produção auditada em `fa09b8ca` / `dpl_Dd9cssMvP3ifeMAFB6TFoQH4SpoS` READY; janela final de 30 min sem runtime errors/warnings.
 - **16/11/2026** — estado operacional consolidado: 18 produtos ativos, 785 ofertas ativas, 126 cupons ativos no instante da auditoria, 4 reviews completas, 2 produtos com vídeo, 1 venda confirmada e R$ 29,51 de comissão.
 - **16/11/2026** — Resultados Comerciais consolidado com tabela `economize_vendas`, valor vendido, comissão, conversão por canal/parceiro e primeira venda real de 15/11/2026.
