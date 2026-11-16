@@ -1172,6 +1172,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **16/11/2026** — Decolar incluída com urgência no Radar Permanente de Cupons. A ronda combina página oficial da Black Friday da Decolar com Cuponation direta, prioriza códigos vigentes, aceita percentuais de viagem a partir de 5% quando publicados/validados e mantém revalidação a cada 3h. Primeira ronda isolada: 26 cupons vigentes processados, 14 ativos e 12 pendentes; nenhum preço/produto do site foi alterado.
 - **16/11/2026** — piloto oficial de preço Mercado Livre executado nos 7 produtos ativos: `/sale_price` e `/prices` retornaram 403 para todos os anúncios de terceiros; nenhuma alteração de preço foi feita e o ML permanece em monitoramento manual.
 - **16/11/2026** — auditoria geral: principais rotas públicas, sitemap e robots validados com HTTP 200; produção auditada em `fa09b8ca` / `dpl_Dd9cssMvP3ifeMAFB6TFoQH4SpoS` READY; janela final de 30 min sem runtime errors/warnings.
 - **16/11/2026** — estado operacional consolidado: 18 produtos ativos, 785 ofertas ativas, 126 cupons ativos no instante da auditoria, 4 reviews completas, 2 produtos com vídeo, 1 venda confirmada e R$ 29,51 de comissão.
