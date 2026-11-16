@@ -423,8 +423,13 @@ export default function ResultadosComerciaisPage() {
                 <div key={canal.nome}>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-black">{canal.nome}</span>
-                    <span className="font-bold text-slate-500">
-                      {canal.vendas} venda(s) · {moeda(canal.valor)}
+                    <span className="text-right font-bold text-slate-500">
+                      <span className="block">
+                        {canal.vendas} venda(s) · {moeda(canal.valor)}
+                      </span>
+                      <span className="mt-0.5 block text-xs font-black text-emerald-700">
+                        {moeda(canal.comissao)} comissão
+                      </span>
                     </span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
