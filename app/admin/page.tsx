@@ -17,6 +17,9 @@ const [modoCadastro, setModoCadastro] = useState<"ia" | "manual" | null>(null);
 const [produtos, setProdutos] = useState<any[]>([]);
 const [buscaAdmin, setBuscaAdmin] = useState("");
 const [lojaAdmin, setLojaAdmin] = useState("Todas");
+const [statusAdmin, setStatusAdmin] = useState("Todos");
+const [selecionados, setSelecionados] = useState<number[]>([]);
+const [acaoEmLote, setAcaoEmLote] = useState(false);
 const [paginaAtual, setPaginaAtual] = useState(1);
 const [ordenacao, setOrdenacao] = useState("recentes");
 const [mensagemSucesso, setMensagemSucesso] = useState("");
@@ -177,6 +180,84 @@ if (!confirmar) return;
   }
 
   carregarProdutos();
+}
+
+function alternarSelecaoProduto(id: number) {
+  setSelecionados((atuais) =>
+    atuais.includes(id)
+      ? atuais.filter((item) => item !== id)
+      : [...atuais, id]
+  );
+}
+
+async function executarAcaoEmLote(
+  acao: "ativar" | "desativar" | "destacar" | "remover-destaque" | "excluir"
+) {
+  if (selecionados.length === 0 || acaoEmLote) return;
+
+  const quantidade = selecionados.length;
+  const rotulos = {
+    ativar: "ativar",
+    desativar: "desativar",
+    destacar: "colocar em destaque",
+    "remover-destaque": "remover do destaque",
+    excluir: "EXCLUIR PERMANENTEMENTE",
+  };
+
+  const confirmar = window.confirm(
+    acao === "excluir"
+      ? `Tem certeza que deseja EXCLUIR PERMANENTEMENTE ${quantidade} produto(s) selecionado(s)?\n\nEsta ação não pode ser desfeita.`
+      : `Deseja ${rotulos[acao]} ${quantidade} produto(s) selecionado(s)?`
+  );
+
+  if (!confirmar) return;
+
+  setAcaoEmLote(true);
+
+  try {
+    let error: any = null;
+
+    if (acao === "excluir") {
+      const resultado = await supabase
+        .from("produtos")
+        .delete()
+        .in("id", selecionados);
+      error = resultado.error;
+    } else {
+      const alteracoes =
+        acao === "ativar"
+          ? { ativo: true, updated_at: new Date().toISOString() }
+          : acao === "desativar"
+            ? { ativo: false, updated_at: new Date().toISOString() }
+            : acao === "destacar"
+              ? { destaque: true, updated_at: new Date().toISOString() }
+              : { destaque: false, updated_at: new Date().toISOString() };
+
+      const resultado = await supabase
+        .from("produtos")
+        .update(alteracoes)
+        .in("id", selecionados);
+      error = resultado.error;
+    }
+
+    if (error) {
+      console.error(error);
+      alert(error.message || "Não foi possível concluir a ação em lote.");
+      return;
+    }
+
+    setMensagemSucesso(
+      acao === "excluir"
+        ? `${quantidade} produto(s) excluído(s) com sucesso!`
+        : `Ação aplicada em ${quantidade} produto(s)!`
+    );
+    setSelecionados([]);
+    await carregarProdutos();
+
+    setTimeout(() => setMensagemSucesso(""), 3000);
+  } finally {
+    setAcaoEmLote(false);
+  }
 }
 
 async function prepararProdutoComIa() {
@@ -640,7 +721,12 @@ const produtosFiltrados = produtos.filter((produto) => {
   const correspondeLoja =
     lojaAdmin === "Todas" || produto.loja === lojaAdmin;
 
-  return correspondeBusca && correspondeLoja;
+  const correspondeStatus =
+    statusAdmin === "Todos" ||
+    (statusAdmin === "Ativos" && produto.ativo) ||
+    (statusAdmin === "Inativos" && !produto.ativo);
+
+  return correspondeBusca && correspondeLoja && correspondeStatus;
 });
 const produtosOrdenados = [...produtosFiltrados].sort((a, b) => {
   switch (ordenacao) {
@@ -675,6 +761,27 @@ const produtosPaginados = produtosOrdenados.slice(
   indiceInicial,
   indiceFinal
 );
+
+const idsPaginaAtual = produtosPaginados.map((produto) => Number(produto.id));
+const idsFiltrados = produtosOrdenados.map((produto) => Number(produto.id));
+const paginaTodaSelecionada =
+  idsPaginaAtual.length > 0 &&
+  idsPaginaAtual.every((id) => selecionados.includes(id));
+
+function alternarSelecaoPagina() {
+  setSelecionados((atuais) => {
+    if (paginaTodaSelecionada) {
+      return atuais.filter((id) => !idsPaginaAtual.includes(id));
+    }
+    return Array.from(new Set([...atuais, ...idsPaginaAtual]));
+  });
+}
+
+function selecionarTodosFiltrados() {
+  setSelecionados((atuais) =>
+    Array.from(new Set([...atuais, ...idsFiltrados]))
+  );
+}
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-950">
@@ -791,13 +898,19 @@ const produtosPaginados = produtosOrdenados.slice(
     type="search"
     placeholder="Pesquisar por nome, loja ou categoria..."
     value={buscaAdmin}
-    onChange={(e) => setBuscaAdmin(e.target.value)}
+    onChange={(e) => {
+      setBuscaAdmin(e.target.value);
+      setPaginaAtual(1);
+    }}
     className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-900"
   />
 
   <select
     value={lojaAdmin}
-    onChange={(e) => setLojaAdmin(e.target.value)}
+    onChange={(e) => {
+      setLojaAdmin(e.target.value);
+      setPaginaAtual(1);
+    }}
     className="rounded-xl border border-slate-300 bg-white px-4 py-3"
   >
     <option>Todas</option>
@@ -808,6 +921,19 @@ const produtosPaginados = produtosOrdenados.slice(
       </option>
     ))}
  </select>
+
+<select
+  value={statusAdmin}
+  onChange={(e) => {
+    setStatusAdmin(e.target.value);
+    setPaginaAtual(1);
+  }}
+  className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+>
+  <option value="Todos">Todos os status</option>
+  <option value="Ativos">🟢 Somente ativos</option>
+  <option value="Inativos">⚪ Somente inativos</option>
+</select>
 
 <select
   value={ordenacao}
@@ -824,6 +950,90 @@ const produtosPaginados = produtosOrdenados.slice(
   <option value="ativos">🟢 Ativos primeiro</option>
 </select>
 
+</div>
+
+<div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+  <div className="flex flex-wrap items-center gap-3">
+    <label className="flex items-center gap-2 font-bold text-slate-700">
+      <input
+        type="checkbox"
+        checked={paginaTodaSelecionada}
+        onChange={alternarSelecaoPagina}
+        className="h-5 w-5"
+      />
+      Selecionar esta página
+    </label>
+
+    <button
+      type="button"
+      onClick={selecionarTodosFiltrados}
+      disabled={idsFiltrados.length === 0}
+      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold hover:bg-slate-100 disabled:opacity-40"
+    >
+      Selecionar todos filtrados ({idsFiltrados.length})
+    </button>
+
+    {selecionados.length > 0 && (
+      <>
+        <span className="rounded-full bg-blue-100 px-3 py-1.5 text-sm font-black text-blue-800">
+          {selecionados.length} selecionado(s)
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setSelecionados([])}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold hover:bg-slate-100"
+        >
+          Limpar seleção
+        </button>
+      </>
+    )}
+  </div>
+
+  {selecionados.length > 0 && (
+    <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+      <button
+        type="button"
+        disabled={acaoEmLote}
+        onClick={() => executarAcaoEmLote("ativar")}
+        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
+      >
+        🟢 Ativar
+      </button>
+      <button
+        type="button"
+        disabled={acaoEmLote}
+        onClick={() => executarAcaoEmLote("desativar")}
+        className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+      >
+        ⚪ Desativar
+      </button>
+      <button
+        type="button"
+        disabled={acaoEmLote}
+        onClick={() => executarAcaoEmLote("destacar")}
+        className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-black text-yellow-950 hover:bg-yellow-300 disabled:opacity-50"
+      >
+        ⭐ Destacar
+      </button>
+      <button
+        type="button"
+        disabled={acaoEmLote}
+        onClick={() => executarAcaoEmLote("remover-destaque")}
+        className="rounded-lg border border-yellow-300 bg-white px-4 py-2 text-sm font-black text-yellow-800 hover:bg-yellow-50 disabled:opacity-50"
+      >
+        Remover destaque
+      </button>
+      <button
+        type="button"
+        disabled={acaoEmLote}
+        onClick={() => executarAcaoEmLote("excluir")}
+        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50"
+      >
+        🗑️ Excluir selecionados
+      </button>
+    </div>
+  )}
 </div>
 
           <div className="mt-6 space-y-3">
@@ -848,10 +1058,22 @@ const produtosPaginados = produtosOrdenados.slice(
 
       <div
         key={produto.id}
-        className="flex items-center justify-between rounded-xl border p-4"
+        className={`flex items-center justify-between rounded-xl border p-4 transition ${
+          selecionados.includes(produto.id)
+            ? "border-blue-400 bg-blue-50"
+            : "border-slate-200"
+        }`}
       >
 
         <div className="flex items-center gap-4">
+
+  <input
+    type="checkbox"
+    checked={selecionados.includes(produto.id)}
+    onChange={() => alternarSelecaoProduto(produto.id)}
+    className="h-5 w-5 shrink-0"
+    aria-label={`Selecionar ${produto.nome}`}
+  />
 
   <img
     src={produto.imagem}
