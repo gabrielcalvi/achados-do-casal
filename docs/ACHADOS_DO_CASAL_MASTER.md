@@ -5,7 +5,7 @@
 > Este arquivo existe para impedir perda de contexto entre chats, agentes, sessões e meses de desenvolvimento.
 > Antes de alterar o Achados do Casal, leia este arquivo, confira os commits mais recentes da `main`, o estado do deploy de produção e, quando a mudança tocar dados, o estado real do Supabase.
 >
-> **Última consolidação:** 14/11/2026
+> **Última consolidação:** 16/11/2026
 > **Responsável:** Gabriel Calvi / Achados do Casal
 > **Baseline técnico anterior a este documento:** `1c9b071e10308d13443bdda41fc417aceb27fec2`
 > **Commit baseline:** `fix: respeita loja solicitada na coleta Awin`
@@ -63,7 +63,67 @@
 
 ---
 
-## 3. Estado de produção em 14/11/2026
+## 3. Estado de produção — revisão geral em 16/11/2026
+
+### Baseline atual validada
+- Branch de produção: `main`
+- Commit em produção auditado: `fa09b8cac31a1f363504269cc6e1e3010757b33f`
+- Deployment Vercel: `dpl_Dd9cssMvP3ifeMAFB6TFoQH4SpoS`
+- Status: **READY**
+- Domínio principal confirmado: `achadosdocasal.com.br`
+
+Rotas públicas verificadas diretamente na produção com HTTP 200:
+- `/`
+- `/economize`
+- `/black-friday`
+- `/reviews`
+- `/gamer`
+- `/viagens`
+- página de produto
+- página de achado/oferta
+- página de pacote de viagem
+- páginas públicas de parceiros
+- `/sitemap.xml`
+- `/robots.txt`
+
+A página `/lauri-esporte` continua sem vitrine própria útil e cai na Central Economize, preservando a regra de não destacar parceiro sem ofertas reais.
+
+### Estado operacional consultado no Supabase em 16/11/2026
+- 18 produtos ativos
+- 4 reviews completas
+- 2 produtos com vídeo
+- 785 ofertas ativas
+- 126 cupons ativos e válidos no instante da auditoria
+- 1 venda confirmada
+- R$ 299,90 em valor vendido registrado
+- R$ 29,51 em comissão registrada
+
+Qualidade dos dados:
+- 0 produtos ativos sem link de destino
+- 0 produtos ativos sem preço
+- 1 produto ativo sem imagem: produto 105, Galão 5L Speed Power do Mercado Livre
+- 0 ofertas ativas vencidas por data
+- 0 cupons ativos vencidos
+- 0 cupons ativos sem código
+
+### Runtime e integrações
+Nos 30 minutos finais da auditoria:
+- **0 erros de runtime**
+- **0 warnings de runtime**
+
+Ocorrências recentes encontradas no histórico de 24h/7d:
+1. `/api/admin/economize/catalogo/revisar`: falhas esporádicas `JWT issued at future` ao falar com Supabase. O Supabase Health Advisor não reportou falhas e a produção terminou a auditoria sem novos erros; acompanhar como incidente intermitente, não como quebra estrutural confirmada.
+2. `/api/preparar-produto`: erro ao tentar identificar catálogo/User Product em um link Mercado Livre. Isso reforça a decisão operacional de manter o cadastro de produtos ML manual quando o formato não for reconhecido.
+3. Radar de Viagens Expandido: histórico de respostas Ignav HTTP 424 em várias rotas; manter diagnóstico/watchdog e não tratar como erro do frontend público.
+
+### Supabase Advisors — 16/11/2026
+- Health: sem lints.
+- Security: `Leaked Password Protection Disabled` continua como aviso real do Auth.
+- `RLS enabled no policy` aparece em tabelas internas; para tabelas server-only com acesso público revogado isso é comportamento esperado, mas grants devem continuar sendo verificados antes de qualquer mudança.
+- Performance: 5 foreign keys sem índice de cobertura foram sinalizadas como oportunidade de otimização.
+- Índices não utilizados não devem ser removidos automaticamente apenas pelo advisor.
+
+### Histórico anterior — 14/11/2026
 
 Estado final validado após as correções estruturais de social + Viagens:
 
@@ -189,6 +249,22 @@ Há histórico explícito de:
 - preservar link monetizado em integrações e redirecionamentos.
 
 ---
+
+### Radar permanente de Cupons — decisão de 16/11/2026
+A Black Friday virou a campanha de lançamento da central, mas o mecanismo de cupons é **permanente**.
+
+Regras:
+- o radar não encerra mais depois da Black Friday;
+- cron continua a cada 3 horas;
+- após 03/12/2026 a linguagem deixa de ser Black Friday e passa a ser Cupons;
+- validação, deduplicação, expiração e tracking continuam iguais;
+- Cobasi, Microsoft Store/Xbox e Nuuvem foram adicionadas explicitamente ao radar;
+- campanhas sazonais mudam a comunicação, não o motor.
+
+Próxima tematização definida:
+- **Achados de Natal**
+- proposta: cupons, presentes e ofertas monitoradas todos os dias;
+- depois do Natal a central continua funcionando normalmente.
 
 ### Black Friday 2026 — Central de Cupons
 Campanha temporária criada em 14/11/2026 para aproveitar o pico de busca por cupons durante a Black Friday sem depender somente das lojas afiliadas.
@@ -831,6 +907,54 @@ Em novembro de 2026 foram adicionados:
 
 ---
 
+## 9. Consultoria, conteúdo e resultados comerciais
+
+### Painel de Performance do Casal
+Rota: `/admin/economize/performance`.
+
+Funções atuais:
+- meta de 3 vídeos por semana;
+- progresso automático via `video_publicado_em`;
+- fila de próximos vídeos;
+- pautas guiadas por demanda;
+- biblioteca de vídeos publicados;
+- métricas de cliques humanos, sessões e cliques de review;
+- exclusão de bot/admin das métricas principais usando `trafego_tipo = humano_provavel`;
+- botão **+ Adicionar à fila** para escolher produtos cadastrados e sem vídeo.
+
+A fila reutiliza `produtos.tem_em_casa`; não foi criado sistema paralelo.
+
+Regra de interpretação:
+- `cliquesReview` = cliques de compra em contexto de review; não significa leitores/espectadores únicos;
+- sessão não deve ser chamada automaticamente de pessoa única.
+
+### Resultados comerciais
+Rota: `/admin/economize/resultados-comerciais`.
+
+Estrutura atual:
+- tabela `economize_vendas`;
+- vendas confirmadas, pendentes e canceladas;
+- valor vendido;
+- comissão;
+- conversão operacional clique → venda;
+- resultado por canal;
+- resultado por loja/parceiro;
+- cadastro manual enquanto parceiro não fornece integração;
+- estrutura preparada para produto, oferta, campanha e ID externo.
+
+Primeira venda real registrada:
+- 15/11/2026
+- Mercado Livre
+- Galão 5L Combustível Speed Power
+- valor vendido: R$ 299,90
+- comissão: R$ 29,51
+- origem: site
+
+A comissão também aparece no bloco **Conversão por canal**.
+
+### Direção comercial
+O histórico de acessos, cliques, reviews, vídeos e vendas deve ser usado como prova objetiva para buscar novas parcerias. Próximo produto comercial desejado: **Painel/Mídia Kit para Parceiros**, alimentado por dados reais do site.
+
 ## 9. Watchdog e confiabilidade
 
 Tabelas:
@@ -1042,6 +1166,12 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **16/11/2026** — auditoria geral: principais rotas públicas, sitemap e robots validados com HTTP 200; produção auditada em `fa09b8ca` / `dpl_Dd9cssMvP3ifeMAFB6TFoQH4SpoS` READY; janela final de 30 min sem runtime errors/warnings.
+- **16/11/2026** — estado operacional consolidado: 18 produtos ativos, 785 ofertas ativas, 126 cupons ativos no instante da auditoria, 4 reviews completas, 2 produtos com vídeo, 1 venda confirmada e R$ 29,51 de comissão.
+- **16/11/2026** — Resultados Comerciais consolidado com tabela `economize_vendas`, valor vendido, comissão, conversão por canal/parceiro e primeira venda real de 15/11/2026.
+- **16/11/2026** — Performance ampliado com botão `+ Adicionar à fila` para selecionar próximos produtos a gravar.
+- **16/11/2026** — radar de cupons tornado permanente; Cobasi, Microsoft Store/Xbox e Nuuvem incluídas; próxima campanha sazonal definida como **Achados de Natal**.
+- **16/11/2026** — auditoria registrou ocorrências históricas a acompanhar: JWT `issued at future` intermitente no catálogo, link ML não reconhecido pelo preparador e Ignav HTTP 424 no radar expandido de viagens.
 - **14/11/2026** — Central Black Friday chegou a 48 cupons ativos públicos; 44 via radar. Novas lojas validadas: Netshoes, Centauro, O Boticário, Casas Bahia e Sephora. Apple/Gaston seguem monitoradas sem publicação até aparecer evidência confiável.
 - **14/11/2026** — Amazon restaurada temporariamente ao comportamento anterior por decisão operacional: imagem, preço, condições e link afiliado voltam ao público e os 4 produtos voltam ao monitor automático; Creators API fica estacionada até elegibilidade. Radar Black Friday passa a priorizar fontes oficiais por loja e amplia cobertura para Renner, Nike, Marisa, Apple, Gaston, Amazon, Americanas, Decathlon, Dafiti e Zattini.
 - **14/11/2026** — Central Black Friday com radar de cupons reais: aceita marcas parceiras e não parceiras, publica automaticamente apenas códigos com benefício relevante, validade e uso recente, mantém tráfego direto quando não há afiliado e revalida a cada 3h.
