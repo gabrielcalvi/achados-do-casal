@@ -164,6 +164,7 @@ const CUPONATION_DIRETA: Record<string, string> = {
   "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
   sephora: "https://www.cuponation.com.br/desconto-sephora",
   decolar: "https://www.cuponation.com.br/cupom-de-desconto-decolar",
+  "beach-park": "https://www.cuponation.com.br/cupom-beach-park",
 };
 
 export async function buscarCuponation(loja: LojaBlackFriday) {
@@ -399,6 +400,7 @@ const FONTES_OFICIAIS: Record<string, string> = {
   nespresso: "https://www.nespresso.com/br/pt",
   gocase: "https://www.gocase.com.br/degocase",
   decolar: "https://www.decolar.com/black-friday",
+  "beach-park": "https://blackfriday.beachpark.com.br/",
 };
 
 function dataBrasiliaParaIso(
