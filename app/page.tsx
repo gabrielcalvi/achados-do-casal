@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 import HeroDestaque from "@/components/HeroDestaque";
 import CardProduto from "@/components/CardProduto";
 
@@ -36,6 +37,18 @@ type OfertaAwin = {
   precoAtual: number;
   desconto: number | null;
   loja: string;
+};
+
+type ReviewHome = {
+  id: number;
+  nome: string;
+  loja: string;
+  imagem: string;
+  nota_casal: number | null;
+  tempo_de_uso: string | null;
+  data_inicio_uso: string | null;
+  video_url: string | null;
+  tem_em_casa: boolean | null;
 };
 
 const categorias = [
@@ -91,6 +104,7 @@ export default function Home() {
   const [produtosDestaque, setProdutosDestaque] = useState<Produto[]>([]);
   const [carregandoDestaques, setCarregandoDestaques] = useState(true);
   const [ofertasAwin, setOfertasAwin] = useState<OfertaAwin[]>([]);
+  const [reviewsRecentes, setReviewsRecentes] = useState<ReviewHome[]>([]);
 
   useEffect(() => {
     async function carregarProdutos() {
@@ -122,6 +136,23 @@ export default function Home() {
         ),
       );
       setCarregandoDestaques(false);
+    }
+
+    async function carregarReviews() {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select("id,nome,loja,imagem,nota_casal,tempo_de_uso,data_inicio_uso,video_url,tem_em_casa")
+        .eq("review_completa", true)
+        .order("id", { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error("Falha ao carregar reviews na home:", error);
+        setReviewsRecentes([]);
+        return;
+      }
+
+      setReviewsRecentes((data || []) as ReviewHome[]);
     }
 
     async function carregarSelecaoAwin() {
@@ -207,6 +238,7 @@ export default function Home() {
     }
 
     carregarProdutos();
+    carregarReviews();
     carregarSelecaoAwin();
   }, []);
 
@@ -256,38 +288,28 @@ export default function Home() {
 
           <div className="flex shrink-0 items-center gap-2 overflow-x-auto">
             <a
-              href="/economize"
-              className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+              href="#ofertas"
+              className="whitespace-nowrap rounded-xl bg-blue-950 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-900"
             >
-              💰 Economize
-            </a>
-            <a
-              href="/viagens"
-              className="rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
-            >
-              ✈️ Viagens
-            </a>
-            <a
-              href="https://www.instagram.com/achadosdocasal26/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-pink-500 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600"
-            >
-              Instagram
-            </a>
-            <a
-              href="https://chat.whatsapp.com/DMC6VCIcuMBJMfbfdIk8SZ?s=sh&p=i&ilr=4&amv=0"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white hover:bg-green-700"
-            >
-              WhatsApp
+              🔥 Ofertas
             </a>
             <Link
-              href="/gamer"
-              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-600"
+              href="/reviews"
+              className="whitespace-nowrap rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
             >
-              🎮 Gamer
+              ⭐ Reviews
+            </Link>
+            <Link
+              href="/black-friday"
+              className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+            >
+              💰 Cupons
+            </Link>
+            <Link
+              href="/viagens"
+              className="whitespace-nowrap rounded-xl bg-sky-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
+            >
+              ✈️ Viagens
             </Link>
           </div>
         </div>
@@ -308,6 +330,14 @@ export default function Home() {
                 {categoria}
               </button>
             ))}
+          </div>
+          <div className="border-t border-slate-100 bg-slate-50">
+            <div className="mx-auto flex max-w-7xl gap-4 overflow-x-auto px-5 py-2 text-xs font-bold text-slate-500">
+              <Link href="/economize" className="whitespace-nowrap hover:text-emerald-700">Central Economize</Link>
+              <a href="https://chat.whatsapp.com/DMC6VCIcuMBJMfbfdIk8SZ?s=sh&p=i&ilr=4&amv=0" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-green-700">WhatsApp</a>
+              <a href="https://www.instagram.com/achadosdocasal26/" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-pink-600">Instagram</a>
+              <Link href="/gamer" className="whitespace-nowrap hover:text-red-600">Gamer</Link>
+            </div>
           </div>
         </div>
       </header>
@@ -374,6 +404,79 @@ export default function Home() {
           />
         </div>
       </section>
+
+      {reviewsRecentes.length > 0 && (
+        <section className="mx-auto max-w-7xl px-5 py-14">
+          <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-amber-800">
+                ⭐ Testados por nós
+              </span>
+              <h2 className="mt-3 text-3xl font-black">
+                Produtos que realmente usamos
+              </h2>
+              <p className="mt-2 max-w-3xl text-slate-600">
+                Nossa experiência real: nota do casal, tempo de uso, pontos positivos, negativos e vídeo quando disponível.
+              </p>
+            </div>
+            <Link href="/reviews" className="text-sm font-black text-amber-700 hover:text-amber-800">
+              Ver todos os reviews →
+            </Link>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {reviewsRecentes.map((review) => (
+              <article
+                key={review.id}
+                className="flex overflow-hidden rounded-3xl border border-amber-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <Link
+                  href={`/produto/${review.id}`}
+                  className="flex w-32 shrink-0 items-center justify-center bg-amber-50 p-4 sm:w-40"
+                >
+                  <img src={review.imagem} alt={review.nome} className="max-h-36 w-full object-contain" />
+                </Link>
+                <div className="flex min-w-0 flex-1 flex-col p-5">
+                  <div className="flex flex-wrap gap-2">
+                    {review.tem_em_casa ? (
+                      <span className="rounded-full bg-pink-100 px-2.5 py-1 text-[11px] font-black text-pink-700">
+                        🏠 Temos em casa
+                      </span>
+                    ) : null}
+                    {review.video_url ? (
+                      <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-black text-red-700">
+                        🎥 Com vídeo
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-xs font-black uppercase text-blue-800">{review.loja}</p>
+                  <h3 className="mt-1 line-clamp-2 text-lg font-black leading-6">{review.nome}</h3>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-xl bg-amber-50 p-3">
+                      <p className="text-xs font-bold text-slate-500">Nossa nota</p>
+                      <p className="mt-1 font-black">
+                        {review.nota_casal ? `⭐ ${Number(review.nota_casal).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/10` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-xs font-bold text-slate-500">Tempo de uso</p>
+                      <p className="mt-1 font-black">
+                        {formatarTempoDeUso(review.data_inicio_uso, review.tempo_de_uso)}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/produto/${review.id}`}
+                    className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-blue-950 px-4 text-sm font-black text-white hover:bg-blue-900"
+                  >
+                    Ver review
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section id="ofertas" className="mx-auto max-w-7xl px-5 py-14">
         {mostrarSelecaoAwin && (
