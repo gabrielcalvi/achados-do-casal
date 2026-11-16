@@ -75,7 +75,7 @@ function extrairTextosPreco(html: string) {
 }
 
 export async function GET() {
-  const origem = "https://meli.la/1Rkw4R9";
+  const origem = "https://meli.la/1o6hF5T";
   try {
     const r = await fetchTexto(origem);
     const dados = extrairTextosPreco(r.texto);
