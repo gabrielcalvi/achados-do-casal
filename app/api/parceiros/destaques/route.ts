@@ -92,7 +92,7 @@ export async function GET() {
         ...parceiro,
         quantidade: contagem.get(parceiro.slug) ?? 0,
       }))
-      .filter((parceiro) => parceiro.quantidade > 0)
+      .filter((parceiro) => parceiro.quantidade >= 5)
       .sort((a, b) => {
         if (a.quantidade !== b.quantidade) {
           return b.quantidade - a.quantidade;
