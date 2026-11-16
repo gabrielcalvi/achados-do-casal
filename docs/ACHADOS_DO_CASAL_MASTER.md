@@ -1172,6 +1172,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **16/11/2026** — Beach Park reforçado no Radar Permanente/Black Friday: já constava entre as lojas monitoradas e passou a ter fonte oficial prioritária em `https://blackfriday.beachpark.com.br/` e fonte Cuponation direta como complemento. Publicação automática continua exigindo código verificável, benefício relevante, vigência e evidência forte; foco também em divulgação nos grupos e comparação com a cotação-base da viagem de março/2027.
 - **16/11/2026** — Decolar incluída com urgência no Radar Permanente de Cupons. A ronda combina página oficial da Black Friday da Decolar com Cuponation direta, prioriza códigos vigentes, aceita percentuais de viagem a partir de 5% quando publicados/validados e mantém revalidação a cada 3h. Primeira ronda isolada: 26 cupons vigentes processados, 14 ativos e 12 pendentes; nenhum preço/produto do site foi alterado.
 - **16/11/2026** — piloto oficial de preço Mercado Livre executado nos 7 produtos ativos: `/sale_price` e `/prices` retornaram 403 para todos os anúncios de terceiros; nenhuma alteração de preço foi feita e o ML permanece em monitoramento manual.
 - **16/11/2026** — auditoria geral: principais rotas públicas, sitemap e robots validados com HTTP 200; produção auditada em `fa09b8ca` / `dpl_Dd9cssMvP3ifeMAFB6TFoQH4SpoS` READY; janela final de 30 min sem runtime errors/warnings.
