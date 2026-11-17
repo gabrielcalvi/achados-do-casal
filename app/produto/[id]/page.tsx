@@ -56,14 +56,29 @@ type ReviewRelacionada = {
   nota_casal: number | null;
 };
 
+type ReviewAtualizacao = {
+  id: number;
+  data_referencia: string;
+  titulo: string;
+  texto: string;
+  nota: number | null;
+  tempo_de_uso: string | null;
+};
+
 async function carregarProduto(id: string) {
-  const [{ data: produto, error }, { data: imagens }] = await Promise.all([
+  const [{ data: produto, error }, { data: imagens }, { data: atualizacoes }] = await Promise.all([
     supabaseAdmin.from("produtos").select("*").eq("id", id).maybeSingle(),
     supabaseAdmin
       .from("produto_imagens")
       .select("id,url")
       .eq("produto_id", id)
       .order("ordem", { ascending: true }),
+    supabaseAdmin
+      .from("review_atualizacoes")
+      .select("id,data_referencia,titulo,texto,nota,tempo_de_uso")
+      .eq("produto_id", id)
+      .eq("visivel", true)
+      .order("data_referencia", { ascending: false }),
   ]);
 
   if (error || !produto) return null;
@@ -98,6 +113,7 @@ async function carregarProduto(id: string) {
   return {
     produto: produto as Produto,
     imagens: (imagens || []) as ImagemExtra[],
+    atualizacoes: (atualizacoes || []) as ReviewAtualizacao[],
     relacionadas,
   };
 }
@@ -195,7 +211,7 @@ export default async function ProdutoPage({
   const dados = await carregarProduto(id);
   if (!dados) notFound();
 
-  const { produto, imagens, relacionadas } = dados;
+  const { produto, imagens, atualizacoes, relacionadas } = dados;
   const url = `${BASE_URL}/produto/${produto.id}`;
   const precoAtual = Number(produto.preco_atual);
   const temPrecoAtivo = Boolean(produto.ativo && Number.isFinite(precoAtual) && precoAtual > 0);
@@ -490,6 +506,33 @@ export default async function ProdutoPage({
               </div>
             ) : null}
           </div>
+
+          {atualizacoes.length > 0 ? (
+            <div className="mt-8 rounded-2xl bg-white p-6">
+              <h3 className="text-xl font-black">📈 Evolução do nosso review</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Atualizações ao longo do tempo, sem apagar o que pensamos antes.
+              </p>
+              <div className="mt-5 space-y-4 border-l-2 border-amber-200 pl-5">
+                {atualizacoes.map((item) => (
+                  <article key={item.id} className="relative">
+                    <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full bg-amber-400 ring-4 ring-white" />
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      {new Date(item.data_referencia + "T12:00:00Z").toLocaleDateString("pt-BR")}
+                      {item.tempo_de_uso ? ` · ${item.tempo_de_uso}` : ""}
+                    </p>
+                    <h4 className="mt-1 text-lg font-black">{item.titulo}</h4>
+                    {item.nota !== null ? (
+                      <p className="mt-1 font-black text-amber-700">
+                        ⭐ {Number(item.nota).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/10
+                      </p>
+                    ) : null}
+                    <p className="mt-2 whitespace-pre-line text-slate-700">{item.texto}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {produto.review_completa && produto.review_link_compra ? (
             <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
