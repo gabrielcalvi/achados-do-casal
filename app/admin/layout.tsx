@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/economize", label: "Economize" },
   { href: "/admin/economize/ml-v2", label: "Cupons ML V2" },
   { href: "/admin/viagens", label: "Viagens / Radar" },
+  { href: "/admin/comunidade", label: "Comunidade" },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
