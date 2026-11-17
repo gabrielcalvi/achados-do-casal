@@ -4,8 +4,14 @@ import { avaliarAlertasDePreco } from "@/lib/services/priceAlerts";
 
 async function autorizado(request: Request) {
   const segredo = process.env.CRON_SECRET?.trim();
+  const chaveMl = process.env.ML_PRICE_RUN_KEY?.trim();
+  const autorizacao = request.headers.get("authorization");
 
-  if (segredo && request.headers.get("authorization") === `Bearer ${segredo}`) {
+  if (segredo && autorizacao === `Bearer ${segredo}`) {
+    return true;
+  }
+
+  if (chaveMl && autorizacao === `Bearer ${chaveMl}`) {
     return true;
   }
 
