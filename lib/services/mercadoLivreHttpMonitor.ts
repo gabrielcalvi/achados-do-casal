@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { obterAccessTokenMercadoLivre } from "@/lib/mercadolivre/token";
 
+const LISTA_MERCADO_LIVRE_PRECOS = "https://meli.la/1o6hF5T";
+
 function extrairItemIdMercadoLivre(link: string) {
   try {
     const url = new URL(link);
@@ -28,6 +30,55 @@ function extrairItemIdMercadoLivre(link: string) {
   }
 
   return null;
+}
+
+async function buscarItensListaMercadoLivre() {
+  const resposta = await fetch(LISTA_MERCADO_LIVRE_PRECOS, {
+    cache: "no-store",
+    redirect: "follow",
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const html = await resposta.text();
+  const htmlMinusculo = html.toLowerCase();
+  const bloqueado =
+    resposta.url.includes("/gz/account-verification") ||
+    resposta.url.includes("/captcha/") ||
+    htmlMinusculo.includes("verificacao de seguranca") ||
+    htmlMinusculo.includes("verificação de segurança") ||
+    htmlMinusculo.includes("security verification");
+
+  if (!resposta.ok || bloqueado) {
+    throw new Error(
+      `Não foi possível ler a lista oficial do Mercado Livre com segurança (HTTP ${resposta.status}).`
+    );
+  }
+
+  const ids = Array.from(
+    new Set(
+      (html.match(/MLB[-:]?\d{8,}/gi) || []).map((valor) =>
+        valor.toUpperCase().replace(/[-:]/g, "")
+      )
+    )
+  );
+
+  if (!ids.length) {
+    throw new Error(
+      "A lista do Mercado Livre abriu, mas nenhum ITEM_ID foi identificado. Nenhum preço foi alterado."
+    );
+  }
+
+  return {
+    urlFinal: resposta.url,
+    totalItensIdentificados: ids.length,
+    itemIds: new Set(ids),
+  };
 }
 
 async function buscarProduto(produtoId: number) {
@@ -264,6 +315,8 @@ export async function diagnosticarMercadoLivreHttp(produtoId: number) {
 }
 
 export async function atualizarMercadoLivreManuaisViaHttp() {
+  const lista = await buscarItensListaMercadoLivre();
+
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
     .select("id,nome,loja,link,preco_atual,preco_antigo,monitoramento_manual,ativo")
@@ -279,8 +332,27 @@ export async function atualizarMercadoLivreManuaisViaHttp() {
   const resultados: Array<Record<string, unknown>> = [];
   let atualizados = 0;
   let erros = 0;
+  let foraDaLista = 0;
+  let elegiveis = 0;
 
   for (const produto of produtos || []) {
+    const itemId = extrairItemIdMercadoLivre(String(produto.link || ""));
+
+    if (!itemId || !lista.itemIds.has(itemId)) {
+      foraDaLista += 1;
+      resultados.push({
+        id: produto.id,
+        nome: produto.nome,
+        sucesso: false,
+        ignorado: true,
+        itemId,
+        erro: "Produto não consta na lista oficial do Mercado Livre usada para atualização de preços.",
+      });
+      continue;
+    }
+
+    elegiveis += 1;
+
     try {
       const diagnostico = await diagnosticarMercadoLivreHttp(Number(produto.id));
       const precoNovo = Number(diagnostico.preco_encontrado);
@@ -329,7 +401,8 @@ export async function atualizarMercadoLivreManuaisViaHttp() {
           valor_antigo: String(precoBanco),
           valor_novo: String(precoNovo),
           status: "aprovado",
-          observacao: "Atualização manual em lote via JSON-LD do anúncio Mercado Livre.",
+          observacao:
+            "Atualização manual em lote validada pela lista oficial do Mercado Livre e pelo JSON-LD do anúncio.",
           atualizado_em: agora,
           aprovado_em: agora,
         });
@@ -352,6 +425,7 @@ export async function atualizarMercadoLivreManuaisViaHttp() {
         id: produto.id,
         nome: produto.nome,
         sucesso: true,
+        itemId,
         precoBanco,
         precoNovo,
         mudou,
@@ -363,13 +437,19 @@ export async function atualizarMercadoLivreManuaisViaHttp() {
         id: produto.id,
         nome: produto.nome,
         sucesso: false,
+        itemId,
         erro: erroProduto instanceof Error ? erroProduto.message : String(erroProduto),
       });
     }
   }
 
   return {
-    total: (produtos || []).length,
+    lista: LISTA_MERCADO_LIVRE_PRECOS,
+    listaUrlFinal: lista.urlFinal,
+    itensNaListaIdentificados: lista.totalItensIdentificados,
+    totalProdutosMlManuais: (produtos || []).length,
+    elegiveis,
+    foraDaLista,
     atualizados,
     erros,
     resultados,
