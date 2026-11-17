@@ -32,7 +32,21 @@ function extrairItemIdMercadoLivre(link: string) {
   return null;
 }
 
-async function buscarItensListaMercadoLivre() {
+export type ItemListaMercadoLivre = {
+  itemId: string;
+  titulo: string | null;
+  preco: number | null;
+  parcelas: string | null;
+};
+
+function moedaLista(valor: number) {
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+export async function consultarListaMercadoLivre() {
   const resposta = await fetch(LISTA_MERCADO_LIVRE_PRECOS, {
     cache: "no-store",
     redirect: "follow",
@@ -42,7 +56,7 @@ async function buscarItensListaMercadoLivre() {
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(15000),
   });
 
   const html = await resposta.text();
@@ -60,25 +74,76 @@ async function buscarItensListaMercadoLivre() {
     );
   }
 
-  const ids = Array.from(
-    new Set(
-      (html.match(/MLB[-:]?\d{8,}/gi) || []).map((valor) =>
-        valor.toUpperCase().replace(/[-:]/g, "")
-      )
-    )
-  );
+  // A lista entrega os cards dentro de um estado JSON escapado. Normalizamos
+  // apenas o necessário para ler os campos públicos do card.
+  const normalizado = html
+    .replace(/\\\"/g, '"')
+    .replace(/\\u002F/gi, "/");
 
-  if (!ids.length) {
+  const regexCard = /"metadata":\{"id":"(MLB\d{8,})"/g;
+  const ocorrencias = Array.from(normalizado.matchAll(regexCard));
+
+  const itensBrutos = ocorrencias.map((match, indice) => {
+    const inicio = match.index ?? 0;
+    const fim =
+      indice + 1 < ocorrencias.length
+        ? ocorrencias[indice + 1].index ?? normalizado.length
+        : Math.min(normalizado.length, inicio + 18000);
+    const trecho = normalizado.slice(inicio, fim);
+
+    const titulo =
+      trecho.match(/"title":\{"text":"([^"]+)"/)?.[1] ?? null;
+    const precoTexto =
+      trecho.match(/"current_price":\{"value":([0-9.]+)/)?.[1] ?? null;
+    const preco = precoTexto ? Number(precoTexto) : null;
+
+    const parcelasTexto =
+      trecho.match(/"installments":\{"text":"([^"]+)"/)?.[1] ?? null;
+    const valorParcelaTexto =
+      trecho.match(
+        /"installments":\{"text":"[^"]+"[\s\S]{0,1200}?"price":\{"value":([0-9.]+)/
+      )?.[1] ?? null;
+    const valorParcela = valorParcelaTexto ? Number(valorParcelaTexto) : null;
+
+    let parcelas = parcelasTexto;
+    if (parcelas && parcelas.includes("{price}") && Number.isFinite(valorParcela)) {
+      parcelas = parcelas.replace("{price}", moedaLista(valorParcela as number));
+    }
+
+    return {
+      itemId: match[1].toUpperCase(),
+      titulo,
+      preco: Number.isFinite(preco) ? preco : null,
+      parcelas,
+    } satisfies ItemListaMercadoLivre;
+  });
+
+  const porId = new Map<string, ItemListaMercadoLivre>();
+  for (const item of itensBrutos) {
+    if (!porId.has(item.itemId)) {
+      porId.set(item.itemId, item);
+    }
+  }
+
+  const itens = Array.from(porId.values());
+
+  if (!itens.length) {
     throw new Error(
-      "A lista do Mercado Livre abriu, mas nenhum ITEM_ID foi identificado. Nenhum preço foi alterado."
+      "A lista do Mercado Livre abriu, mas nenhum card de produto foi identificado."
     );
   }
 
   return {
+    url: LISTA_MERCADO_LIVRE_PRECOS,
     urlFinal: resposta.url,
-    totalItensIdentificados: ids.length,
-    itemIds: new Set(ids),
+    totalItensIdentificados: itens.length,
+    itemIds: new Set(itens.map((item) => item.itemId)),
+    itens,
   };
+}
+
+async function buscarItensListaMercadoLivre() {
+  return consultarListaMercadoLivre();
 }
 
 async function buscarProduto(produtoId: number) {
