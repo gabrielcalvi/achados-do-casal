@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
+import PedidoReviewForm from "@/components/PedidoReviewForm";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,10 @@ export default async function ReviewsPage() {
             A review continua publicada mesmo quando a oferta original deixa de ser monitorada.
           </p>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pt-10">
+        <PedidoReviewForm />
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-12">
