@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ProdutoAcoesLocais from "@/components/ProdutoAcoesLocais";
 
 type Produto = {
   id: number;
@@ -98,6 +99,7 @@ export default function CardProduto({
             }}
           />
         </Link>
+        <ProdutoAcoesLocais produtoId={produto.id} compacto />
       </div>
 
       {/* CONTEÚDO */}
