@@ -3,7 +3,7 @@ import { obterAccessTokenMercadoLivre } from "@/lib/mercadolivre/token";
 
 const LISTA_MERCADO_LIVRE_PRECOS = "https://meli.la/1o6hF5T";
 
-function extrairItemIdMercadoLivre(link: string) {
+export function extrairItemIdMercadoLivre(link: string) {
   try {
     const url = new URL(link);
     const candidatos = [
