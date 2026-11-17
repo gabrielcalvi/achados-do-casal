@@ -362,6 +362,8 @@ export default function Home() {
             <div className="mx-auto flex max-w-7xl gap-4 overflow-x-auto px-5 py-2 text-xs font-bold text-slate-500">
               <Link href="/economize" className="whitespace-nowrap hover:text-emerald-700">Central Economize</Link>
               <a href="https://www.instagram.com/achadosdocasal26/" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:text-pink-600">Instagram</a>
+              <Link href="/favoritos" className="whitespace-nowrap hover:text-pink-600">❤️ Favoritos</Link>
+              <Link href="/comparar" className="whitespace-nowrap hover:text-blue-900">⚖️ Comparar</Link>
             </div>
           </div>
         </div>
