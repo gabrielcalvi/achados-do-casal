@@ -5,6 +5,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatarTempoDeUso } from "@/lib/reviews/tempoUso";
 import ProdutoGaleria from "./ProdutoGaleria";
 import ProdutoCompartilhar from "./ProdutoCompartilhar";
+import ProdutoAcoesLocais from "@/components/ProdutoAcoesLocais";
+import AlertaPrecoInteresse from "@/components/AlertaPrecoInteresse";
+import QueroReviewButton from "@/components/QueroReviewButton";
 
 export const dynamic = "force-dynamic";
 
@@ -385,6 +388,12 @@ export default async function ProdutoPage({
               >
                 Ver oferta
               </a>
+
+              <ProdutoAcoesLocais produtoId={produto.id} />
+
+              <AlertaPrecoInteresse produtoId={produto.id} precoAtual={precoAtual} />
+
+              {!produto.review_completa ? <QueroReviewButton produtoId={produto.id} /> : null}
 
               <ProdutoCompartilhar
                 titulo={
