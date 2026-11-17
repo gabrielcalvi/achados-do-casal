@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import ExecutarMonitorButton from "./ExecutarMonitorButton";
+import AtualizarMercadoLivreButton from "./AtualizarMercadoLivreButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -94,7 +95,10 @@ export default async function MonitorPage() {
               Monitor
             </Link>
           </nav>
-          <ExecutarMonitorButton />
+          <div className="flex flex-wrap items-start gap-3">
+            <AtualizarMercadoLivreButton />
+            <ExecutarMonitorButton />
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
