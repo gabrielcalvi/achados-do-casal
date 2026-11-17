@@ -13,6 +13,7 @@ import {
 } from "@/lib/mercadolivre/api";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { avaliarAlertasDePreco } from "@/lib/services/priceAlerts";
 
 
 async function autorizado(request: Request) {
@@ -196,6 +197,7 @@ export async function GET(request: Request) {
 
     try {
       const resultado = await monitorarTodosProdutosV2();
+      const alertas = await avaliarAlertasDePreco();
       const finalizadoEm = new Date().toISOString();
       const duracaoMs = Date.now() - inicioMs;
 
@@ -223,6 +225,7 @@ export async function GET(request: Request) {
         execucao_id: execucao?.id || null,
         duracao_ms: duracaoMs,
         ...resultado,
+        alertas,
       });
     } catch (erroMonitor) {
       if (execucao?.id) {
