@@ -262,3 +262,116 @@ export async function diagnosticarMercadoLivreHttp(produtoId: number) {
     preco_encontrado: Number.isFinite(preco) ? preco : null,
   };
 }
+
+export async function atualizarMercadoLivreManuaisViaHttp() {
+  const { data: produtos, error } = await supabaseAdmin
+    .from("produtos")
+    .select("id,nome,loja,link,preco_atual,preco_antigo,monitoramento_manual,ativo")
+    .eq("ativo", true)
+    .eq("monitoramento_manual", true)
+    .ilike("loja", "%Mercado Livre%")
+    .order("id");
+
+  if (error) {
+    throw new Error(`Erro ao carregar produtos ML manuais: ${error.message}`);
+  }
+
+  const resultados: Array<Record<string, unknown>> = [];
+  let atualizados = 0;
+  let erros = 0;
+
+  for (const produto of produtos || []) {
+    try {
+      const diagnostico = await diagnosticarMercadoLivreHttp(Number(produto.id));
+      const precoNovo = Number(diagnostico.preco_encontrado);
+      const precoBanco = Number(produto.preco_atual);
+
+      if (
+        diagnostico.verificacao ||
+        !diagnostico.encontrou_json_ld ||
+        !Number.isFinite(precoNovo) ||
+        precoNovo <= 0
+      ) {
+        throw new Error("Preço visual confiável não confirmado.");
+      }
+
+      if (precoBanco > 0) {
+        const proporcao = precoNovo / precoBanco;
+        if (proporcao < 0.05 || proporcao > 20) {
+          throw new Error(`Preço suspeito bloqueado: R$ ${precoNovo.toFixed(2)}`);
+        }
+      }
+
+      const mudou = Math.abs(precoNovo - precoBanco) >= 0.01;
+      const agora = new Date().toISOString();
+
+      if (mudou) {
+        const { error: erroUpdate } = await supabaseAdmin
+          .from("produtos")
+          .update({
+            preco_antigo: precoBanco > 0 ? precoBanco : produto.preco_antigo,
+            preco_atual: precoNovo,
+            preco_monitorado: precoNovo,
+            preco_manual_atualizado_em: agora,
+            ultima_verificacao: agora,
+            updated_at: agora,
+            monitor_erro: null,
+            monitor_erro_em: null,
+            monitor_falhas_consecutivas: 0,
+          })
+          .eq("id", produto.id);
+
+        if (erroUpdate) throw erroUpdate;
+
+        await supabaseAdmin.from("monitor_alteracoes").insert({
+          produto_id: produto.id,
+          tipo: "preco",
+          valor_antigo: String(precoBanco),
+          valor_novo: String(precoNovo),
+          status: "aprovado",
+          observacao: "Atualização manual em lote via JSON-LD do anúncio Mercado Livre.",
+          atualizado_em: agora,
+          aprovado_em: agora,
+        });
+
+        atualizados += 1;
+      } else {
+        await supabaseAdmin
+          .from("produtos")
+          .update({
+            ultima_verificacao: agora,
+            preco_manual_atualizado_em: agora,
+            monitor_erro: null,
+            monitor_erro_em: null,
+            monitor_falhas_consecutivas: 0,
+          })
+          .eq("id", produto.id);
+      }
+
+      resultados.push({
+        id: produto.id,
+        nome: produto.nome,
+        sucesso: true,
+        precoBanco,
+        precoNovo,
+        mudou,
+        urlFinal: diagnostico.url_final,
+      });
+    } catch (erroProduto) {
+      erros += 1;
+      resultados.push({
+        id: produto.id,
+        nome: produto.nome,
+        sucesso: false,
+        erro: erroProduto instanceof Error ? erroProduto.message : String(erroProduto),
+      });
+    }
+  }
+
+  return {
+    total: (produtos || []).length,
+    atualizados,
+    erros,
+    resultados,
+  };
+}
