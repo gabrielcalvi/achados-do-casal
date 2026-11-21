@@ -36,7 +36,9 @@ export type ItemListaMercadoLivre = {
   itemId: string;
   titulo: string | null;
   preco: number | null;
+  precoAntigo: number | null;
   parcelas: string | null;
+  imagem: string | null;
 };
 
 function moedaLista(valor: number) {
@@ -96,6 +98,17 @@ export async function consultarListaMercadoLivre() {
     const precoTexto =
       trecho.match(/"current_price":\{"value":([0-9.]+)/)?.[1] ?? null;
     const preco = precoTexto ? Number(precoTexto) : null;
+    const precoAntigoTexto =
+      trecho.match(/"previous_price":\{"value":([0-9.]+)/)?.[1] ?? null;
+    const precoAntigo = precoAntigoTexto ? Number(precoAntigoTexto) : null;
+
+    const pictureId =
+      trecho.match(/"pictures":\{"scale":"[^"]+","pictures":\[\{"id":"([^"]+)"/)?.[1] ??
+      trecho.match(/"pictures":\[\{"id":"([^"]+)"/)?.[1] ??
+      null;
+    const imagem = pictureId
+      ? `https://http2.mlstatic.com/D_Q_NP_2X_${pictureId}-AB.webp`
+      : null;
 
     const parcelasTexto =
       trecho.match(/"installments":\{"text":"([^"]+)"/)?.[1] ?? null;
@@ -114,7 +127,9 @@ export async function consultarListaMercadoLivre() {
       itemId: match[1].toUpperCase(),
       titulo,
       preco: Number.isFinite(preco) ? preco : null,
+      precoAntigo: Number.isFinite(precoAntigo) ? precoAntigo : null,
       parcelas,
+      imagem,
     } satisfies ItemListaMercadoLivre;
   });
 
