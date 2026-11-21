@@ -167,16 +167,91 @@ function montarProdutoItemDiretoMercadoLivre(
   };
 }
 
-async function extrairPorItemDireto(link: string, itemId: string) {
-  const item = await buscarProdutoMercadoLivre(itemId);
+async function extrairPorItemDireto(
+  link: string,
+  itemId: string,
+  termoUrl: string
+) {
+  try {
+    const item = await buscarProdutoMercadoLivre(itemId);
 
-  if (!Number.isFinite(Number(item.price)) || Number(item.price) <= 0) {
+    if (Number.isFinite(Number(item.price)) && Number(item.price) > 0) {
+      return montarProdutoItemDiretoMercadoLivre(item, link);
+    }
+  } catch {
+    // Alguns anúncios de terceiros devolvem 403 no endpoint /items/{id}.
+    // Nesses casos tentamos localizar o ITEM_ID dentro do catálogo oficial.
+  }
+
+  if (!termoUrl) {
     throw new Error(
-      `O anúncio ${itemId} foi identificado, mas não possui preço válido no momento.`
+      `O anúncio ${itemId} foi identificado, mas o Mercado Livre bloqueou a leitura direta e o link não trouxe nome suficiente para localizar o catálogo.`
     );
   }
 
-  return montarProdutoItemDiretoMercadoLivre(item, link);
+  const candidatos = await buscarProdutosCatalogoMercadoLivre(termoUrl, 20);
+  candidatos.sort((a, b) => pontuarCatalogo(b, termoUrl) - pontuarCatalogo(a, termoUrl));
+
+  let melhorFallback:
+    | {
+        produto: ProdutoCatalogoMercadoLivre;
+        item: ItemCatalogoMercadoLivre;
+        pontuacao: number;
+      }
+    | null = null;
+
+  for (const produto of candidatos) {
+    const pontuacao = pontuarCatalogo(produto, termoUrl);
+
+    try {
+      const lista = await buscarItensDoCatalogoMercadoLivre(produto.id);
+      const itens = lista.results || [];
+
+      const exato = itens.find(
+        (item) =>
+          itemTemPreco(item) &&
+          normalizarId(item.item_id) === normalizarId(itemId)
+      );
+
+      if (exato) {
+        return montarProdutoMercadoLivre(produto, exato, link);
+      }
+
+      if (pontuacao >= 82) {
+        const candidatoFallback = escolherItem(
+          itens,
+          null,
+          null,
+          produto.buy_box_winner?.item_id || null
+        );
+
+        if (
+          candidatoFallback &&
+          (!melhorFallback || pontuacao > melhorFallback.pontuacao)
+        ) {
+          melhorFallback = {
+            produto,
+            item: candidatoFallback,
+            pontuacao,
+          };
+        }
+      }
+    } catch {
+      // Continua tentando os demais catálogos.
+    }
+  }
+
+  if (melhorFallback) {
+    return montarProdutoMercadoLivre(
+      melhorFallback.produto,
+      melhorFallback.item,
+      link
+    );
+  }
+
+  throw new Error(
+    `O anúncio ${itemId} foi identificado, mas o Mercado Livre bloqueou a leitura direta e não foi possível localizar uma oferta de catálogo equivalente com segurança.`
+  );
 }
 
 function montarProdutoMercadoLivre(
@@ -504,7 +579,11 @@ async function extrairMercadoLivre(link: string) {
   }
 
   if (referencias.itemId) {
-    return extrairPorItemDireto(link, referencias.itemId);
+    return extrairPorItemDireto(
+      link,
+      referencias.itemId,
+      referencias.termoUrl
+    );
   }
 
   throw new Error(
