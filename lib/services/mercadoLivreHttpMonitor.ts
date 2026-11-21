@@ -123,6 +123,12 @@ export async function consultarListaMercadoLivre() {
       parcelas = parcelas.replace("{price}", moedaLista(valorParcela as number));
     }
 
+    // Alguns cards usam placeholders internos como {price_total}.
+    // Se o valor correspondente não vier estruturado, não exibimos texto técnico.
+    if (parcelas && /\{[^}]+\}/.test(parcelas)) {
+      parcelas = null;
+    }
+
     return {
       itemId: match[1].toUpperCase(),
       titulo,
