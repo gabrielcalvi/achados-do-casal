@@ -1,6 +1,7 @@
 import {
   buscarItensDoCatalogoMercadoLivre,
   buscarItensDoUserProductMercadoLivre,
+  buscarProdutoMercadoLivre,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutosCatalogoMercadoLivre,
   type ItemCatalogoMercadoLivre,
@@ -117,6 +118,65 @@ function escolherItem(
   }
 
   return validos[0] || null;
+}
+
+function montarProdutoItemDiretoMercadoLivre(
+  item: {
+    title?: string;
+    price?: number;
+    original_price?: number | null;
+    thumbnail?: string;
+    pictures?: Array<{ url?: string; secure_url?: string }>;
+    shipping?: { free_shipping?: boolean };
+  },
+  linkOriginal: string
+) {
+  const precoAtual = normalizarPreco(item.price);
+  let precoAntigo = normalizarPreco(item.original_price);
+
+  if (precoAntigo && Number(precoAntigo) <= Number(precoAtual)) {
+    precoAntigo = "";
+  }
+
+  const imagensGaleria = Array.from(
+    new Set(
+      [
+        ...(item.pictures || []).map(
+          (imagem) => imagem.secure_url || imagem.url || ""
+        ),
+        item.thumbnail || "",
+      ]
+        .map((url) => String(url).trim())
+        .filter((url) => /^https?:\/\//i.test(url))
+    )
+  );
+
+  return {
+    nome: String(item.title || "Produto Mercado Livre").trim(),
+    categoria: "",
+    loja: "Mercado Livre",
+    precoAntigo,
+    precoAtual,
+    parcelas: "",
+    freteGratis: Boolean(item.shipping?.free_shipping),
+    imagem: imagensGaleria[0] || "",
+    imagensGaleria,
+    avaliacao: null,
+    vendas: "",
+    urlFinal: linkOriginal,
+  };
+}
+
+async function extrairPorItemDireto(link: string, itemId: string) {
+  const item = await buscarProdutoMercadoLivre(itemId);
+
+  if (!Number.isFinite(Number(item.price)) || Number(item.price) <= 0) {
+    throw new Error(
+      `O anúncio ${itemId} foi identificado, mas não possui preço válido no momento.`
+    );
+  }
+
+  return montarProdutoItemDiretoMercadoLivre(item, link);
 }
 
 function montarProdutoMercadoLivre(
@@ -443,8 +503,12 @@ async function extrairMercadoLivre(link: string) {
     );
   }
 
+  if (referencias.itemId) {
+    return extrairPorItemDireto(link, referencias.itemId);
+  }
+
   throw new Error(
-    "Não foi possível identificar o catálogo ou User Product do Mercado Livre nesse link."
+    "Não foi possível identificar o catálogo, User Product ou ITEM_ID do Mercado Livre nesse link."
   );
 }
 
