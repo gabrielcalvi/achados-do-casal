@@ -11,6 +11,7 @@ import { extrairAmazonWorker } from "@/lib/workers/amazonWorker";
 import { extrairMagaluWorker } from "@/lib/workers/magaluWorker";
 import { extrairCeaWorker } from "@/lib/workers/ceaWorker";
 import { extrairKabumWorker } from "@/lib/workers/kabumWorker";
+import { consultarListaMercadoLivre } from "@/lib/services/mercadoLivreHttpMonitor";
 
 type ReferenciasMercadoLivre = {
   productId: string | null;
@@ -255,6 +256,51 @@ async function extrairPorItemDireto(
     );
   }
 
+  try {
+    const lista = await consultarListaMercadoLivre();
+    const itemLista = lista.itens.find(
+      (item) => normalizarId(item.itemId) === normalizarId(itemId)
+    );
+
+    if (itemLista) {
+      const precoAtual = normalizarPreco(itemLista.preco);
+      let precoAntigo = normalizarPreco(itemLista.precoAntigo);
+
+      if (precoAntigo && Number(precoAntigo) <= Number(precoAtual)) {
+        precoAntigo = "";
+      }
+
+      const imagem = String(itemLista.imagem || "").trim();
+      const nomeLista = String(itemLista.titulo || "").trim();
+
+      return {
+        nome:
+          nomeLista ||
+          termoUrl
+            .split(" ")
+            .filter(Boolean)
+            .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+            .join(" ") ||
+          `Produto Mercado Livre ${itemId}`,
+        categoria: "",
+        loja: "Mercado Livre",
+        precoAntigo,
+        precoAtual,
+        parcelas: String(itemLista.parcelas || ""),
+        freteGratis: false,
+        imagem,
+        imagensGaleria: imagem ? [imagem] : [],
+        avaliacao: null,
+        vendas: "",
+        urlFinal: link,
+        aviso:
+          "Anúncio direto bloqueado pelo Mercado Livre; dados recuperados pela lista oficial de favoritos. Confira apenas o link de afiliado antes de salvar.",
+      };
+    }
+  } catch {
+    // Se a lista estiver indisponível, preservamos o fallback manual abaixo.
+  }
+
   return {
     nome: termoUrl
       .split(" ")
@@ -273,7 +319,7 @@ async function extrairPorItemDireto(
     vendas: "",
     urlFinal: link,
     aviso:
-      "Link do Mercado Livre reconhecido, mas o anúncio bloqueou a leitura automática. Complete manualmente preço, parcelas, imagem e link de afiliado antes de salvar.",
+      "Link do Mercado Livre reconhecido, mas o anúncio bloqueou a leitura automática e ainda não está na lista oficial. Favorite o produto na lista do ML e clique em preparar novamente para preencher preço, parcelas e imagem.",
   };
 }
 
