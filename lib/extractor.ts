@@ -604,6 +604,54 @@ async function extrairUserProduct(
   );
 }
 
+async function enriquecerMercadoLivreComLista(
+  produto: Record<string, any>,
+  itemId: string | null
+) {
+  if (!itemId) return produto;
+
+  try {
+    const lista = await consultarListaMercadoLivre();
+    const itemLista = lista.itens.find(
+      (item) => normalizarId(item.itemId) === normalizarId(itemId)
+    );
+
+    if (!itemLista) return produto;
+
+    const precoAtualLista = normalizarPreco(itemLista.preco);
+    let precoAntigoLista = normalizarPreco(itemLista.precoAntigo);
+
+    if (
+      precoAntigoLista &&
+      precoAtualLista &&
+      Number(precoAntigoLista) <= Number(precoAtualLista)
+    ) {
+      precoAntigoLista = "";
+    }
+
+    const imagemLista = String(itemLista.imagem || "").trim();
+    const imagensAtuais = Array.isArray(produto.imagensGaleria)
+      ? produto.imagensGaleria.filter(Boolean)
+      : [];
+
+    return {
+      ...produto,
+      precoAtual: precoAtualLista || produto.precoAtual || "",
+      precoAntigo: precoAntigoLista || produto.precoAntigo || "",
+      parcelas: String(itemLista.parcelas || produto.parcelas || ""),
+      imagem: produto.imagem || imagemLista,
+      imagensGaleria:
+        imagensAtuais.length > 0
+          ? imagensAtuais
+          : imagemLista
+            ? [imagemLista]
+            : [],
+    };
+  } catch {
+    return produto;
+  }
+}
+
 async function expandirLinkCurtoMercadoLivre(link: string): Promise<string> {
   if (!/meli\.la/i.test(link)) return link;
 
@@ -629,30 +677,35 @@ async function extrairMercadoLivre(link: string) {
   const linkExpandido = await expandirLinkCurtoMercadoLivre(link);
   const referencias = extrairReferenciasMercadoLivre(linkExpandido);
 
+  let produto: Record<string, any>;
+
   if (referencias.productId) {
-    return extrairPorCatalogo(
+    produto = await extrairPorCatalogo(
       link,
       referencias.productId,
       referencias.itemId,
       referencias.userProductId
     );
+    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   if (referencias.userProductId) {
-    return extrairUserProduct(
+    produto = await extrairUserProduct(
       link,
       referencias.userProductId,
       referencias.termoUrl,
       referencias.itemId
     );
+    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   if (referencias.itemId) {
-    return extrairPorItemDireto(
+    produto = await extrairPorItemDireto(
       link,
       referencias.itemId,
       referencias.termoUrl
     );
+    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   throw new Error(
