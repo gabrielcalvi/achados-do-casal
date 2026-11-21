@@ -604,10 +604,10 @@ async function extrairUserProduct(
   );
 }
 
-async function enriquecerMercadoLivreComLista(
-  produto: Record<string, any>,
+async function enriquecerMercadoLivreComLista<T extends Record<string, any>>(
+  produto: T,
   itemId: string | null
-) {
+): Promise<T> {
   if (!itemId) return produto;
 
   try {
@@ -646,7 +646,7 @@ async function enriquecerMercadoLivreComLista(
           : imagemLista
             ? [imagemLista]
             : [],
-    };
+    } as T;
   } catch {
     return produto;
   }
@@ -677,35 +677,39 @@ async function extrairMercadoLivre(link: string) {
   const linkExpandido = await expandirLinkCurtoMercadoLivre(link);
   const referencias = extrairReferenciasMercadoLivre(linkExpandido);
 
-  let produto: Record<string, any>;
-
   if (referencias.productId) {
-    produto = await extrairPorCatalogo(
-      link,
-      referencias.productId,
-      referencias.itemId,
-      referencias.userProductId
+    return enriquecerMercadoLivreComLista(
+      await extrairPorCatalogo(
+        link,
+        referencias.productId,
+        referencias.itemId,
+        referencias.userProductId
+      ),
+      referencias.itemId
     );
-    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   if (referencias.userProductId) {
-    produto = await extrairUserProduct(
-      link,
-      referencias.userProductId,
-      referencias.termoUrl,
+    return enriquecerMercadoLivreComLista(
+      await extrairUserProduct(
+        link,
+        referencias.userProductId,
+        referencias.termoUrl,
+        referencias.itemId
+      ),
       referencias.itemId
     );
-    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   if (referencias.itemId) {
-    produto = await extrairPorItemDireto(
-      link,
-      referencias.itemId,
-      referencias.termoUrl
+    return enriquecerMercadoLivreComLista(
+      await extrairPorItemDireto(
+        link,
+        referencias.itemId,
+        referencias.termoUrl
+      ),
+      referencias.itemId
     );
-    return enriquecerMercadoLivreComLista(produto, referencias.itemId);
   }
 
   throw new Error(
