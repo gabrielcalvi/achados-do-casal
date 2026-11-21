@@ -249,9 +249,26 @@ async function extrairPorItemDireto(
     );
   }
 
-  throw new Error(
-    `O anúncio ${itemId} foi identificado, mas o Mercado Livre bloqueou a leitura direta e não foi possível localizar uma oferta de catálogo equivalente com segurança.`
-  );
+  return {
+    nome: termoUrl
+      .split(" ")
+      .filter(Boolean)
+      .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+      .join(" ") || `Produto Mercado Livre ${itemId}`,
+    categoria: "",
+    loja: "Mercado Livre",
+    precoAntigo: "",
+    precoAtual: "",
+    parcelas: "",
+    freteGratis: false,
+    imagem: "",
+    imagensGaleria: [],
+    avaliacao: null,
+    vendas: "",
+    urlFinal: link,
+    aviso:
+      "Link do Mercado Livre reconhecido, mas o anúncio bloqueou a leitura automática. Complete manualmente preço, parcelas, imagem e link de afiliado antes de salvar.",
+  };
 }
 
 function montarProdutoMercadoLivre(
