@@ -316,7 +316,10 @@ setImagensGaleria(dados.imagensGaleria || []);
 setPreparandoProduto(false);
 
 setTimeout(() => {
-  alert("Produto preparado com sucesso.");
+  alert(
+    dados.aviso ||
+      "Produto preparado com sucesso."
+  );
 }, 100);
   } catch (error) {
     console.error(error);
