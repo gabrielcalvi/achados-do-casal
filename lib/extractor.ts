@@ -32,7 +32,13 @@ function extrairTermoDaUrl(link: string): string {
       .filter(Boolean);
 
     const indiceMarcador = partes.findIndex((parte) => /^(p|up)$/i.test(parte));
-    const slug = indiceMarcador > 0 ? partes[indiceMarcador - 1] : partes[0] || "";
+    let slug = indiceMarcador > 0 ? partes[indiceMarcador - 1] : partes[0] || "";
+
+    // Links diretos usam /MLB-1234567890-nome-do-produto-_JM.
+    // Removemos o ITEM_ID e o sufixo técnico para obter apenas o nome.
+    slug = slug
+      .replace(/^MLB-?\d+-/i, "")
+      .replace(/-_JM$/i, "");
 
     return decodeURIComponent(slug)
       .replace(/[-_]+/g, " ")
