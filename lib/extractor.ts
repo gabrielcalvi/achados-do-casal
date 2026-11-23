@@ -1,6 +1,7 @@
 import {
   buscarItensDoCatalogoMercadoLivre,
   buscarItensDoUserProductMercadoLivre,
+  buscarUserProductMercadoLivre,
   buscarProdutoMercadoLivre,
   buscarProdutoCatalogoMercadoLivre,
   buscarProdutosCatalogoMercadoLivre,
@@ -467,6 +468,31 @@ function pontuarImagemCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: stri
   return (comuns / alvo.length) * 100;
 }
 
+async function buscarDadosVisuaisUserProduct(userProductId: string) {
+  try {
+    const detalhe = await buscarUserProductMercadoLivre(userProductId);
+    const imagens = Array.from(
+      new Set(
+        [
+          ...(detalhe.pictures || []).map(
+            (imagem) => imagem.secure_url || imagem.url || ""
+          ),
+          detalhe.thumbnail || "",
+        ]
+          .map((url) => String(url || "").trim())
+          .filter((url) => /^https?:\/\//i.test(url))
+      )
+    );
+
+    return {
+      nome: String(detalhe.title || detalhe.name || "").trim(),
+      imagens,
+    };
+  } catch {
+    return { nome: "", imagens: [] as string[] };
+  }
+}
+
 async function extrairUserProduct(
   link: string,
   userProductId: string,
@@ -572,7 +598,12 @@ async function extrairUserProduct(
   if (itemDireto) {
     let imagensGaleria: string[] = [];
 
-    if (melhorCatalogoImagem) {
+    const visualUserProduct = await buscarDadosVisuaisUserProduct(userProductId);
+    if (visualUserProduct.imagens.length > 0) {
+      imagensGaleria = visualUserProduct.imagens;
+    }
+
+    if (imagensGaleria.length === 0 && melhorCatalogoImagem) {
       try {
         const detalhe = await buscarProdutoCatalogoMercadoLivre(
           melhorCatalogoImagem.produto.id
@@ -583,12 +614,18 @@ async function extrairUserProduct(
       }
     }
 
-    return montarProdutoUserProduct(
+    const produto = montarProdutoUserProduct(
       itemDireto,
       termoUrl,
       link,
       imagensGaleria
     );
+
+    if (visualUserProduct.nome) {
+      produto.nome = visualUserProduct.nome;
+    }
+
+    return produto;
   }
 
   if (melhorFallback) {
@@ -599,26 +636,29 @@ async function extrairUserProduct(
     );
   }
 
+  const visualUserProduct = await buscarDadosVisuaisUserProduct(userProductId);
+  const nomeFallback =
+    visualUserProduct.nome ||
+    termoUrl
+      .split(" ")
+      .filter(Boolean)
+      .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+      .join(" ") ||
+    `Produto Mercado Livre ${userProductId}`;
+
   return {
-    nome:
-      termoUrl
-        .split(" ")
-        .filter(Boolean)
-        .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
-        .join(" ") || `Produto Mercado Livre ${userProductId}`,
+    nome: nomeFallback,
     categoria: "",
     loja: "Mercado Livre",
     precoAntigo: "",
     precoAtual: "",
     parcelas: "",
     freteGratis: false,
-    imagem: "",
-    imagensGaleria: [],
+    imagem: visualUserProduct.imagens[0] || "",
+    imagensGaleria: visualUserProduct.imagens,
     avaliacao: null,
     vendas: "",
     urlFinal: link,
-    aviso:
-      "User Product do Mercado Livre reconhecido, mas o ML não forneceu uma oferta de catálogo confiável. O cadastro foi liberado em modo manual; complete preço, parcelas, imagem e link de afiliado antes de salvar.",
   };
 }
 
