@@ -1237,6 +1237,7 @@ function selecionarTodosFiltrados() {
 <option value="Casa e Cozinha">Casa e Cozinha</option>
 <option value="Jardim">Jardim</option>
 <option value="Decoração">Decoração</option>
+<option value="Beleza e Maquiagem">Beleza e Maquiagem</option>
 <option value="Automotivo">Automotivo</option>
 <option value="Esportes">Esportes</option>
 <option value="Saúde e Bem-estar">Saúde e Bem-estar</option>
