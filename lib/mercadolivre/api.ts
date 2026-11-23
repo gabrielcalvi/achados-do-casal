@@ -47,6 +47,19 @@ export type ProdutoCatalogoMercadoLivre = {
   } | null;
 };
 
+export type UserProductMercadoLivre = {
+  id: string;
+  title?: string | null;
+  name?: string | null;
+  status?: string | null;
+  pictures?: Array<{
+    id?: string;
+    url?: string;
+    secure_url?: string;
+  }>;
+  thumbnail?: string | null;
+};
+
 export type ItemCatalogoMercadoLivre = {
   item_id: string;
   site_id?: string;
@@ -220,6 +233,20 @@ export async function buscarItensDoCatalogoMercadoLivre(
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
     `https://api.mercadolibre.com/products/${idNormalizado}/items`
+  );
+}
+
+export async function buscarUserProductMercadoLivre(
+  userProductId: string
+): Promise<UserProductMercadoLivre> {
+  const idNormalizado = normalizarIdMercadoLivre(userProductId);
+
+  if (!/^MLBU\d+$/.test(idNormalizado)) {
+    throw new Error(`USER_PRODUCT_ID inválido: ${userProductId}`);
+  }
+
+  return fetchJsonMercadoLivre<UserProductMercadoLivre>(
+    `https://api.mercadolibre.com/user-products/${idNormalizado}`
   );
 }
 
