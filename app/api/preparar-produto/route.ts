@@ -37,7 +37,7 @@ function normalizarCategoria(categoria: unknown, nome: unknown) {
   if (/(brinquedo|lego|hot wheels|boneca|jogo de tabuleiro|pista)/.test(texto)) return "Brinquedos";
   if (/(pet|cachorro|gato|racao|arranhador)/.test(texto)) return "Pet";
   if (/(carro|automotivo|veiculo|diesel|pneu|oleo motor)/.test(texto)) return "Automotivo";
-  if (/(air fryer|cozinha|casa|movel|móvel|guarda-roupa|secador|eletrodomestico|sofa|sofá|poltrona|puff|sala|varanda)/.test(texto)) return "Casa e Cozinha";
+  if (/(air fryer|cozinha|casa|movel|móvel|guarda-roupa|secador|eletrodomestico|sofa|sofá|poltrona|puff|sala|varanda|natal|arvore de natal|árvore de natal|decoracao|decoração|inflavel|inflável)/.test(texto)) return "Casa e Cozinha";
   if (/(esporte|fitness|academia|bicicleta|bola|corrida)/.test(texto)) return "Esportes";
   if (/(saude|bem-estar|febre|nasal|farmacia|higiene)/.test(texto)) return "Saúde e Bem-estar";
   if (/(alimento|bebida|cafe|chocolate|mercado)/.test(texto)) return "Alimentos e Bebidas";
