@@ -34,6 +34,7 @@ export function extrairItemIdMercadoLivre(link: string) {
 
 export type ItemListaMercadoLivre = {
   itemId: string;
+  userProductId: string | null;
   titulo: string | null;
   preco: number | null;
   precoAntigo: number | null;
@@ -93,6 +94,9 @@ export async function consultarListaMercadoLivre() {
         : Math.min(normalizado.length, inicio + 18000);
     const trecho = normalizado.slice(inicio, fim);
 
+    const userProductId =
+      trecho.match(/"user_product_id":"(MLBU\d+)"/)?.[1]?.toUpperCase() ?? null;
+
     const titulo =
       trecho.match(/"title":\{"text":"([^"]+)"/)?.[1] ?? null;
     const precoTexto =
@@ -131,6 +135,7 @@ export async function consultarListaMercadoLivre() {
 
     return {
       itemId: match[1].toUpperCase(),
+      userProductId,
       titulo,
       preco: Number.isFinite(preco) ? preco : null,
       precoAntigo: Number.isFinite(precoAntigo) ? precoAntigo : null,
