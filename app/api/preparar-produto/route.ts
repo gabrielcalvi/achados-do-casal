@@ -12,6 +12,7 @@ const CATEGORIAS_OFICIAIS = new Set([
   "Casa e Cozinha",
   "Jardim",
   "Decoração",
+  "Beleza e Maquiagem",
   "Automotivo",
   "Esportes",
   "Saúde e Bem-estar",
@@ -41,6 +42,7 @@ function normalizarCategoria(categoria: unknown, nome: unknown) {
   if (/(carro|automotivo|veiculo|diesel|pneu|oleo motor)/.test(texto)) return "Automotivo";
   if (/(jardim|jardinagem|grama|mangueira|vaso|floreira|canteiro|paisagismo|area externa|área externa)/.test(texto)) return "Jardim";
   if (/(natal|arvore de natal|árvore de natal|decoracao|decoração|inflavel|inflável|enfeite|ornamento|guirlanda|luz de natal|papai noel)/.test(texto)) return "Decoração";
+  if (/(maquiagem|make\b|makeup|batom|gloss|rimel|rímel|mascara de cilios|máscara de cílios|base facial|corretivo|blush|iluminador|sombra|delineador|primer|paleta|skincare|cosmetico|cosmético|beleza)/.test(texto)) return "Beleza e Maquiagem";
   if (/(air fryer|cozinha|casa|movel|móvel|guarda-roupa|secador|eletrodomestico|sofa|sofá|poltrona|puff|sala|varanda)/.test(texto)) return "Casa e Cozinha";
   if (/(esporte|fitness|academia|bicicleta|bola|corrida)/.test(texto)) return "Esportes";
   if (/(saude|bem-estar|febre|nasal|farmacia|higiene)/.test(texto)) return "Saúde e Bem-estar";
