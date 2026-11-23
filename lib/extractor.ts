@@ -599,9 +599,27 @@ async function extrairUserProduct(
     );
   }
 
-  throw new Error(
-    `O produto ${userProductId} foi reconhecido, mas não foi localizado com confiança entre os catálogos ativos do Mercado Livre.`
-  );
+  return {
+    nome:
+      termoUrl
+        .split(" ")
+        .filter(Boolean)
+        .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+        .join(" ") || `Produto Mercado Livre ${userProductId}`,
+    categoria: "",
+    loja: "Mercado Livre",
+    precoAntigo: "",
+    precoAtual: "",
+    parcelas: "",
+    freteGratis: false,
+    imagem: "",
+    imagensGaleria: [],
+    avaliacao: null,
+    vendas: "",
+    urlFinal: link,
+    aviso:
+      "User Product do Mercado Livre reconhecido, mas o ML não forneceu uma oferta de catálogo confiável. O cadastro foi liberado em modo manual; complete preço, parcelas, imagem e link de afiliado antes de salvar.",
+  };
 }
 
 async function enriquecerMercadoLivreComLista<T extends Record<string, any>>(
