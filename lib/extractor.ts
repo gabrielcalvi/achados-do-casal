@@ -258,20 +258,9 @@ async function extrairPorItemDireto(
 
   try {
     const lista = await consultarListaMercadoLivre();
-    const itemLista = lista.itens.find((item) => {
-      if (itemId && normalizarId(item.itemId) === normalizarId(itemId)) {
-        return true;
-      }
-
-      if (
-        userProductId &&
-        normalizarId(item.userProductId || "") === normalizarId(userProductId)
-      ) {
-        return true;
-      }
-
-      return false;
-    });
+    const itemLista = lista.itens.find(
+      (item) => normalizarId(item.itemId) === normalizarId(itemId)
+    );
 
     if (itemLista) {
       const precoAtual = normalizarPreco(itemLista.preco);
@@ -642,9 +631,20 @@ async function enriquecerMercadoLivreComLista<T extends Record<string, any>>(
 
   try {
     const lista = await consultarListaMercadoLivre();
-    const itemLista = lista.itens.find(
-      (item) => normalizarId(item.itemId) === normalizarId(itemId)
-    );
+    const itemLista = lista.itens.find((item) => {
+      if (itemId && normalizarId(item.itemId) === normalizarId(itemId)) {
+        return true;
+      }
+
+      if (
+        userProductId &&
+        normalizarId(item.userProductId || "") === normalizarId(userProductId)
+      ) {
+        return true;
+      }
+
+      return false;
+    });
 
     if (!itemLista) return produto;
 
