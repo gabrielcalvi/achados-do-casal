@@ -314,13 +314,6 @@ vendas:
 }));
 setImagensGaleria(dados.imagensGaleria || []);
 setPreparandoProduto(false);
-
-setTimeout(() => {
-  alert(
-    dados.aviso ||
-      "Produto preparado com sucesso."
-  );
-}, 100);
   } catch (error) {
     console.error(error);
     alert("Erro ao conectar com a API.");
@@ -1242,6 +1235,8 @@ function selecionarTodosFiltrados() {
 <option value="Tecnologia">Tecnologia</option>
 <option value="Celulares">Celulares</option>
 <option value="Casa e Cozinha">Casa e Cozinha</option>
+<option value="Jardim">Jardim</option>
+<option value="Outra decoração">Outra decoração</option>
 <option value="Automotivo">Automotivo</option>
 <option value="Esportes">Esportes</option>
 <option value="Saúde e Bem-estar">Saúde e Bem-estar</option>
@@ -1277,7 +1272,7 @@ function selecionarTodosFiltrados() {
 
 {formulario.loja.toLowerCase().includes("mercado livre") && (
   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-    🖐️ Mercado Livre fica em modo manual: tu informa preço, link e promoções; o monitor automático não mexe nesse produto.
+    🖐️ No Mercado Livre, o monitoramento de preço continua manual. Ao preparar, o sistema tenta preencher automaticamente nome, categoria, imagens, preço, parcelas, frete e demais dados que conseguir confirmar.
   </div>
 )}
 
