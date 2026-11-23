@@ -258,9 +258,20 @@ async function extrairPorItemDireto(
 
   try {
     const lista = await consultarListaMercadoLivre();
-    const itemLista = lista.itens.find(
-      (item) => normalizarId(item.itemId) === normalizarId(itemId)
-    );
+    const itemLista = lista.itens.find((item) => {
+      if (itemId && normalizarId(item.itemId) === normalizarId(itemId)) {
+        return true;
+      }
+
+      if (
+        userProductId &&
+        normalizarId(item.userProductId || "") === normalizarId(userProductId)
+      ) {
+        return true;
+      }
+
+      return false;
+    });
 
     if (itemLista) {
       const precoAtual = normalizarPreco(itemLista.preco);
@@ -624,9 +635,10 @@ async function extrairUserProduct(
 
 async function enriquecerMercadoLivreComLista<T extends Record<string, any>>(
   produto: T,
-  itemId: string | null
+  itemId: string | null,
+  userProductId: string | null = null
 ): Promise<T> {
-  if (!itemId) return produto;
+  if (!itemId && !userProductId) return produto;
 
   try {
     const lista = await consultarListaMercadoLivre();
@@ -715,7 +727,8 @@ async function extrairMercadoLivre(link: string) {
         referencias.termoUrl,
         referencias.itemId
       ),
-      referencias.itemId
+      referencias.itemId,
+      referencias.userProductId
     );
   }
 
