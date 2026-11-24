@@ -1,6 +1,5 @@
 import Link from "next/link";
 import PainelMlV2 from "../PainelMlV2";
-import RenovarSessaoMlV2 from "./RenovarSessaoMlV2";
 import PublicacaoSeguraMlV2 from "./PublicacaoSeguraMlV2";
 import MlV2AplicarSemCodigo from "./MlV2AplicarSemCodigo";
 import ComissaoManualMlV2 from "./ComissaoManualMlV2";
@@ -43,7 +42,6 @@ export default function AdminMlV2Page() {
         <ComissaoManualMlV2 />
         <PublicacaoSeguraMlV2 />
         <MlV2AplicarSemCodigo />
-        <RenovarSessaoMlV2 />
       </div>
     </main>
   );
