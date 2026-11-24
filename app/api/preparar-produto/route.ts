@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { extrairProduto } from "@/lib/extractor";
 import { extrairMercadoLivreComSessao } from "@/lib/services/mercadoLivreSandboxExtractor";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { usuarioAdminAutenticado } from "@/lib/local-agent/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,6 +104,76 @@ export async function POST(request: Request) {
       galeriaAtual.length === 0 &&
       !String(dados.imagem || "").trim()
     ) {
+      // Prefer the authenticated browser on Gabriel's local computer.
+      const usuario = await usuarioAdminAutenticado();
+      if (usuario) {
+        const { data: dispositivo } = await supabaseAdmin
+          .from("local_agent_devices")
+          .select("id")
+          .is("revoked_at", null)
+          .gte("last_seen_at", new Date(Date.now() - 45000).toISOString())
+          .order("last_seen_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (dispositivo) {
+          const { data: tarefa } = await supabaseAdmin
+            .from("local_agent_jobs")
+            .insert({
+              task_type: "product_extract",
+              payload: { url: link },
+              created_by: usuario.id,
+            })
+            .select("id")
+            .single();
+
+          if (tarefa) {
+            const limite = Date.now() + 110000;
+            while (Date.now() < limite) {
+              const { data: estado } = await supabaseAdmin
+                .from("local_agent_jobs")
+                .select("status,result,error")
+                .eq("id", tarefa.id)
+                .maybeSingle();
+
+              if (estado?.status === "completed" && estado.result) {
+                const extra = estado.result as Record<string, any>;
+                const imagens = Array.isArray(extra.imagensGaleria)
+                  ? extra.imagensGaleria.filter(Boolean)
+                  : [];
+                dados = {
+                  ...dados,
+                  nome: extra.nome || dados.nome,
+                  precoAntigo: extra.precoAntigo || dados.precoAntigo,
+                  precoAtual: extra.precoAtual || dados.precoAtual,
+                  parcelas: extra.parcelas || dados.parcelas,
+                  freteGratis: extra.freteGratis === true ? true : dados.freteGratis,
+                  imagem: extra.imagem || dados.imagem,
+                  imagensGaleria: imagens.length ? imagens : galeriaAtual,
+                  avaliacao: extra.avaliacao ?? dados.avaliacao,
+                  vendas: extra.vendas || dados.vendas,
+                };
+                break;
+              }
+              if (estado?.status === "failed") {
+                dados = { ...dados, avisoAgenteLocal: estado.error || "O agente local nao conseguiu extrair este anuncio." };
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
+          }
+        } else {
+          dados = {
+            ...dados,
+            avisoAgenteLocal: "Agente local offline. Inicie npm run ml:agent no computador conectado ao Mercado Livre para recuperar a galeria.",
+          };
+        }
+      }
+
+      if (
+        !String(dados.imagem || "").trim() &&
+        (!Array.isArray(dados.imagensGaleria) || dados.imagensGaleria.length === 0)
+      ) {
       const autenticado = await executarComTimeout(
         extrairMercadoLivreComSessao(link),
         120000,
