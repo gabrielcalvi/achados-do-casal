@@ -9,9 +9,21 @@ const BASE = "https://achadosdocasal.com.br";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const agora = new Date().toISOString();
 
+  const { data: ultimaOferta } = await supabaseAdmin
+    .from("economize_ofertas")
+    .select("updated_at")
+    .eq("status", "ativo")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const ultimaAtualizacaoEconomize = ultimaOferta?.updated_at
+    ? new Date(ultimaOferta.updated_at)
+    : new Date();
+
   const estaticas: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
-    { url: `${BASE}/economize`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.95 },
+    { url: `${BASE}/economize`, lastModified: ultimaAtualizacaoEconomize, changeFrequency: "hourly", priority: 0.95 },
     { url: `${BASE}/viagens`, lastModified: new Date(), changeFrequency: "daily", priority: 0.95 },
     { url: `${BASE}/reviews`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
     { url: `${BASE}/nike`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
