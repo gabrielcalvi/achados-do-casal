@@ -23,6 +23,7 @@ const [acaoEmLote, setAcaoEmLote] = useState(false);
 const [paginaAtual, setPaginaAtual] = useState(1);
 const [ordenacao, setOrdenacao] = useState("recentes");
 const [mensagemSucesso, setMensagemSucesso] = useState("");
+const [avisoSessaoMl, setAvisoSessaoMl] = useState("");
 const [preparandoProduto, setPreparandoProduto] = useState(false);
 const [salvandoProduto, setSalvandoProduto] = useState(false);
 const [linkProdutoDireto, setLinkProdutoDireto] = useState("");
@@ -313,6 +314,7 @@ vendas:
   formularioAtual.vendas,
 }));
 setImagensGaleria(dados.imagensGaleria || []);
+setAvisoSessaoMl(dados.avisoSessaoMercadoLivre || "");
 setPreparandoProduto(false);
   } catch (error) {
     console.error(error);
@@ -327,6 +329,7 @@ function limparFormularioProduto() {
   setImagensGaleria([]);
   setImagensExtras([]);
   setLinkProdutoDireto("");
+  setAvisoSessaoMl("");
 
   setFormulario({
     nome: "",
@@ -1274,6 +1277,18 @@ function selecionarTodosFiltrados() {
 {formulario.loja.toLowerCase().includes("mercado livre") && (
   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
     🖐️ No Mercado Livre, o monitoramento de preço continua manual. Ao preparar, o sistema tenta preencher automaticamente nome, categoria, imagens, preço, parcelas, frete e demais dados que conseguir confirmar.
+  </div>
+)}
+
+{avisoSessaoMl && (
+  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+    <p>🔐 {avisoSessaoMl}</p>
+    <Link
+      href="/admin/economize/ml-v2"
+      className="mt-2 inline-flex rounded-lg bg-red-700 px-3 py-2 text-xs font-black text-white hover:bg-red-800"
+    >
+      Renovar sessão do Mercado Livre →
+    </Link>
   </div>
 )}
 
