@@ -2,6 +2,7 @@ import { load } from "cheerio";
 import {
   buscarItensDoCatalogoMercadoLivre,
   buscarItensDoUserProductMercadoLivre,
+  buscarItensMercadoLivrePorTexto,
   buscarUserProductMercadoLivre,
   buscarProdutoMercadoLivre,
   buscarProdutoCatalogoMercadoLivre,
@@ -590,6 +591,101 @@ async function buscarImagensFallbackMercadoLivre(
   ).slice(0, 8);
 }
 
+async function buscarItemPorTituloMercadoLivre(termoUrl: string) {
+  const termo = String(termoUrl || "").trim();
+  if (!termo) return null;
+
+  try {
+    const resultados = await buscarItensMercadoLivrePorTexto(termo, 50);
+    const alvo = normalizarTextoComparacao(termo);
+    const tokensAlvo = Array.from(new Set(tokensComparacao(alvo)));
+
+    let melhor:
+      | {
+          item: (typeof resultados)[number];
+          score: number;
+        }
+      | null = null;
+
+    for (const item of resultados) {
+      const titulo = normalizarTextoComparacao(String(item.title || ""));
+      if (!titulo) continue;
+
+      if (titulo === alvo) {
+        return item;
+      }
+
+      const tokensTitulo = new Set(tokensComparacao(titulo));
+      const comuns = tokensAlvo.filter((token) => tokensTitulo.has(token)).length;
+      const score = tokensAlvo.length ? (comuns / tokensAlvo.length) * 100 : 0;
+
+      if (!melhor || score > melhor.score) {
+        melhor = { item, score };
+      }
+    }
+
+    return melhor && melhor.score >= 80 ? melhor.item : null;
+  } catch {
+    return null;
+  }
+}
+
+async function buscarGaleriaPorTituloMercadoLivre(termoUrl: string) {
+  const itemBusca = await buscarItemPorTituloMercadoLivre(termoUrl);
+  if (!itemBusca?.id) {
+    return {
+      nome: "",
+      precoAtual: "",
+      precoAntigo: "",
+      parcelas: "",
+      freteGratis: false,
+      imagem: "",
+      imagensGaleria: [] as string[],
+      itemId: "",
+    };
+  }
+
+  try {
+    const itemCompleto = await buscarProdutoMercadoLivre(itemBusca.id);
+    const imagensGaleria = Array.from(
+      new Set(
+        [
+          ...(itemCompleto.pictures || []).map(
+            (imagem) => imagem.secure_url || imagem.url || ""
+          ),
+          itemCompleto.thumbnail || "",
+        ]
+          .map((url) => String(url || "").trim())
+          .filter((url) => /^https?:\/\//i.test(url))
+      )
+    );
+
+    return {
+      nome: String(itemCompleto.title || itemBusca.title || "").trim(),
+      precoAtual: normalizarPreco(itemCompleto.price),
+      precoAntigo: normalizarPreco(itemCompleto.original_price),
+      parcelas: "",
+      freteGratis: Boolean(itemCompleto.shipping?.free_shipping),
+      imagem: imagensGaleria[0] || "",
+      imagensGaleria,
+      itemId: String(itemCompleto.id || itemBusca.id || ""),
+    };
+  } catch {
+    const imagem = String(itemBusca.thumbnail || "").trim();
+
+    return {
+      nome: String(itemBusca.title || "").trim(),
+      precoAtual: normalizarPreco(itemBusca.price),
+      precoAntigo: normalizarPreco(itemBusca.original_price),
+      parcelas: "",
+      freteGratis: Boolean(itemBusca.shipping?.free_shipping),
+      imagem,
+      imagensGaleria: imagem ? [imagem] : [],
+      itemId: String(itemBusca.id || ""),
+    };
+  }
+}
+
 async function buscarDadosVisuaisUserProduct(userProductId: string) {
   try {
     const detalhe = await buscarUserProductMercadoLivre(userProductId);
@@ -761,7 +857,19 @@ async function extrairUserProduct(
         );
         imagensGaleria = imagensDoCatalogo(detalhe);
       } catch {
-        // Se o catálogo de imagem falhar, seguimos para o fallback visual.
+        // Se o catálogo de imagem falhar, seguimos para a busca oficial por título.
+      }
+    }
+
+    if (imagensGaleria.length === 0) {
+      const oficialPorTitulo = await buscarGaleriaPorTituloMercadoLivre(termoUrl);
+
+      if (oficialPorTitulo.imagensGaleria.length > 0) {
+        imagensGaleria = oficialPorTitulo.imagensGaleria;
+      }
+
+      if (!nomeExato && oficialPorTitulo.nome) {
+        nomeExato = oficialPorTitulo.nome;
       }
     }
 
@@ -798,16 +906,20 @@ async function extrairUserProduct(
   }
 
   const visualUserProduct = await buscarDadosVisuaisUserProduct(userProductId);
+  const oficialPorTitulo = await buscarGaleriaPorTituloMercadoLivre(termoUrl);
   const imagensFallback =
     visualUserProduct.imagens.length > 0
       ? visualUserProduct.imagens
-      : await buscarImagensFallbackMercadoLivre(
-          termoUrl,
-          userProductId,
-          itemId
-        );
+      : oficialPorTitulo.imagensGaleria.length > 0
+        ? oficialPorTitulo.imagensGaleria
+        : await buscarImagensFallbackMercadoLivre(
+            termoUrl,
+            userProductId,
+            itemId
+          );
   const nomeFallback =
     visualUserProduct.nome ||
+    oficialPorTitulo.nome ||
     termoUrl
       .split(" ")
       .filter(Boolean)
