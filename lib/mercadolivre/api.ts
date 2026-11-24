@@ -240,7 +240,7 @@ export async function buscarItensDoCatalogoMercadoLivre(
   }
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
-    `https://api.mercadolibre.com/products/${idNormalizado}/items?attributes=results.item_id,results.site_id,results.seller_id,results.price,results.original_price,results.user_product_id,results.title,results.thumbnail,results.secure_thumbnail,results.pictures,results.shipping`
+    `https://api.mercadolibre.com/products/${idNormalizado}/items`
   );
 }
 
@@ -268,7 +268,7 @@ export async function buscarItensDoUserProductMercadoLivre(
   }
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
-    `https://api.mercadolibre.com/products/${idNormalizado}/items`
+    `https://api.mercadolibre.com/products/${idNormalizado}/items?attributes=results.item_id,results.site_id,results.seller_id,results.price,results.original_price,results.user_product_id,results.title,results.thumbnail,results.secure_thumbnail,results.pictures,results.shipping`
   );
 }
 
