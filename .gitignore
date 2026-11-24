@@ -50,3 +50,7 @@ tmp/meli-auth.json
 .env*
 tmp/meli-buyer-auth.json
 tmp/meli-buyer-profile/
+
+# Agente local Mercado Livre: perfil e resultados de sessao nunca entram no Git
+/tmp/achados-ml-agent-profile/
+/tmp/ml-cupons-v2-oficiais.json
