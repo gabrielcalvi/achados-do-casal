@@ -63,6 +63,14 @@ export type UserProductMercadoLivre = {
 export type ItemCatalogoMercadoLivre = {
   item_id: string;
   site_id?: string;
+  title?: string;
+  thumbnail?: string;
+  secure_thumbnail?: string;
+  pictures?: Array<{
+    id?: string;
+    url?: string;
+    secure_url?: string;
+  }>;
   seller_id?: number;
   price?: number;
   currency_id?: string;
@@ -232,7 +240,7 @@ export async function buscarItensDoCatalogoMercadoLivre(
   }
 
   return fetchJsonMercadoLivre<ListaItensCatalogoMercadoLivre>(
-    `https://api.mercadolibre.com/products/${idNormalizado}/items`
+    `https://api.mercadolibre.com/products/${idNormalizado}/items?attributes=results.item_id,results.site_id,results.seller_id,results.price,results.original_price,results.user_product_id,results.title,results.thumbnail,results.secure_thumbnail,results.pictures,results.shipping`
   );
 }
 
