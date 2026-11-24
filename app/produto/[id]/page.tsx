@@ -155,10 +155,8 @@ export async function generateMetadata({
       ? moeda(produto.preco_antigo)
       : null;
   const tituloAutomatico = produto.review_completa
-    ? `${produto.nome}: review do casal`
-    : preco
-      ? `🔥 ${preco} • ${produto.nome}`
-      : `${produto.nome}: preço e oferta`;
+    ? `${produto.nome}: review e opinião do casal`
+    : `${produto.nome}: preço, oferta e onde comprar`;
 
   const baseDescricao =
     produto.review_completa && produto.opiniao_casal
@@ -229,6 +227,7 @@ export default async function ProdutoPage({
         500,
       ) || undefined,
     category: produto.categoria || undefined,
+    sku: String(produto.id),
   };
 
   if (temPrecoAtivo) {
@@ -238,6 +237,7 @@ export default async function ProdutoPage({
       priceCurrency: "BRL",
       price: precoAtual.toFixed(2),
       availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
         name: produto.loja || "Loja parceira",
