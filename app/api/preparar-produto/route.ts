@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "O link informado não é válido." }, { status: 400 });
     }
 
-    let dados = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
+    let dados: any = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
 
     const ehMercadoLivre =
       /mercadolivre|mercadolibre|meli\.la/i.test(link) ||
