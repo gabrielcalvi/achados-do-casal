@@ -5,6 +5,7 @@ import PublicacaoSeguraMlV2 from "./PublicacaoSeguraMlV2";
 import MlV2AplicarSemCodigo from "./MlV2AplicarSemCodigo";
 import ComissaoManualMlV2 from "./ComissaoManualMlV2";
 import DescarteLoteGuardMlV2 from "./DescarteLoteGuardMlV2";
+import AgenteLocalMl from "./AgenteLocalMl";
 import "./ml-v2.css";
 
 export default function AdminMlV2Page() {
@@ -37,6 +38,7 @@ export default function AdminMlV2Page() {
           </Link>
         </header>
 
+        <AgenteLocalMl />
         <PainelMlV2 />
         <ComissaoManualMlV2 />
         <PublicacaoSeguraMlV2 />
