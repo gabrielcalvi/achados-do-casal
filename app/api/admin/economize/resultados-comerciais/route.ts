@@ -250,3 +250,71 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  if (!(await usuarioAutenticado())) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  try {
+    const corpo = (await request.json()) as Record<string, unknown>;
+    const id = Number(corpo.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return NextResponse.json(
+        { error: "Venda inválida para edição." },
+        { status: 400 },
+      );
+    }
+
+    const dataVenda =
+      typeof corpo.dataVenda === "string" && /^\d{4}-\d{2}-\d{2}$/.test(corpo.dataVenda)
+        ? corpo.dataVenda
+        : null;
+
+    if (!dataVenda) {
+      return NextResponse.json(
+        { error: "Informe uma data de venda válida." },
+        { status: 400 },
+      );
+    }
+
+    const status =
+      corpo.status === "pendente" || corpo.status === "cancelada"
+        ? corpo.status
+        : "confirmada";
+    const origem = textoOpcional(corpo.origem, 120) || "site";
+
+    const { data, error } = await supabaseAdmin
+      .from("economize_vendas")
+      .update({
+        data_venda: dataVenda,
+        status,
+        origem,
+        loja: textoOpcional(corpo.loja),
+        produto: textoOpcional(corpo.produto, 500),
+        programa_afiliado: textoOpcional(corpo.programaAfiliado),
+        valor_venda: numeroOpcional(corpo.valorVenda),
+        comissao: numeroOpcional(corpo.comissao),
+        observacoes: textoOpcional(corpo.observacoes, 1200),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select(
+        "id,data_venda,status,origem,loja,produto,programa_afiliado,valor_venda,comissao,moeda,fonte,observacoes,created_at,updated_at",
+      )
+      .single();
+
+    if (error) {
+      throw new Error(`Falha ao atualizar venda: ${error.message}`);
+    }
+
+    return NextResponse.json({ venda: data });
+  } catch (error) {
+    console.error("Erro ao atualizar venda:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro interno." },
+      { status: 500 },
+    );
+  }
+}
