@@ -100,8 +100,7 @@ export async function POST(request: Request) {
 
     if (
       ehMercadoLivre &&
-      galeriaAtual.length === 0 &&
-      !String(dados.imagem || "").trim()
+      galeriaAtual.length < 3
     ) {
       const usuario = await usuarioAdminAutenticado();
 
@@ -149,9 +148,11 @@ export async function POST(request: Request) {
 
               if (estado?.status === "completed" && estado.result) {
                 const extra = estado.result as Record<string, any>;
-                const imagens = Array.isArray(extra.imagensGaleria)
-                  ? extra.imagensGaleria.filter(Boolean)
-                  : [];
+                const imagens = [...new Set([
+                  ...(Array.isArray(extra.imagensGaleria) ? extra.imagensGaleria : []),
+                  extra.imagem,
+                  dados.imagem,
+                ].filter((imagem): imagem is string => typeof imagem === "string" && imagem.startsWith("http")))];
                 dados = {
                   ...dados,
                   nome: extra.nome || dados.nome,
