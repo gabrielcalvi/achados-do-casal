@@ -68,6 +68,7 @@ export default function ResultadosComerciaisPage() {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState("");
+  const [editandoVendaId, setEditandoVendaId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     dataVenda: hoje,
@@ -103,6 +104,45 @@ export default function ResultadosComerciaisPage() {
     void carregar();
   }, [dias]);
 
+  function limparFormulario() {
+    setEditandoVendaId(null);
+    setForm({
+      dataVenda: hoje,
+      status: "confirmada",
+      origem: "site",
+      loja: "",
+      produto: "",
+      programaAfiliado: "",
+      valorVenda: "",
+      comissao: "",
+      observacoes: "",
+    });
+  }
+
+  function editarVenda(venda: Venda) {
+    setEditandoVendaId(venda.id);
+    setErro("");
+    setSucesso("");
+    setForm({
+      dataVenda: venda.data_venda,
+      status: venda.status,
+      origem: venda.origem || "site",
+      loja: venda.loja || "",
+      produto: venda.produto || "",
+      programaAfiliado: venda.programa_afiliado || "",
+      valorVenda:
+        venda.valor_venda === null || venda.valor_venda === undefined
+          ? ""
+          : String(venda.valor_venda),
+      comissao:
+        venda.comissao === null || venda.comissao === undefined
+          ? ""
+          : String(venda.comissao),
+      observacoes: venda.observacoes || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setSalvando(true);
@@ -111,25 +151,21 @@ export default function ResultadosComerciaisPage() {
 
     try {
       const resposta = await fetch("/api/admin/economize/resultados-comerciais", {
-        method: "POST",
+        method: editandoVendaId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(
+          editandoVendaId ? { id: editandoVendaId, ...form } : form,
+        ),
       });
       const resultado = await resposta.json();
       if (!resposta.ok) throw new Error(resultado.error || "Não foi possível salvar.");
 
-      setSucesso("Venda registrada no painel.");
-      setForm({
-        dataVenda: hoje,
-        status: "confirmada",
-        origem: "site",
-        loja: "",
-        produto: "",
-        programaAfiliado: "",
-        valorVenda: "",
-        comissao: "",
-        observacoes: "",
-      });
+      setSucesso(
+        editandoVendaId
+          ? "Venda atualizada com sucesso."
+          : "Venda registrada no painel.",
+      );
+      limparFormulario();
       await carregar();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro inesperado.");
@@ -255,7 +291,7 @@ export default function ResultadosComerciaisPage() {
                             : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {venda.status}
+                      {venda.status === "pendente" ? "em revisão" : venda.status}
                     </span>
                   </div>
                   <div className="min-w-0">
@@ -275,6 +311,13 @@ export default function ResultadosComerciaisPage() {
                     <p className="text-xs font-bold text-emerald-700">
                       comissão {moeda(venda.comissao)}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => editarVenda(venda)}
+                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                    >
+                      ✏️ Editar
+                    </button>
                   </div>
                 </div>
               ))}
@@ -286,9 +329,11 @@ export default function ResultadosComerciaisPage() {
 
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-black uppercase tracking-wide text-blue-600">
-              Registro rápido
+              {editandoVendaId ? "Edição" : "Registro rápido"}
             </p>
-            <h2 className="mt-1 text-2xl font-black">Adicionar venda</h2>
+            <h2 className="mt-1 text-2xl font-black">
+              {editandoVendaId ? "Editar venda" : "Adicionar venda"}
+            </h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Use enquanto Amazon, AWIN, Mercado Livre e outros parceiros não estiverem
               importando automaticamente seus relatórios.
@@ -314,7 +359,7 @@ export default function ResultadosComerciaisPage() {
                     className="rounded-xl border border-slate-300 px-3 py-2.5"
                   >
                     <option value="confirmada">Confirmada</option>
-                    <option value="pendente">Pendente</option>
+                    <option value="pendente">Em revisão</option>
                     <option value="cancelada">Cancelada</option>
                   </select>
                 </label>
@@ -401,13 +446,29 @@ export default function ResultadosComerciaisPage() {
                 />
               </label>
 
-              <button
-                type="submit"
-                disabled={salvando}
-                className="mt-2 rounded-xl bg-slate-950 px-5 py-3 font-black text-white transition hover:bg-slate-800 disabled:opacity-50"
-              >
-                {salvando ? "Salvando..." : "Registrar venda"}
-              </button>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="rounded-xl bg-slate-950 px-5 py-3 font-black text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {salvando
+                    ? "Salvando..."
+                    : editandoVendaId
+                      ? "Salvar alterações"
+                      : "Registrar venda"}
+                </button>
+                {editandoVendaId ? (
+                  <button
+                    type="button"
+                    onClick={limparFormulario}
+                    disabled={salvando}
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Cancelar edição
+                  </button>
+                ) : null}
+              </div>
             </form>
           </section>
         </div>
