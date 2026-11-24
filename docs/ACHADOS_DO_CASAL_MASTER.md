@@ -1216,3 +1216,52 @@ Toda mudança importante deve acrescentar uma nota curta em uma das seções aci
 - **14/11/2026** — registrado estado de indexação no Search Console: `/economize` e `/viagens` indexadas; `/reviews` rastreada com sucesso, indexação permitida, ainda aguardando entrada no índice.
 - **14/11/2026** — registrado que o sitemap do site foi enviado/validado manualmente no Google Search Console.
 - **14/11/2026** — criação do documento mestre, consolidação de meses de histórico, arquitetura, integrações, regras, banco, cron, estado de produção e pendências.
+
+---
+
+## 15. Agente local Mercado Livre — 24/11/2026
+
+### Objetivo
+Evitar bloqueios do navegador remoto do Sandbox do Vercel no Mercado Livre, executando a navegação autenticada no Chrome do proprio computador do usuario. Cookies e perfil de navegador permanecem locais; somente os resultados extraidos sao enviados ao servidor.
+
+### Arquitetura implementada
+- Tabelas Supabase: `local_agent_devices` e `local_agent_jobs`.
+- RLS habilitado nas duas tabelas; acesso de Data API para `anon` e `authenticated` revogado; operacoes feitas por `service_role`.
+- RPC `claim_local_agent_job(uuid)`: reivindicacao atomica com `FOR UPDATE SKIP LOCKED`, lease de 3 minutos e limite de 3 tentativas.
+- Pareamento: `POST /api/admin/local-agent/devices` cria token aleatorio; somente SHA-256 e salvo no banco; token em texto e mostrado uma unica vez.
+- Revogacao: `DELETE /api/admin/local-agent/devices/[id]`.
+- Consulta de dispositivos e tarefas: `GET /api/admin/local-agent/devices` e `GET /api/admin/local-agent/jobs`.
+- Poll/claim: `POST /api/local-agent/jobs/claim`.
+- Conclusao: `POST /api/local-agent/jobs/complete`; candidatos de cupom sao persistidos pelo pipeline existente, sem publicacao automatica.
+
+### Tipos de tarefa
+- `product_extract`: abre o anuncio no Chrome local e devolve nome, categoria, preco, parcelas, frete, avaliacao, vendas e galeria.
+- `coupon_collect`: executa o coletor oficial ML V2 no computador local e persiste candidatos no Supabase; continua exigindo validacao e afiliado antes de publicar.
+
+### Operacao local
+- Comando: `npm run ml:agent`.
+- Alias legado `npm run ml-v2:login` tambem inicia o agente local.
+- Variaveis locais em `.env.local`: `ACHADOS_LOCAL_AGENT_TOKEN`, `ACHADOS_LOCAL_AGENT_NAME`, `ACHADOS_AGENT_URL`.
+- Perfil persistente: `tmp/achados-ml-agent-profile`, ignorado pelo Git.
+- O agente deve ficar rodando no computador para receber tarefas. Se estiver offline, o painel mostra estado offline e o preparo informa que nao pode recuperar a galeria localmente.
+- Painel: Admin > Economize > Mercado Livre V2 > Agente local.
+
+### Seguranca
+- Nunca enviar cookies/storageState para Vercel/Sandbox nem commitar tokens.
+- Token e revogavel no painel.
+- Captcha/verificacao deve ser resolvido manualmente no Chrome local; nao tentar contornar protecoes do Mercado Livre.
+- A publicacao automatica de cupons permanece bloqueada.
+
+### Arquivos principais
+- `lib/local-agent/auth.ts`
+- `app/api/admin/local-agent/devices/route.ts`
+- `app/api/admin/local-agent/devices/[id]/route.ts`
+- `app/api/admin/local-agent/jobs/route.ts`
+- `app/api/local-agent/jobs/claim/route.ts`
+- `app/api/local-agent/jobs/complete/route.ts`
+- `scripts/agente-local-ml.cjs`
+- `scripts/AGENTE_LOCAL_ML.md`
+- `app/admin/economize/ml-v2/AgenteLocalMl.tsx`
+
+### Observacao de deploy
+A implementacao esta na branch `main`; antes de usar no computador local, atualizar a copia local com cuidado. A copia anteriormente usada pelo usuario estava na branch `fase-4-agente-economia` e continha varios arquivos locais nao rastreados. Nao usar `git reset`, `git clean` ou sobrescrever arquivos locais. Primeiro revisar `git status`, salvar/backup dos arquivos locais e integrar a `main` de forma segura.
