@@ -94,6 +94,24 @@ function imagensDoCatalogo(produto: ProdutoCatalogoMercadoLivre): string[] {
   );
 }
 
+function imagensDoItemCatalogo(item: ItemCatalogoMercadoLivre | null | undefined): string[] {
+  if (!item) return [];
+
+  return Array.from(
+    new Set(
+      [
+        ...(item.pictures || []).map(
+          (imagem) => imagem.secure_url || imagem.url || ""
+        ),
+        item.secure_thumbnail || "",
+        item.thumbnail || "",
+      ]
+        .map((url) => String(url || "").trim())
+        .filter((url) => /^https?:\/\//i.test(url))
+    )
+  );
+}
+
 function itemTemPreco(item: ItemCatalogoMercadoLivre | null | undefined): item is ItemCatalogoMercadoLivre {
   return Boolean(item && Number.isFinite(Number(item.price)) && Number(item.price) > 0);
 }
@@ -596,10 +614,39 @@ async function extrairUserProduct(
   }
 
   if (itemDireto) {
-    let imagensGaleria: string[] = [];
+    let imagensGaleria = imagensDoItemCatalogo(itemDireto);
+    let nomeExato = String(itemDireto.title || "").trim();
+
+    // Primeiro fallback: consulta o anúncio EXATO ligado ao User Product.
+    // É a fonte mais segura para recuperar a galeria completa sem misturar produtos.
+    try {
+      const itemCompleto = await buscarProdutoMercadoLivre(itemDireto.item_id);
+      const imagensItemCompleto = Array.from(
+        new Set(
+          [
+            ...(itemCompleto.pictures || []).map(
+              (imagem) => imagem.secure_url || imagem.url || ""
+            ),
+            itemCompleto.thumbnail || "",
+          ]
+            .map((url) => String(url || "").trim())
+            .filter((url) => /^https?:\/\//i.test(url))
+        )
+      );
+
+      if (imagensItemCompleto.length > 0) {
+        imagensGaleria = imagensItemCompleto;
+      }
+
+      if (itemCompleto.title) {
+        nomeExato = itemCompleto.title.trim();
+      }
+    } catch {
+      // Alguns anúncios bloqueiam /items/{id}; seguimos com as demais fontes.
+    }
 
     const visualUserProduct = await buscarDadosVisuaisUserProduct(userProductId);
-    if (visualUserProduct.imagens.length > 0) {
+    if (imagensGaleria.length === 0 && visualUserProduct.imagens.length > 0) {
       imagensGaleria = visualUserProduct.imagens;
     }
 
@@ -610,7 +657,7 @@ async function extrairUserProduct(
         );
         imagensGaleria = imagensDoCatalogo(detalhe);
       } catch {
-        // Se o catálogo de imagem falhar, preservamos o produto exato sem imagem.
+        // Se o catálogo de imagem falhar, preservamos o produto exato sem inventar foto.
       }
     }
 
@@ -621,7 +668,9 @@ async function extrairUserProduct(
       imagensGaleria
     );
 
-    if (visualUserProduct.nome) {
+    if (nomeExato) {
+      produto.nome = nomeExato;
+    } else if (visualUserProduct.nome) {
       produto.nome = visualUserProduct.nome;
     }
 
