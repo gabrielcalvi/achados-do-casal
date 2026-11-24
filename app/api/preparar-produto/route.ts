@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { extrairProduto } from "@/lib/extractor";
+import { extrairMercadoLivreComSessao } from "@/lib/services/mercadoLivreSandboxExtractor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,7 +87,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "O link informado não é válido." }, { status: 400 });
     }
 
-    const dados = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
+    let dados = await executarComTimeout(extrairProduto(link), TEMPO_LIMITE);
+
+    const ehMercadoLivre =
+      /mercadolivre|mercadolibre|meli\.la/i.test(link) ||
+      String(dados.loja || "").toLowerCase().includes("mercado livre");
+
+    const galeriaAtual = Array.isArray(dados.imagensGaleria)
+      ? dados.imagensGaleria.filter(Boolean)
+      : [];
+
+    if (
+      ehMercadoLivre &&
+      galeriaAtual.length === 0 &&
+      !String(dados.imagem || "").trim()
+    ) {
+      const autenticado = await executarComTimeout(
+        extrairMercadoLivreComSessao(link),
+        120000,
+      );
+
+      if (autenticado.sucesso) {
+        const extra = autenticado.dados;
+        const imagens = Array.isArray(extra.imagensGaleria)
+          ? extra.imagensGaleria.filter(Boolean)
+          : [];
+
+        dados = {
+          ...dados,
+          nome: extra.nome || dados.nome,
+          precoAntigo: extra.precoAntigo || dados.precoAntigo,
+          precoAtual: extra.precoAtual || dados.precoAtual,
+          parcelas: extra.parcelas || dados.parcelas,
+          freteGratis:
+            extra.freteGratis === true
+              ? true
+              : dados.freteGratis,
+          imagem: extra.imagem || dados.imagem,
+          imagensGaleria:
+            imagens.length > 0
+              ? imagens
+              : galeriaAtual,
+          avaliacao: extra.avaliacao ?? dados.avaliacao,
+          vendas: extra.vendas || dados.vendas,
+        };
+      } else if (autenticado.sessaoExpirada) {
+        dados = {
+          ...dados,
+          avisoSessaoMercadoLivre:
+            "A sessao autenticada do Mercado Livre expirou. Renove a sessao no painel ML V2 para voltar a puxar automaticamente as fotos dos anuncios bloqueados.",
+        };
+      }
+    }
+
     const categoriaNormalizada = normalizarCategoria(dados.categoria, dados.nome);
 
     return NextResponse.json({
