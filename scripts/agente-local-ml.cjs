@@ -4,6 +4,21 @@ const { spawn } = require("child_process");
 const { chromium } = require("playwright");
 const { extrairMercadoLivre } = require("./extractors/mercado-livre.cjs");
 
+function carregarEnvLocal() {
+  const arquivo = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(arquivo)) return;
+  for (const linha of fs.readFileSync(arquivo, "utf8").split(/\r?\n/)) {
+    const match = linha.match(/^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*)\\s*$/);
+    if (!match || process.env[match[1]] !== undefined) continue;
+    let valor = match[2].trim();
+    if ((valor.startsWith('"') && valor.endsWith('"')) || (valor.startsWith("'") && valor.endsWith("'"))) {
+      valor = valor.slice(1, -1);
+    }
+    process.env[match[1]] = valor;
+  }
+}
+carregarEnvLocal();
+
 const BASE_URL = (process.env.ACHADOS_AGENT_URL || "https://achadosdocasal.com.br").replace(/\/$/, "");
 const TOKEN = String(process.env.ACHADOS_LOCAL_AGENT_TOKEN || "").trim();
 const DEVICE_NAME = process.env.ACHADOS_LOCAL_AGENT_NAME || require("os").hostname();
