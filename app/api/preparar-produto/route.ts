@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { extrairProduto } from "@/lib/extractor";
-import { extrairMercadoLivreComSessao } from "@/lib/services/mercadoLivreSandboxExtractor";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { usuarioAdminAutenticado } from "@/lib/local-agent/auth";
 
@@ -104,9 +103,14 @@ export async function POST(request: Request) {
       galeriaAtual.length === 0 &&
       !String(dados.imagem || "").trim()
     ) {
-      // Prefer the authenticated browser on Gabriel's local computer.
       const usuario = await usuarioAdminAutenticado();
-      if (usuario) {
+
+      if (!usuario) {
+        dados = {
+          ...dados,
+          avisoAgenteLocal: "Entre no painel administrativo para solicitar a extracao pelo Chrome local.",
+        };
+      } else {
         const { data: dispositivo } = await supabaseAdmin
           .from("local_agent_devices")
           .select("id")
@@ -116,8 +120,13 @@ export async function POST(request: Request) {
           .limit(1)
           .maybeSingle();
 
-        if (dispositivo) {
-          const { data: tarefa } = await supabaseAdmin
+        if (!dispositivo) {
+          dados = {
+            ...dados,
+            avisoAgenteLocal: "Agente local offline. No computador com Chrome logado, execute npm run ml:agent.",
+          };
+        } else {
+          const { data: tarefa, error: erroTarefa } = await supabaseAdmin
             .from("local_agent_jobs")
             .insert({
               task_type: "product_extract",
@@ -127,7 +136,9 @@ export async function POST(request: Request) {
             .select("id")
             .single();
 
-          if (tarefa) {
+          if (erroTarefa || !tarefa) {
+            dados = { ...dados, avisoAgenteLocal: erroTarefa?.message || "Nao foi possivel enfileirar a extracao local." };
+          } else {
             const limite = Date.now() + 110000;
             while (Date.now() < limite) {
               const { data: estado } = await supabaseAdmin
@@ -155,61 +166,16 @@ export async function POST(request: Request) {
                 };
                 break;
               }
+
               if (estado?.status === "failed") {
                 dados = { ...dados, avisoAgenteLocal: estado.error || "O agente local nao conseguiu extrair este anuncio." };
                 break;
               }
+
               await new Promise((resolve) => setTimeout(resolve, 1500));
             }
           }
-        } else {
-          dados = {
-            ...dados,
-            avisoAgenteLocal: "Agente local offline. Inicie npm run ml:agent no computador conectado ao Mercado Livre para recuperar a galeria.",
-          };
         }
-      }
-
-      if (
-        !String(dados.imagem || "").trim() &&
-        (!Array.isArray(dados.imagensGaleria) || dados.imagensGaleria.length === 0)
-      ) {
-      const autenticado = await executarComTimeout(
-        extrairMercadoLivreComSessao(link),
-        120000,
-      );
-
-      if (autenticado.sucesso) {
-        const extra = autenticado.dados;
-        const imagens = Array.isArray(extra.imagensGaleria)
-          ? extra.imagensGaleria.filter(Boolean)
-          : [];
-
-        dados = {
-          ...dados,
-          nome: extra.nome || dados.nome,
-          precoAntigo: extra.precoAntigo || dados.precoAntigo,
-          precoAtual: extra.precoAtual || dados.precoAtual,
-          parcelas: extra.parcelas || dados.parcelas,
-          freteGratis:
-            extra.freteGratis === true
-              ? true
-              : dados.freteGratis,
-          imagem: extra.imagem || dados.imagem,
-          imagensGaleria:
-            imagens.length > 0
-              ? imagens
-              : galeriaAtual,
-          avaliacao: extra.avaliacao ?? dados.avaliacao,
-          vendas: extra.vendas || dados.vendas,
-        };
-      } else if (autenticado.sessaoExpirada) {
-        dados = {
-          ...dados,
-          avisoSessaoMercadoLivre:
-            "A sessao autenticada do Mercado Livre expirou. Renove a sessao no painel ML V2 para voltar a puxar automaticamente as fotos dos anuncios bloqueados.",
-        };
-      }
       }
     }
 
