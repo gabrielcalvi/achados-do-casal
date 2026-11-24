@@ -210,6 +210,7 @@ export async function POST(request: Request) {
             "A sessao autenticada do Mercado Livre expirou. Renove a sessao no painel ML V2 para voltar a puxar automaticamente as fotos dos anuncios bloqueados.",
         };
       }
+      }
     }
 
     const categoriaNormalizada = normalizarCategoria(dados.categoria, dados.nome);
