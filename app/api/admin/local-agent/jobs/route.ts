@@ -24,12 +24,14 @@ export async function POST(request: NextRequest) {
   if (!["product_extract", "coupon_collect"].includes(taskType)) {
     return NextResponse.json({ sucesso: false, erro: "Tipo de tarefa invalido." }, { status: 400 });
   }
-  const payload = taskType === "product_extract"
-    ? { url: String(body?.url || "").trim() }
+  const productUrl = String(body?.url || "").trim();
+  const payload: Record<string, string> = taskType === "product_extract"
+    ? { url: productUrl }
     : {};
   if (taskType === "product_extract") {
     try {
-      const parsed = new URL(payload.url);
+      if (!productUrl) throw new Error();
+      const parsed = new URL(productUrl);
       if (!/mercadolivre|mercadolibre|meli\.la/i.test(parsed.hostname)) throw new Error();
     } catch {
       return NextResponse.json({ sucesso: false, erro: "Informe um link valido do Mercado Livre." }, { status: 400 });
