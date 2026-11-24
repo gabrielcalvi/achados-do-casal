@@ -9,7 +9,7 @@
     "lint": "eslint",
     "playwright": "node scripts/playwright-worker.cjs",
     "worker": "node scripts/playwright-worker.cjs",
-    "ml-v2:login": "node scripts/renovar-sessao-ml-v2.cjs",
+    "ml-v2:login": "node scripts/agente-local-ml.cjs",
     "ml:agent": "node scripts/agente-local-ml.cjs"
   },
   "dependencies": {
