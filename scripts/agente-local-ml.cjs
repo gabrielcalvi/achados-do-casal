@@ -8,7 +8,7 @@ function carregarEnvLocal() {
   const arquivo = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(arquivo)) return;
   for (const linha of fs.readFileSync(arquivo, "utf8").split(/\r?\n/)) {
-    const match = linha.match(/^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*)\\s*$/);
+    const match = linha.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
     if (!match || process.env[match[1]] !== undefined) continue;
     let valor = match[2].trim();
     if ((valor.startsWith('"') && valor.endsWith('"')) || (valor.startsWith("'") && valor.endsWith("'"))) {
