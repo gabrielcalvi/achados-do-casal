@@ -5,10 +5,13 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const BASE_URL = "https://achadosdocasal.com.br";
+
 const ORIGENS_PERMITIDAS = new Set(["site", "whatsapp", "telegram", "instagram", "admin"]);
 
 type Oferta = {
   id: string;
+  tipo: string;
   titulo: string;
   descricao: string | null;
   categoria: string | null;
@@ -27,6 +30,7 @@ async function carregarOferta(id: string): Promise<Oferta | null> {
     .from("economize_ofertas")
     .select(`
       id,
+      tipo,
       titulo,
       descricao,
       categoria,
@@ -91,12 +95,15 @@ export async function generateMetadata(
   const desconto = Number(oferta.desconto_percentual) || 0;
   const loja = oferta.loja?.nome || "Loja parceira";
   const tituloPreview = `${tituloCurto(oferta.titulo)} · ${loja}`;
-  const descricao = `${preco ? `${preco}` : "Confira a oferta"}${desconto > 0 ? ` · ${Math.round(desconto)}% OFF` : ""} · Achados do Casal`;
+  const tituloSeo = preco
+    ? `${tituloCurto(oferta.titulo)}: preço e oferta na ${loja}`
+    : `${tituloCurto(oferta.titulo)}: oferta na ${loja}`;
+  const descricao = `${preco ? `${preco}. ` : ""}${desconto > 0 ? `${Math.round(desconto)}% OFF. ` : ""}${loja}. Confira a oferta e as condições atualizadas no Achados do Casal.`;
   const url = `https://achadosdocasal.com.br/achado/${id}`;
   const imagemSocial = `https://achadosdocasal.com.br/api/social/achado/${id}?v=2`;
 
   return {
-    title: { absolute: `${oferta.titulo} | Achados do Casal` },
+    title: { absolute: `${tituloSeo} | Achados do Casal` },
     description: descricao,
     alternates: { canonical: url },
     openGraph: {
@@ -140,8 +147,80 @@ export default async function AchadoPage(
     `🔥 ${oferta.titulo}\n${precoAtual ? `💰 ${precoAtual}\n` : ""}${desconto > 0 ? `🏷️ ${Math.round(desconto)}% OFF\n` : ""}Confira no Achados do Casal:\n${linkPublico}`
   );
 
+  const canonicalUrl = `${BASE_URL}/achado/${oferta.id}`;
+  const validadeIso =
+    oferta.validade && !Number.isNaN(new Date(oferta.validade).getTime())
+      ? new Date(oferta.validade).toISOString().slice(0, 10)
+      : undefined;
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Início",
+        item: BASE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Economize",
+        item: `${BASE_URL}/economize`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: oferta.titulo,
+        item: canonicalUrl,
+      },
+    ],
+  };
+
+  const productJsonLd =
+    oferta.preco_oferta !== null && Number(oferta.preco_oferta) > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: oferta.titulo,
+          url: canonicalUrl,
+          image: oferta.imagem_url ? [oferta.imagem_url] : undefined,
+          description: oferta.descricao || undefined,
+          category: oferta.categoria || undefined,
+          sku: oferta.id,
+          offers: {
+            "@type": "Offer",
+            url: canonicalUrl,
+            priceCurrency: "BRL",
+            price: Number(oferta.preco_oferta).toFixed(2),
+            availability: "https://schema.org/InStock",
+            itemCondition: "https://schema.org/NewCondition",
+            priceValidUntil: validadeIso,
+            seller: {
+              "@type": "Organization",
+              name: loja,
+            },
+          },
+        }
+      : null;
+
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-black">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      {productJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      ) : null}
       <header className="border-b border-black/10 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <Link href="/" className="flex items-center">
