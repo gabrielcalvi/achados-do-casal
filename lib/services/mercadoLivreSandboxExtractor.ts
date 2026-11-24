@@ -75,7 +75,7 @@ async function dinheiro(page, seletor) {
   const cents = limpar(
     await base.locator(".andes-money-amount__cents").textContent().catch(() => "")
   );
-  return inteiro ? preco(cents ? `${inteiro},${cents}` : inteiro) : "";
+  return inteiro ? preco(cents ? `\${inteiro},\${cents}` : inteiro) : "";
 }
 
 (async () => {
