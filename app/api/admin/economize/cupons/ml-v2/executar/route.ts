@@ -124,171 +124,75 @@ async function executarColetor(
 
 export async function GET(request: NextRequest) {
   if (!(await autorizado(request))) {
-    return NextResponse.json(
-      { sucesso: false, erro: "Nao autorizado." },
-      { status: 401 }
-    );
+    return NextResponse.json({ sucesso: false, erro: "Nao autorizado." }, { status: 401 });
   }
 
-  let sandbox: SandboxInstancia | null = null;
+  const { data: dispositivo } = await supabaseAdmin
+    .from("local_agent_devices")
+    .select("id,name")
+    .is("revoked_at", null)
+    .gte("last_seen_at", new Date(Date.now() - 45000).toISOString())
+    .order("last_seen_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  try {
-    sandbox = await Sandbox.get({ name: SANDBOX_NAME });
-
-    const diretorios = await rodarComando(sandbox, {
-      cmd: "mkdir",
-      args: ["-p", "/vercel/scripts", "/vercel/tmp"],
-    });
-
-    if (diretorios.resultado.exitCode !== 0) {
-      throw new Error(
-        diretorios.stderr || "Falha preparando diretorios do Sandbox."
-      );
-    }
-
-    const buyerExiste = await arquivoExiste(sandbox, AUTH_STATE_PATH);
-    const afiliadoExiste = await arquivoExiste(
-      sandbox,
-      AUTH_STATE_FALLBACK_PATH
-    );
-
-    if (!buyerExiste && !afiliadoExiste) {
-      throw new Error(
-        "Nenhuma sessao do Mercado Livre foi encontrada no Sandbox."
-      );
-    }
-
-    const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "main";
-    const collectorUrl = `https://raw.githubusercontent.com/${REPOSITORY}/${encodeURIComponent(
-      commit
-    )}/scripts/coletar-cupons-oficiais-ml-v2-lote.cjs`;
-
-    const download = await rodarComando(sandbox, {
-      cmd: "curl",
-      args: [
-        "-fsSL",
-        "--max-time",
-        "30",
-        collectorUrl,
-        "-o",
-        COLLECTOR_PATH,
-      ],
-    });
-
-    if (download.resultado.exitCode !== 0) {
-      throw new Error(
-        download.stderr ||
-          "Falha sincronizando o coletor ML V2 em lote com o Sandbox."
-      );
-    }
-
-    let execucao: ExecucaoComando | null = null;
-    let sessaoUtilizada: "buyer" | "afiliado_fallback" | null = null;
-
-    if (buyerExiste) {
-      execucao = await executarColetor(sandbox, AUTH_STATE_PATH);
-      if (execucao.resultado.exitCode === 0) sessaoUtilizada = "buyer";
-    }
-
-    if (
-      (!execucao || execucao.resultado.exitCode !== 0) &&
-      afiliadoExiste &&
-      (!execucao || erroSessaoInvalida(execucao))
-    ) {
-      console.warn(
-        "[ML V2] Sessao buyer invalida; tentando sessao afiliada existente como fallback."
-      );
-
-      execucao = await executarColetor(sandbox, AUTH_STATE_FALLBACK_PATH);
-
-      if (execucao.resultado.exitCode === 0) {
-        sessaoUtilizada = "afiliado_fallback";
-      }
-    }
-
-    if (!execucao || execucao.resultado.exitCode !== 0) {
-      if (execucao && erroSessaoInvalida(execucao)) {
-        throw new Error(
-          "As sessoes do Mercado Livre no Sandbox expiraram. E necessario renovar o login para continuar o ML V2."
-        );
-      }
-
-      throw new Error(
-        execucao?.stderr ||
-          execucao?.stdout ||
-          "Falha executando o coletor ML V2 em lote."
-      );
-    }
-
-    const arquivo = await rodarComando(sandbox, {
-      cmd: "cat",
-      args: [RESULT_PATH],
-    });
-
-    if (arquivo.resultado.exitCode !== 0 || !arquivo.stdout) {
-      throw new Error("O coletor terminou sem gerar o resultado ML V2.");
-    }
-
-    let resultado: Record<string, any>;
-
-    try {
-      resultado = JSON.parse(arquivo.stdout) as Record<string, any>;
-    } catch {
-      throw new Error("O resultado ML V2 possui JSON invalido.");
-    }
-
-    const cupons = Array.isArray(resultado.cupons) ? resultado.cupons : [];
-    const estados = await persistirCandidatosMlV2(cupons);
-
+  if (!dispositivo) {
     return NextResponse.json({
-      sucesso: true,
-      versao: "ml-v2-lote",
-      modo_execucao: "lote_seguro",
-      sessao_utilizada: sessaoUtilizada,
-      fonte: "central_comprador_mercado_livre",
-      regra:
-        "somente cupons created_by=meli, FIXED, validos e com regra simples; podem ser site inteiro ou produtos selecionados",
-      afiliado_obrigatorio_antes_publicacao: true,
-      publicacao_automatica: false,
-      persistencia_supabase: true,
-      commit_coletor: commit,
-      max_paginas_lote: MAX_PAGINAS_LOTE,
-      pagina_inicial: Number(resultado.pagina_inicial || 0),
-      pagina_final: Number(resultado.pagina_final || 0),
-      total_paginas_disponiveis: Number(
-        resultado.total_paginas_disponiveis || 0
-      ),
-      varredura_completa: Boolean(resultado.varredura_completa),
-      total_paginas_lidas: Number(resultado.total_paginas_lidas || 0),
-      total_encontrados: Number(resultado.total_encontrados || 0),
-      valores_encontrados: Array.isArray(resultado.valores_encontrados)
-        ? resultado.valores_encontrados
-        : [],
-      por_valor: resultado.por_valor || {},
-      por_escopo: resultado.por_escopo || {},
-      amostra: cupons.slice(0, 12).map((cupom: Record<string, any>) => {
-        const campanhaId = String(cupom.campanha_id || "");
-        return resumoCupom(cupom, estados.get(campanhaId));
-      }),
-      executado_em: new Date().toISOString(),
-    });
-  } catch (erro) {
-    console.error("[ML V2] Erro na coleta segura em lote:", erro);
+      sucesso: false,
+      agente_local_offline: true,
+      erro: "Agente local offline. No computador com Chrome logado, execute npm run ml:agent.",
+    }, { status: 503 });
+  }
 
-    return NextResponse.json(
-      {
-        sucesso: false,
+  const { data: tarefa, error: erroCriacao } = await supabaseAdmin
+    .from("local_agent_jobs")
+    .insert({ task_type: "coupon_collect" })
+    .select("id")
+    .single();
+
+  if (erroCriacao || !tarefa) {
+    return NextResponse.json({ sucesso: false, erro: erroCriacao?.message || "Nao foi possivel enfileirar a coleta." }, { status: 500 });
+  }
+
+  const limite = Date.now() + 240000;
+  while (Date.now() < limite) {
+    const { data: estado, error } = await supabaseAdmin
+      .from("local_agent_jobs")
+      .select("status,result,error")
+      .eq("id", tarefa.id)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ sucesso: false, erro: error.message }, { status: 500 });
+    }
+
+    if (estado?.status === "completed") {
+      const resultado = (estado.result || {}) as Record<string, any>;
+      return NextResponse.json({
+        sucesso: true,
+        versao: "ml-v2-local-agent",
+        modo_execucao: "chrome_local",
+        dispositivo: dispositivo.name,
         publicacao_automatica: false,
-        erro:
-          erro instanceof Error ? erro.message : "Erro inesperado no ML V2.",
-      },
-      { status: 500 }
-    );
-  } finally {
-    if (sandbox) {
-      await sandbox.stop().catch((erro) => {
-        console.error("[ML V2] Falha ao parar Sandbox:", erro);
+        total_paginas_lidas: Number(resultado.total_paginas_lidas || 0),
+        total_encontrados: Number(resultado.total_encontrados || 0),
+        valores_encontrados: Array.isArray(resultado.valores_encontrados) ? resultado.valores_encontrados : [],
+        varredura_completa: Boolean(resultado.varredura_completa),
+        amostra: Array.isArray(resultado.amostra) ? resultado.amostra : [],
+        executado_em: new Date().toISOString(),
       });
     }
+
+    if (estado?.status === "failed") {
+      return NextResponse.json({ sucesso: false, erro: estado.error || "A coleta local falhou." }, { status: 502 });
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   }
+
+  return NextResponse.json({
+    sucesso: false,
+    erro: "A coleta local continua em andamento. Atualize a lista de candidatos em instantes.",
+    tarefa_id: tarefa.id,
+  }, { status: 202 });
 }
