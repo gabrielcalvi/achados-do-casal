@@ -6,6 +6,147 @@ const {
   obterAtributo,
 } = require("./helpers.cjs");
 
+function extrairTermoBuscaUrl(urlProduto) {
+  try {
+    const url = new URL(urlProduto);
+    const partes = url.pathname.split("/").filter(Boolean);
+    const indiceMarcador = partes.findIndex((parte) => /^(p|up)$/i.test(parte));
+    let slug = indiceMarcador > 0 ? partes[indiceMarcador - 1] : partes[0] || "";
+
+    slug = slug
+      .replace(/^MLB-?\d+-/i, "")
+      .replace(/-_JM$/i, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return decodeURIComponent(slug);
+  } catch {
+    return "";
+  }
+}
+
+function extrairIdsUrl(urlProduto) {
+  const texto = String(urlProduto || "");
+  return {
+    itemId:
+      texto.match(/(?:MLB-?\d{8,})/i)?.[0]?.replace(/-/g, "").toUpperCase() || "",
+    userProductId:
+      texto.match(/(?:MLBU-?\d{6,})/i)?.[0]?.replace(/-/g, "").toUpperCase() || "",
+  };
+}
+
+function paginaBloqueada(page) {
+  const atual = page.url();
+  return (
+    atual.includes("/gz/account-verification") ||
+    atual.includes("/captcha/") ||
+    atual.includes("/account-verification")
+  );
+}
+
+async function navegarViaBuscaMercadoLivre(page, urlProduto) {
+  const termo = extrairTermoBuscaUrl(urlProduto);
+  const ids = extrairIdsUrl(urlProduto);
+
+  if (!termo) return false;
+
+  console.log("[WORKER] Tentando navegação alternativa via busca:", termo);
+
+  await page.goto("https://www.mercadolivre.com.br", {
+    waitUntil: "domcontentloaded",
+    timeout: 45000,
+  });
+
+  await page.waitForTimeout(1500);
+
+  const campoBusca = page
+    .locator('input.nav-search-input, input[name="as_word"], input[placeholder*="Buscar"]')
+    .first();
+
+  if (await campoBusca.count()) {
+    await campoBusca.fill(termo);
+    await campoBusca.press("Enter");
+    await page.waitForLoadState("domcontentloaded", { timeout: 45000 }).catch(() => undefined);
+  } else {
+    const slugBusca = termo
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    await page.goto(`https://lista.mercadolivre.com.br/${slugBusca}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 45000,
+    });
+  }
+
+  await page.waitForTimeout(1800);
+
+  if (paginaBloqueada(page)) {
+    return false;
+  }
+
+  let linkProduto = null;
+
+  if (ids.userProductId) {
+    linkProduto = page.locator(`a[href*="${ids.userProductId}"]`).first();
+  }
+
+  if ((!linkProduto || !(await linkProduto.count())) && ids.itemId) {
+    linkProduto = page.locator(`a[href*="${ids.itemId}"]`).first();
+  }
+
+  if (!linkProduto || !(await linkProduto.count())) {
+    const palavras = termo
+      .split(" ")
+      .filter((palavra) => palavra.length > 3)
+      .slice(0, 5);
+
+    const candidatos = page.locator(
+      'a.poly-component__title, a.ui-search-link, a[href*="/up/"], a[href*="produto.mercadolivre.com.br"]'
+    );
+
+    const total = await candidatos.count();
+
+    for (let i = 0; i < Math.min(total, 40); i += 1) {
+      const candidato = candidatos.nth(i);
+      const texto = limparTexto(await candidato.textContent().catch(() => ""));
+      const comuns = palavras.filter((palavra) =>
+        texto.toLowerCase().includes(palavra.toLowerCase())
+      ).length;
+
+      if (palavras.length && comuns / palavras.length >= 0.6) {
+        linkProduto = candidato;
+        break;
+      }
+    }
+  }
+
+  if (!linkProduto || !(await linkProduto.count())) {
+    return false;
+  }
+
+  const href = await linkProduto.getAttribute("href").catch(() => "");
+  if (!href) return false;
+
+  await page.goto(href, {
+    waitUntil: "domcontentloaded",
+    timeout: 45000,
+  });
+
+  await page
+    .locator(
+      'h1.ui-pdp-title, .ui-pdp-price__main-container, script[type="application/ld+json"]'
+    )
+    .first()
+    .waitFor({ state: "attached", timeout: 20000 })
+    .catch(() => undefined);
+
+  return !paginaBloqueada(page);
+}
+
 async function extrairValorMonetario(page, seletorBase) {
   const inteiro = await obterTexto(
     page,
@@ -142,16 +283,18 @@ async function extrairMercadoLivre(page, urlProduto) {
     })
     .catch(() => undefined);
 
-  const urlFinal = page.url();
+  let urlFinal = page.url();
 
-  if (
-    urlFinal.includes("/gz/account-verification") ||
-    urlFinal.includes("/captcha/") ||
-    urlFinal.includes("/account-verification")
-  ) {
-    throw new Error(
-      "O Mercado Livre solicitou uma nova verificação de segurança."
-    );
+  if (paginaBloqueada(page)) {
+    const recuperou = await navegarViaBuscaMercadoLivre(page, urlProduto);
+
+    if (!recuperou) {
+      throw new Error(
+        "O Mercado Livre solicitou uma nova verificação de segurança."
+      );
+    }
+
+    urlFinal = page.url();
   }
 
   const jsonLd = await extrairJsonLd(page);
