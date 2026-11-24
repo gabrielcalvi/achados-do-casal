@@ -14,7 +14,7 @@ export async function autenticarAgenteLocal(request: NextRequest) {
   const hash = hashLocalAgentToken(token);
   const { data, error } = await supabaseAdmin
     .from("local_agent_devices")
-    .select("id,name,revoked_at")
+    .select("id,name,revoked_at,token_hash")
     .eq("token_hash", hash)
     .is("revoked_at", null)
     .maybeSingle();
