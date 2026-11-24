@@ -1,3 +1,4 @@
+import { load } from "cheerio";
 import {
   buscarItensDoCatalogoMercadoLivre,
   buscarItensDoUserProductMercadoLivre,
@@ -486,6 +487,109 @@ function pontuarImagemCatalogo(produto: ProdutoCatalogoMercadoLivre, termo: stri
   return (comuns / alvo.length) * 100;
 }
 
+async function buscarImagensFallbackMercadoLivre(
+  termo: string,
+  userProductId?: string | null,
+  itemId?: string | null
+): Promise<string[]> {
+  const alvo = normalizarTextoComparacao(termo);
+  if (!alvo) return [];
+
+  const tokensAlvo = Array.from(
+    new Set(tokensComparacao(alvo).filter((token) => token.length > 2))
+  );
+
+  const consultas = Array.from(
+    new Set(
+      [
+        userProductId ? `"${userProductId}"` : "",
+        itemId ? `"${itemId}"` : "",
+        `"${termo}" Mercado Livre`,
+      ].filter(Boolean)
+    )
+  );
+
+  const candidatos: Array<{
+    url: string;
+    score: number;
+    prioridade: number;
+  }> = [];
+
+  for (const consulta of consultas) {
+    try {
+      const resposta = await fetch(
+        `https://www.bing.com/images/search?q=${encodeURIComponent(consulta)}&form=HDRSC3&first=1&count=100`,
+        {
+          cache: "no-store",
+          headers: {
+            Accept: "text/html,application/xhtml+xml",
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.7",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+          },
+          signal: AbortSignal.timeout(20000),
+        }
+      );
+
+      if (!resposta.ok) continue;
+
+      const html = await resposta.text();
+      const $ = load(html);
+
+      $("a.iusc").each((_, elemento) => {
+        const bruto = $(elemento).attr("m");
+        if (!bruto) return;
+
+        try {
+          const meta = JSON.parse(bruto) as Record<string, unknown>;
+          const murl = String(meta.murl || "")
+            .replace(/\\u002f/gi, "/")
+            .replace(/\\\//g, "/")
+            .trim();
+          const purl = String(meta.purl || "").trim();
+          const titulo = String(meta.t || "").trim();
+
+          if (!/^https?:\/\//i.test(murl)) return;
+
+          const textoTitulo = normalizarTextoComparacao(titulo);
+          const tokensTitulo = new Set(tokensComparacao(textoTitulo));
+          const comuns = tokensAlvo.filter((token) => tokensTitulo.has(token)).length;
+          const score = tokensAlvo.length ? (comuns / tokensAlvo.length) * 100 : 0;
+
+          const bateId =
+            Boolean(userProductId && purl.toUpperCase().includes(userProductId.toUpperCase())) ||
+            Boolean(itemId && purl.toUpperCase().includes(itemId.toUpperCase()));
+
+          const fonteMl =
+            /mlstatic\.com/i.test(murl) ||
+            /mercadolivre\.com\.br|mercadolibre\.com/i.test(purl);
+
+          if (!fonteMl) return;
+          if (!bateId && score < 72) return;
+
+          candidatos.push({
+            url: murl,
+            score: bateId ? 200 : score,
+            prioridade: /mlstatic\.com/i.test(murl) ? 2 : 1,
+          });
+        } catch {
+          // Ignora cards de imagem sem JSON válido.
+        }
+      });
+    } catch {
+      // Busca visual é apenas último fallback.
+    }
+  }
+
+  return Array.from(
+    new Map(
+      candidatos
+        .sort((a, b) => b.score - a.score || b.prioridade - a.prioridade)
+        .map((item) => [item.url, item.url])
+    ).values()
+  ).slice(0, 8);
+}
+
 async function buscarDadosVisuaisUserProduct(userProductId: string) {
   try {
     const detalhe = await buscarUserProductMercadoLivre(userProductId);
@@ -657,8 +761,16 @@ async function extrairUserProduct(
         );
         imagensGaleria = imagensDoCatalogo(detalhe);
       } catch {
-        // Se o catálogo de imagem falhar, preservamos o produto exato sem inventar foto.
+        // Se o catálogo de imagem falhar, seguimos para o fallback visual.
       }
+    }
+
+    if (imagensGaleria.length === 0) {
+      imagensGaleria = await buscarImagensFallbackMercadoLivre(
+        termoUrl,
+        userProductId,
+        itemDireto.item_id
+      );
     }
 
     const produto = montarProdutoUserProduct(
@@ -686,6 +798,14 @@ async function extrairUserProduct(
   }
 
   const visualUserProduct = await buscarDadosVisuaisUserProduct(userProductId);
+  const imagensFallback =
+    visualUserProduct.imagens.length > 0
+      ? visualUserProduct.imagens
+      : await buscarImagensFallbackMercadoLivre(
+          termoUrl,
+          userProductId,
+          itemId
+        );
   const nomeFallback =
     visualUserProduct.nome ||
     termoUrl
@@ -703,8 +823,8 @@ async function extrairUserProduct(
     precoAtual: "",
     parcelas: "",
     freteGratis: false,
-    imagem: visualUserProduct.imagens[0] || "",
-    imagensGaleria: visualUserProduct.imagens,
+    imagem: imagensFallback[0] || "",
+    imagensGaleria: imagensFallback,
     avaliacao: null,
     vendas: "",
     urlFinal: link,
