@@ -36,3 +36,33 @@
 - Se o painel mostrar Offline, confira se npm run ml:agent esta rodando.
 - Se o Mercado Livre mostrar captcha, conclua a verificacao no Chrome local; nao tente automatizar ou contornar o captcha.
 - Se uma tarefa falhar, consulte a secao Tarefas recentes no painel.
+
+## Instalar em dois computadores Windows sem tocar na copia antiga
+
+Use uma pasta nova e independente em cada PC. Nao atualize a pasta antiga da branch fase-4-agente-economia.
+
+1. Instale Node.js LTS e Git, se ainda nao estiverem instalados.
+2. Abra PowerShell e rode:
+   git clone https://github.com/gabrielcalvi/achados-do-casal.git C:\\Achados-Agente-ML
+   cd C:\\Achados-Agente-ML
+   npm ci
+   npx playwright install chromium
+3. No site, entre em Admin > Economize > Mercado Livre V2.
+4. No painel Agente local, pareie o primeiro PC com nome "PC Casa". Copie o token exibido.
+5. Crie C:\\Achados-Agente-ML\\.env.local com:
+   ACHADOS_AGENT_URL=https://achadosdocasal.com.br
+   ACHADOS_LOCAL_AGENT_NAME=PC Casa
+   ACHADOS_LOCAL_AGENT_TOKEN=TOKEN_EXCLUSIVO_DESTE_PC
+6. No PowerShell, execute npm run ml:agent. O Chrome do agente abre; entre no Mercado Livre e deixe essa janela aberta.
+7. Confirme no painel que "PC Casa" aparece Online.
+8. Repita o clone em uma pasta nova no segundo computador, por exemplo:
+   git clone https://github.com/gabrielcalvi/achados-do-casal.git C:\\Achados-Agente-ML
+   cd C:\\Achados-Agente-ML
+   npm ci
+   npx playwright install chromium
+9. No painel, pareie o segundo PC com nome "PC Serviço" e gere outro token. Nunca reutilize o token do PC Casa.
+10. Crie .env.local no segundo PC com ACHADOS_LOCAL_AGENT_NAME=PC Serviço e o token exclusivo dele. Execute npm run ml:agent, faça login no Chrome e confirme Online.
+
+Os dois computadores usam a mesma fila compartilhada. Cada tarefa e reivindicada atomicamente por apenas um dispositivo. Deixe os dois agentes rodando para que qualquer um receba a proxima tarefa disponivel.
+
+Se o comando pedir verificacao/captcha, conclua manualmente no Chrome local. Nao envie arquivos de perfil, cookies ou tokens por mensagem.
