@@ -5,6 +5,7 @@ import { usuarioAdminAutenticado } from "@/lib/local-agent/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const TEMPO_LIMITE = 600000;
 
