@@ -93,7 +93,42 @@ async function executarCupons() {
     child.on("error", reject);
     child.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`Coletor ML V2 terminou com codigo ${code}.`)));
   });
-  return JSON.parse(fs.readFileSync(RESULT_FILE, "utf8"));
+  const bruto = JSON.parse(fs.readFileSync(RESULT_FILE, "utf8"));
+  const cupons = Array.isArray(bruto.cupons) ? bruto.cupons : [];
+  return {
+    total_paginas_lidas: Number(bruto.total_paginas_lidas || 0),
+    total_encontrados: cupons.length,
+    varredura_completa: Boolean(bruto.varredura_completa),
+    cupons: cupons.map((cupom) => ({
+      origem: cupom.origem,
+      campanha_id: cupom.campanha_id,
+      titulo: cupom.titulo,
+      tipo_desconto: cupom.tipo_desconto,
+      valor_desconto: cupom.valor_desconto,
+      compra_minima: cupom.compra_minima,
+      limite_desconto: cupom.limite_desconto,
+      desconto_real: cupom.desconto_real,
+      validade: cupom.validade,
+      status_conta: cupom.status_conta,
+      criado_por: cupom.criado_por,
+      tipo_original: cupom.tipo_original,
+      escopo: cupom.escopo,
+      regra_simples: cupom.regra_simples,
+      sem_restricao_vendedor_categoria_marca_loja: cupom.sem_restricao_vendedor_categoria_marca_loja,
+      subtitulo: cupom.subtitulo,
+      acao: cupom.acao,
+      tipo_acao: cupom.tipo_acao,
+      possui_token_ativacao: cupom.possui_token_ativacao,
+      item_ids: Array.isArray(cupom.item_ids) ? cupom.item_ids.slice(0, 8) : [],
+      produtos: Array.isArray(cupom.produtos) ? cupom.produtos.slice(0, 8).map((produto) => ({
+        nome: produto.nome || null,
+        imagem: produto.imagem || null,
+      })) : [],
+      elegivel_publicacao: false,
+      motivo_bloqueio: cupom.motivo_bloqueio,
+      coletado_em: cupom.coletado_em,
+    })),
+  };
 }
 
 async function processar(tarefa) {
