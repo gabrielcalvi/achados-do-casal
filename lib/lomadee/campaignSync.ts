@@ -401,7 +401,10 @@ export async function sincronizarCampanhasLomadee() {
 
   for (const [organizationId, lista] of grupos) {
     const marca = marcasPorId.get(organizationId);
-    if (!marca) continue;
+    // Importação inicial controlada: somente TeraByte foi aprovada para
+    // operação Lomadee. Outras marcas exigem curadoria explícita para evitar
+    // transformar as 133 marcas acessíveis em um catálogo indiscriminado.
+    if (!marca || normalizar(marca.name) !== "terabyte") continue;
 
     try {
       const loja = await garantirLoja(marca, lojas);
