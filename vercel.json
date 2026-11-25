@@ -51,6 +51,10 @@
     {
       "path": "/api/admin/economize/black-friday/radar",
       "schedule": "25 */3 * * *"
+    },
+    {
+      "path": "/api/admin/lomadee/campanhas/sincronizar",
+      "schedule": "40 */3 * * *"
     }
   ]
 }
