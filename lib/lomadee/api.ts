@@ -19,6 +19,30 @@ export type LomadeeBrand = {
   }>;
 };
 
+export type LomadeeCampaign = {
+  id: string;
+  name: string;
+  period?: { startAt?: string; endAt?: string };
+  type?: "PersonalCoupon" | "GenericCoupon" | "Offer" | string;
+  offerType?: "Spreadsheet" | "Url" | string;
+  categories?: string[];
+  description?: string;
+  code?: string;
+  url?: string;
+  organizationId: string;
+  isHighlight?: boolean;
+  status?: "onTime" | "expired" | "scheduled" | string;
+  createdAt?: string;
+  channels?: Array<{
+    id?: string;
+    name?: string;
+    availableChannel?: { id?: string; name?: string };
+    shortUrls?: string[];
+    message?: string | null;
+  }>;
+  mediaKit?: { banners?: string[]; emailMarketing?: unknown };
+};
+
 export type LomadeeProduct = {
   organizationId: string;
   id: string;
@@ -263,6 +287,57 @@ export async function lomadeeConfigurada() {
   return Boolean(chave);
 }
 
+export async function listarMarcasLomadee() {
+  const resultado: LomadeeBrand[] = [];
+  const limite = 20;
+
+  for (let pagina = 1; pagina <= 50; pagina += 1) {
+    const resposta = await lomadeeFetch<{
+      data?: LomadeeBrand[];
+      pagination?: { total?: number; page?: number; totalPages?: number };
+      meta?: { total?: number; page?: number; totalPages?: number };
+    }>(`/affiliate/brands?page=${pagina}&limit=${limite}`);
+
+    const itens = Array.isArray(resposta.data) ? resposta.data : [];
+    resultado.push(...itens);
+    const totalPaginas = Number(
+      resposta.pagination?.totalPages || resposta.meta?.totalPages || 0,
+    );
+    if ((totalPaginas > 0 && pagina >= totalPaginas) || itens.length < limite) {
+      break;
+    }
+  }
+
+  return resultado;
+}
+
+export async function listarCampanhasLomadeeAtivas() {
+  const resultado: LomadeeCampaign[] = [];
+  const limite = 20;
+
+  for (let pagina = 1; pagina <= 150; pagina += 1) {
+    const qs = new URLSearchParams({
+      page: String(pagina),
+      limit: String(limite),
+      status: "onTime",
+      types: "PersonalCoupon,GenericCoupon,Offer",
+    });
+    const resposta = await lomadeeFetch<{
+      data?: LomadeeCampaign[];
+      meta?: { total?: number; page?: number; totalPages?: number };
+    }>(`/affiliate/campaigns?${qs}`);
+
+    const itens = Array.isArray(resposta.data) ? resposta.data : [];
+    resultado.push(...itens);
+    const totalPaginas = Number(resposta.meta?.totalPages || 0);
+    if ((totalPaginas > 0 && pagina >= totalPaginas) || itens.length < limite) {
+      break;
+    }
+  }
+
+  return resultado;
+}
+
 export async function buscarMarcaLomadee(nome: string) {
   const qs = new URLSearchParams({ search: nome, page: "1", limit: "20" });
   const resposta = await lomadeeFetch<{ data?: LomadeeBrand[] }>(`/affiliate/brands?${qs}`);
@@ -283,7 +358,12 @@ export async function buscarProdutosLomadee(organizationId: string, limit = 16) 
   };
 }
 
-export async function gerarDeeplinkLomadee(url: string, organizationId: string, mdasc?: string) {
+export async function gerarDeeplinkLomadee(
+  url: string,
+  organizationId: string,
+  mdasc?: string,
+  featureId?: string,
+) {
   const resposta = await lomadeeFetch<Array<{
     id?: string;
     name?: string;
@@ -294,7 +374,7 @@ export async function gerarDeeplinkLomadee(url: string, organizationId: string, 
     method: "POST",
     body: JSON.stringify({
       organizationId,
-      type: "Custom",
+      ...(featureId ? { featureId } : { type: "Custom" }),
       url,
       ...(mdasc ? { mdasc } : {}),
     }),
