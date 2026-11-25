@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type Loja = {
@@ -205,6 +206,8 @@ function textoPesquisa(cupom: Cupom) {
 }
 
 export default function BlackFridayPage() {
+  const pathname = usePathname();
+  const origemCanal = pathname === "/cupons" ? "cupons" : "black_friday";
   const [cupons, setCupons] = useState<Cupom[]>([]);
   const [statusRadar, setStatusRadar] = useState<StatusRadar | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -418,7 +421,7 @@ export default function BlackFridayPage() {
   }
 
   async function compartilhar(cupom: Cupom) {
-    const url = `${window.location.origin}/oferta/${cupom.id}?origem=black_friday`;
+    const url = `${window.location.origin}/oferta/${cupom.id}?origem=${origemCanal}`;
     const beneficio = formatarBeneficio(cupom);
     const texto = `🔥 ${beneficio} ${cupom.loja?.nome ? `na ${cupom.loja.nome}` : ""}${cupom.codigo ? ` • Cupom ${cupom.codigo}` : ""} • Achados do Casal`;
 
@@ -653,7 +656,7 @@ export default function BlackFridayPage() {
 
                       <div className="mt-4 grid grid-cols-2 gap-2">
                         <a
-                          href={`/oferta/${cupom.id}?origem=black_friday`}
+                          href={`/oferta/${cupom.id}?origem=${origemCanal}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => void copiar(cupom)}
@@ -935,7 +938,7 @@ export default function BlackFridayPage() {
 
                   <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
                     <a
-                      href={`/oferta/${cupom.id}?origem=black_friday`}
+                      href={`/oferta/${cupom.id}?origem=${origemCanal}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => void copiar(cupom)}
