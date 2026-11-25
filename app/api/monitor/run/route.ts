@@ -15,6 +15,32 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { avaliarAlertasDePreco } from "@/lib/services/priceAlerts";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+async function encerrarExecucoesOrfas() {
+  const limite = new Date(Date.now() - 10 * 60_000).toISOString();
+  const agora = new Date().toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from("monitor_execucoes")
+    .update({
+      finalizado_em: agora,
+      status: "erro",
+      erros: 1,
+    })
+    .eq("status", "executando")
+    .lt("iniciado_em", limite)
+    .select("id");
+
+  if (error) {
+    console.error("Falha ao encerrar execucoes orfas do monitor:", error);
+    return 0;
+  }
+
+  return data?.length || 0;
+}
 
 async function autorizado(request: Request) {
   const segredo = process.env.CRON_SECRET?.trim();
@@ -182,6 +208,7 @@ export async function GET(request: Request) {
 
     const inicioMs = Date.now();
     const iniciadoEm = new Date().toISOString();
+    const execucoesOrfasEncerradas = await encerrarExecucoesOrfas();
     const { data: execucao, error: erroExecucao } = await supabaseAdmin
       .from("monitor_execucoes")
       .insert({
@@ -206,7 +233,10 @@ export async function GET(request: Request) {
           .from("monitor_execucoes")
           .update({
             finalizado_em: finalizadoEm,
-            status: resultado.erros > 0 ? "concluido_com_erros" : "concluido",
+            status:
+              resultado.erros > 0 || resultado.interrompidoPorTempo
+                ? "concluido_com_erros"
+                : "concluido",
             produtos_verificados: resultado.total,
             alteracoes_encontradas: resultado.alterados,
             erros: resultado.erros,
@@ -223,6 +253,7 @@ export async function GET(request: Request) {
         sucesso: true,
         modo: "monitor_v2",
         execucao_id: execucao?.id || null,
+        execucoes_orfas_encerradas: execucoesOrfasEncerradas,
         duracao_ms: duracaoMs,
         ...resultado,
         alertas,

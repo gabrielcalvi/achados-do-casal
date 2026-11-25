@@ -27,6 +27,8 @@
 
 11. **Toda alteração publicada deve ter acompanhamento visual de deploy.** Sempre que houver commit/deploy na Vercel, mostrar o status/timing na tela (ex.: BUILDING → READY/ERROR) usando o card/preview de deployment quando disponível, acompanhar até o estado final e informar o resultado real ao usuário. Não encerrar a tarefa apenas dizendo que o deploy foi disparado.
 
+12. **Monitor de preços não pode depender do timeout global da Vercel.** Leituras automáticas devem ter timeout individual curto, orçamento global de execução e prioridade para produtos há mais tempo sem verificação. Uma falha lenta de loja/worker nunca pode impedir a persistência do histórico da rodada nem bloquear todos os demais produtos.
+
 ---
 
 ## 2. Infraestrutura atual
@@ -1174,6 +1176,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **25/11/2026** — monitor de preços endurecido contra timeout da Vercel: Amazon/KaBuM usam timeout de 35s por leitura durante a varredura, novos lotes param de iniciar após 220s, produtos mais atrasados ganham prioridade e execuções órfãs em status `executando` são encerradas automaticamente na rodada seguinte. O objetivo é garantir que uma leitura travada nunca consuma sozinha o teto de 300s.
 - **25/11/2026** — regra permanente de acompanhamento visual de deploy: após alterações publicadas, exibir o status/timing da Vercel na tela, acompanhar BUILDING/QUEUED até READY ou ERROR e só então encerrar a tarefa com o resultado final real.
 - **25/11/2026** — Resultados Comerciais passou a separar **Comissão confirmada** de **Comissão estimada**. O novo KPI soma as comissões das vendas em status pendente/em revisão no período selecionado, preservando as confirmadas separadamente e exibindo a quantidade de vendas em revisão no topo do painel.
 - **17/11/2026** — Admin Saúde evoluído para central operacional: incluído bloco **Ações de hoje** (falhas de monitor, pendências ML, vídeos pendentes, pedidos de review e alertas de preço atingidos) e tabela **Saúde geral dos produtos**. Para Mercado Livre, a tela cruza os produtos ativos com a lista oficial `https://meli.la/1o6hF5T` e mostra preço/parcelamento do Achados versus lista, sinalizando atualizar, igual ou fora da lista; demais parceiros continuam no fluxo normal do monitor. Nenhuma mudança foi feita na Home.

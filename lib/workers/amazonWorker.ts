@@ -2,16 +2,21 @@ import type { ProdutoExtraidoWorker } from "@/lib/workers/playwrightWorker";
 import { WORKER_URL } from "@/lib/workers/workerUrl";
 
 export async function extrairAmazonWorker(
-  link: string
+  link: string,
+  opcoes?: { timeoutMs?: number }
 ): Promise<ProdutoExtraidoWorker> {
   let resposta: Response;
+  const timeoutMs = Math.max(
+    5_000,
+    Math.min(Number(opcoes?.timeoutMs) || 300_000, 300_000),
+  );
 
   try {
     resposta = await fetch(
       `${WORKER_URL}/extrair?url=${encodeURIComponent(link)}`,
       {
         cache: "no-store",
-        signal: AbortSignal.timeout(300000),
+        signal: AbortSignal.timeout(timeoutMs),
       }
     );
   } catch (erro) {

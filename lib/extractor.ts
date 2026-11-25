@@ -1069,7 +1069,10 @@ async function extrairMercadoLivre(link: string) {
   );
 }
 
-export async function extrairProduto(link: string) {
+export async function extrairProduto(
+  link: string,
+  opcoes?: { timeoutMs?: number }
+) {
   const linkNormalizado = link.toLowerCase();
 
   if (
@@ -1084,7 +1087,7 @@ export async function extrairProduto(link: string) {
     linkNormalizado.includes("amazon.com.br") ||
     linkNormalizado.includes("amzn.to")
   ) {
-    return extrairAmazonWorker(link);
+    return extrairAmazonWorker(link, opcoes);
   }
 
   if (
@@ -1107,7 +1110,7 @@ export async function extrairProduto(link: string) {
     linkNormalizado.includes("kabum.com.br") ||
     linkNormalizado.includes("awinmid=17729")
   ) {
-    return extrairKabumWorker(link);
+    return extrairKabumWorker(link, opcoes);
   }
 
   throw new Error("Loja ainda não suportada.");

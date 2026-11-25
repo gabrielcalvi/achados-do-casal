@@ -15,6 +15,9 @@ type ProdutoBanco = {
   monitoramento_manual?: boolean | null;
 };
 
+const TIMEOUT_PRODUTO_MS = 35_000;
+const ORCAMENTO_INICIO_NOVO_LOTE_MS = 220_000;
+
 type DadosMonitor = {
   nome?: string;
   categoria?: string;
@@ -133,7 +136,7 @@ async function obterDadosAtuais(produto: ProdutoBanco): Promise<DadosMonitor> {
     return extrairMercadoLivreSeguro(produto, link);
   }
 
-  const dados = await extrairProduto(link);
+  const dados = await extrairProduto(link, { timeoutMs: TIMEOUT_PRODUTO_MS });
   return {
     nome: dados.nome,
     categoria: dados.categoria,
@@ -352,6 +355,7 @@ export async function monitorarTodosProdutosV2() {
       "id,nome,loja,link,categoria,preco_atual,monitor_falhas_consecutivas,monitor_erro,ativo,monitoramento_manual"
     )
     .eq("ativo", true)
+    .order("ultima_verificacao", { ascending: true, nullsFirst: true })
     .order("id");
 
   if (error) throw new Error(`Erro ao buscar produtos: ${error.message}`);
@@ -397,29 +401,34 @@ export async function monitorarTodosProdutosV2() {
     }
   }
 
-  const LIMITE_OUTRAS_LOJAS = 3;
-  for (
-    let indice = 0;
-    indice < produtosOutros.length;
-    indice += LIMITE_OUTRAS_LOJAS
-  ) {
-    const lote = produtosOutros.slice(indice, indice + LIMITE_OUTRAS_LOJAS);
-    const resultadosLote = await Promise.all(lote.map(processar));
-    resultados.push(...resultadosLote);
+  const inicioVarreduraMs = Date.now();
+  let interrompidoPorTempo = false;
+  let naoProcessados = 0;
+
+  async function processarEmLotes(lista: ProdutoBanco[], tamanhoLote: number) {
+    for (let indice = 0; indice < lista.length; indice += tamanhoLote) {
+      if (Date.now() - inicioVarreduraMs >= ORCAMENTO_INICIO_NOVO_LOTE_MS) {
+        interrompidoPorTempo = true;
+        naoProcessados += lista.length - indice;
+        break;
+      }
+
+      const lote = lista.slice(indice, indice + tamanhoLote);
+      const resultadosLote = await Promise.all(lote.map(processar));
+      resultados.push(...resultadosLote);
+    }
   }
 
-  // Mercado Livre fica por ultimo e em lotes pequenos. Assim Amazon/KaBuM sao
-  // atualizados mesmo se o ML estiver com captcha, sem deixar a rota passar
-  // do limite de execucao da Vercel.
-  const LIMITE_MERCADO_LIVRE = 2;
-  for (
-    let indice = 0;
-    indice < produtosMl.length;
-    indice += LIMITE_MERCADO_LIVRE
-  ) {
-    const loteMl = produtosMl.slice(indice, indice + LIMITE_MERCADO_LIVRE);
-    const resultadosMl = await Promise.all(loteMl.map(processar));
-    resultados.push(...resultadosMl);
+  // Cada chamada ao worker tem timeout proprio de 35s e novos lotes deixam de
+  // iniciar depois de 220s. Assim a rota tem folga para persistir o historico
+  // e responder antes do teto de 300s da Vercel.
+  await processarEmLotes(produtosOutros, 3);
+
+  // Mercado Livre automatico, se voltar a existir no futuro, continua por ultimo.
+  if (!interrompidoPorTempo) {
+    await processarEmLotes(produtosMl, 2);
+  } else {
+    naoProcessados += produtosMl.length;
   }
 
   for (const resultado of resultados) {
@@ -434,8 +443,11 @@ export async function monitorarTodosProdutosV2() {
   await limparTodasPendenciasPreco();
 
   return {
-    total: produtos.length,
+    total: resultados.length,
+    totalElegiveis: produtos.length,
     ignoradosManuais: produtosTodos.length - produtos.length,
+    naoProcessados,
+    interrompidoPorTempo,
     alterados,
     indisponiveis,
     erros,
