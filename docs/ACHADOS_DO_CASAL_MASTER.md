@@ -31,6 +31,8 @@
 
 13. **Uma fonte principal por finalidade.** Para cada loja/marca e cada função do sistema (produtos/preços, cupons/campanhas, deeplinks/tracking e vendas/comissões), deve existir uma fonte principal claramente definida. Não duplicar a mesma finalidade entre AWIN, Lomadee, radar próprio ou outra integração quando uma fonte já estiver resolvendo bem. A Lomadee deve complementar lacunas reais e diferenciais, não disputar dados com pipelines já consolidados.
 
+14. **Separar publicamente Produtos de Cupons.** A Central Economize deve ser tratada como o canal principal de **produtos/ofertas**. Cupons/campanhas devem ter um canal público próprio e permanente em `/cupons`, com identidade sazonal (ex.: Black Friday, Fim de Ano/Natal, Volta às Aulas etc.). A URL principal de cupons deve permanecer estável; muda o tema, o título e a comunicação conforme a campanha, evitando fragmentar SEO e navegação. Rotas sazonais como `/black-friday` podem existir como landing/atalho, mas devem apontar para a experiência central de cupons quando a campanha terminar.
+
 ---
 
 ## 2. Infraestrutura atual
@@ -1178,6 +1180,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **25/11/2026** — arquitetura pública refinada: **Economize = produtos/ofertas** e **Cupons = canal próprio permanente**. O hub de cupons deve viver em `/cupons` e receber identidade sazonal (Black Friday, Fim de Ano/Natal, Volta às Aulas etc.) sem trocar a URL principal. A página `/black-friday` passa a ser tratada como campanha/landing sazonal, não como o canal permanente de cupons.
 - **25/11/2026** — regra arquitetural permanente adicionada: **uma fonte principal por finalidade**. Produtos/preços, cupons/campanhas, deeplinks/tracking e vendas/comissões devem ter uma fonte principal por loja/marca; Lomadee deve complementar lacunas e diferenciais reais sem duplicar pipelines AWIN ou radar já consolidados.
 - **25/11/2026** — estratégia Lomadee definida: a integração deve ser usada como infraestrutura, não como catálogo indiscriminado. Prioridade: (1) campanhas/cupons para Central Economize, (2) deeplinks com `mdasc` para atribuição granular, (3) importação automática de pedidos/comissões para `economize_vendas`, (4) produtos apenas de marcas selecionadas para evitar duplicação com AWIN. O admin Lomadee passou a homologar tecnicamente os escopos `brands:read`, `channels:read`, `campaigns:read`, `products:read`, `orders:read`, `shortener:read` e `shortener:write`; o teste de escrita gera um deeplink Home marcado `homologacao-achados-do-casal`.
 - **25/11/2026** — painel administrativo da Lomadee deixou de ser apenas uma tela de API Key e passou a exibir diagnóstico operacional da Affiliate API: status real da conexão, quantidade de marcas e canais acessíveis, teste manual da API, base oficial `api.lomadee.com.br`, orientação de homologação e link para a documentação. A chave continua restrita ao servidor/Vault e não é exposta ao navegador.
