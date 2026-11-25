@@ -104,6 +104,10 @@ export async function GET(request: NextRequest) {
       (total, venda) => total + Number(venda.comissao || 0),
       0,
     );
+    const comissaoEstimada = pendentes.reduce(
+      (total, venda) => total + Number(venda.comissao || 0),
+      0,
+    );
 
     const porLoja = new Map<string, { vendas: number; valor: number; comissao: number }>();
     const porCanal = new Map<string, { vendas: number; valor: number; comissao: number }>();
@@ -151,6 +155,7 @@ export async function GET(request: NextRequest) {
           vendasCanceladas: canceladas.length,
           valorVendido: Math.round(valorVendido * 100) / 100,
           comissaoGerada: Math.round(comissaoGerada * 100) / 100,
+          comissaoEstimada: Math.round(comissaoEstimada * 100) / 100,
           cliquesHumanos: cliquesAtuais.length,
           sessoesHumanas: new Set(cliquesAtuais.map((clique) => clique.session_id).filter(Boolean))
             .size,

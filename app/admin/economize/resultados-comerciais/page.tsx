@@ -26,6 +26,7 @@ type RespostaResultados = {
     vendasCanceladas: number;
     valorVendido: number;
     comissaoGerada: number;
+    comissaoEstimada: number;
     cliquesHumanos: number;
     sessoesHumanas: number;
     taxaCliqueVenda: number;
@@ -227,7 +228,7 @@ export default function ResultadosComerciaisPage() {
           </div>
         ) : null}
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           {[
             {
               titulo: "Vendas confirmadas",
@@ -240,9 +241,14 @@ export default function ResultadosComerciaisPage() {
               detalhe: "GMV rastreado",
             },
             {
-              titulo: "Comissão gerada",
+              titulo: "Comissão confirmada",
               valor: moeda(dados?.resumo.comissaoGerada),
-              detalhe: "confirmada",
+              detalhe: "aprovada",
+            },
+            {
+              titulo: "Comissão estimada",
+              valor: moeda(dados?.resumo.comissaoEstimada),
+              detalhe: `${dados?.resumo.vendasPendentes ?? 0} vendas em revisão`,
             },
             {
               titulo: "Clique → venda",
