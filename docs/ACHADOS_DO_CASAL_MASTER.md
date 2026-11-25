@@ -29,6 +29,8 @@
 
 12. **Monitor de preços não pode depender do timeout global da Vercel.** Leituras automáticas devem ter timeout individual curto, orçamento global de execução e prioridade para produtos há mais tempo sem verificação. Uma falha lenta de loja/worker nunca pode impedir a persistência do histórico da rodada nem bloquear todos os demais produtos.
 
+13. **Uma fonte principal por finalidade.** Para cada loja/marca e cada função do sistema (produtos/preços, cupons/campanhas, deeplinks/tracking e vendas/comissões), deve existir uma fonte principal claramente definida. Não duplicar a mesma finalidade entre AWIN, Lomadee, radar próprio ou outra integração quando uma fonte já estiver resolvendo bem. A Lomadee deve complementar lacunas reais e diferenciais, não disputar dados com pipelines já consolidados.
+
 ---
 
 ## 2. Infraestrutura atual
@@ -1176,6 +1178,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **25/11/2026** — regra arquitetural permanente adicionada: **uma fonte principal por finalidade**. Produtos/preços, cupons/campanhas, deeplinks/tracking e vendas/comissões devem ter uma fonte principal por loja/marca; Lomadee deve complementar lacunas e diferenciais reais sem duplicar pipelines AWIN ou radar já consolidados.
 - **25/11/2026** — estratégia Lomadee definida: a integração deve ser usada como infraestrutura, não como catálogo indiscriminado. Prioridade: (1) campanhas/cupons para Central Economize, (2) deeplinks com `mdasc` para atribuição granular, (3) importação automática de pedidos/comissões para `economize_vendas`, (4) produtos apenas de marcas selecionadas para evitar duplicação com AWIN. O admin Lomadee passou a homologar tecnicamente os escopos `brands:read`, `channels:read`, `campaigns:read`, `products:read`, `orders:read`, `shortener:read` e `shortener:write`; o teste de escrita gera um deeplink Home marcado `homologacao-achados-do-casal`.
 - **25/11/2026** — painel administrativo da Lomadee deixou de ser apenas uma tela de API Key e passou a exibir diagnóstico operacional da Affiliate API: status real da conexão, quantidade de marcas e canais acessíveis, teste manual da API, base oficial `api.lomadee.com.br`, orientação de homologação e link para a documentação. A chave continua restrita ao servidor/Vault e não é exposta ao navegador.
 - **25/11/2026** — monitor de preços endurecido contra timeout da Vercel: Amazon/KaBuM usam timeout de 35s por leitura durante a varredura, novos lotes param de iniciar após 220s, produtos mais atrasados ganham prioridade e execuções órfãs em status `executando` são encerradas automaticamente na rodada seguinte. O objetivo é garantir que uma leitura travada nunca consuma sozinha o teto de 300s.
