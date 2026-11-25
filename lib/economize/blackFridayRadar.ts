@@ -666,16 +666,58 @@ async function garantirLoja(loja: LojaBlackFriday) {
   return criada;
 }
 
-async function lojaTemAutomacaoDeCupons(slug: string) {
-  const { data, error } = await supabaseAdmin
-    .from("afiliados_parceiros")
-    .select("status,automacao_status,integracoes")
+async function fontePrincipalExternaCupons(slug: string) {
+  const { data: loja, error: erroLoja } = await supabaseAdmin
+    .from("economize_lojas")
+    .select("id")
     .eq("slug", slug)
     .maybeSingle();
+  if (erroLoja || !loja?.id) return null;
 
-  if (error || !data) return false;
-  const integracoes = Array.isArray(data.integracoes) ? data.integracoes.map(String) : [];
-  return data.automacao_status === "ativa" && integracoes.some((item) => item.toLowerCase().includes("cupom"));
+  const { data: fontes, error } = await supabaseAdmin
+    .from("economize_fontes")
+    .select("nome,configuracao")
+    .eq("loja_id", loja.id)
+    .eq("ativa", true);
+  if (error) return null;
+
+  for (const fonte of fontes || []) {
+    const cfg =
+      fonte.configuracao && typeof fonte.configuracao === "object"
+        ? (fonte.configuracao as Record<string, unknown>)
+        : {};
+    const provedor = String(cfg.provedor || "").toLowerCase();
+
+    if (provedor === "lomadee") {
+      return { lojaId: loja.id, provedor: "lomadee" };
+    }
+    if (
+      (provedor === "awin" || /awin/i.test(String(fonte.nome || ""))) &&
+      cfg.monitor_only !== true
+    ) {
+      return { lojaId: loja.id, provedor: "awin" };
+    }
+  }
+
+  return null;
+}
+
+async function desativarRadarPorFontePrincipal(lojaId: string) {
+  const agora = new Date().toISOString();
+  await Promise.all([
+    supabaseAdmin
+      .from("economize_cupons")
+      .update({ status: "inativo", updated_at: agora })
+      .eq("loja_id", lojaId)
+      .eq("origem", BLACK_FRIDAY_ORIGEM)
+      .in("status", ["ativo", "pendente"]),
+    supabaseAdmin
+      .from("economize_ofertas")
+      .update({ status: "inativo", updated_at: agora })
+      .eq("loja_id", lojaId)
+      .eq("origem", BLACK_FRIDAY_ORIGEM)
+      .in("status", ["ativo", "pendente"]),
+  ]);
 }
 
 function validadeOperacional(cupom: CupomDescoberto) {
@@ -898,17 +940,18 @@ export async function desativarNaoEncontrados(lojaId: string, dedupesEncontrados
 }
 
 export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
-  const possuiFonteOficial = Boolean(FONTES_OFICIAIS[lojaDef.slug]);
-  if ((await lojaTemAutomacaoDeCupons(lojaDef.slug)) && !possuiFonteOficial) {
+  const fontePrincipal = await fontePrincipalExternaCupons(lojaDef.slug);
+  if (fontePrincipal) {
+    await desativarRadarPorFontePrincipal(fontePrincipal.lojaId);
     return {
       loja: lojaDef.slug,
       ignorada: true,
-      motivo: "Loja já possui automação de cupons ativa; evita duplicação.",
+      motivo: `${fontePrincipal.provedor.toUpperCase()} é a fonte principal de cupons; radar desativado para evitar duplicação.`,
       encontrados: 0,
       ativos: 0,
       pendentes: 0,
       desativados: 0,
-      fonte: null,
+      fonte: fontePrincipal.provedor,
     };
   }
 
