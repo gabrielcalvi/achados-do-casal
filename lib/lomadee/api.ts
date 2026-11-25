@@ -311,7 +311,7 @@ export async function listarMarcasLomadee() {
   return resultado;
 }
 
-export async function listarCampanhasLomadeeAtivas() {
+export async function listarCampanhasLomadeeAtivas(organizationId?: string) {
   const resultado: LomadeeCampaign[] = [];
   const limite = 20;
 
@@ -321,6 +321,7 @@ export async function listarCampanhasLomadeeAtivas() {
       limit: String(limite),
       status: "onTime",
       types: "PersonalCoupon,GenericCoupon,Offer",
+      ...(organizationId ? { organizationId } : {}),
     });
     const resposta = await lomadeeFetch<{
       data?: LomadeeCampaign[];
