@@ -30,6 +30,8 @@ export default function AdminLomadeePage() {
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [diagnostico, setDiagnostico] = useState<Diagnostico | null>(null);
+  const [sincronizandoCupons, setSincronizandoCupons] = useState(false);
+  const [resumoCupons, setResumoCupons] = useState<Record<string, number> | null>(null);
 
   const testarIntegracao = useCallback(async (silencioso = false) => {
     if (!silencioso) {
@@ -111,6 +113,34 @@ export default function AdminLomadeePage() {
       setErro(e instanceof Error ? e.message : "Falha ao conectar a Lomadee.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function sincronizarCupons() {
+    setErro("");
+    setMensagem("");
+    setSincronizandoCupons(true);
+    try {
+      const resposta = await fetch("/api/admin/lomadee/campanhas/sincronizar", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(dados.erro || "Falha ao sincronizar campanhas Lomadee.");
+      }
+      setResumoCupons(dados.resumo || null);
+      setMensagem(
+        `Lomadee sincronizada: ${dados.resumo?.campanhas_publicadas ?? 0} campanha(s) publicada(s), ${dados.resumo?.campanhas_rejeitadas ?? 0} descartada(s) pelo filtro de qualidade.`,
+      );
+    } catch (e) {
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Falha ao sincronizar campanhas Lomadee.",
+      );
+    } finally {
+      setSincronizandoCupons(false);
     }
   }
 
@@ -355,6 +385,51 @@ export default function AdminLomadeePage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+              <p className="text-sm font-black uppercase tracking-wide text-emerald-700">
+                Cupons e campanhas
+              </p>
+              <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-black">
+                    Sincronização inteligente Lomadee
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-700">
+                    Publica apenas campanhas ativas, monetizadas e com benefício
+                    relevante. Lojas com AWIN principal são preservadas para não
+                    duplicar fontes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void sincronizarCupons()}
+                  disabled={sincronizandoCupons}
+                  className="shrink-0 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50"
+                >
+                  {sincronizandoCupons
+                    ? "Sincronizando..."
+                    : "Sincronizar cupons agora"}
+                </button>
+              </div>
+
+              {resumoCupons ? (
+                <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-xl bg-white p-3">
+                    <strong>{resumoCupons.campanhas_publicadas ?? 0}</strong>
+                    <span className="ml-1 text-slate-600">publicadas</span>
+                  </div>
+                  <div className="rounded-xl bg-white p-3">
+                    <strong>{resumoCupons.campanhas_rejeitadas ?? 0}</strong>
+                    <span className="ml-1 text-slate-600">descartadas</span>
+                  </div>
+                  <div className="rounded-xl bg-white p-3">
+                    <strong>{resumoCupons.lojas_ignoradas_awin ?? 0}</strong>
+                    <span className="ml-1 text-slate-600">protegidas pela AWIN</span>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
