@@ -89,7 +89,7 @@ const CATEGORIAS_VISUAIS: CategoriaVisual[] = [
   { id: "auto", rotulo: "Auto", icone: "🚗", slugs: ["autozone","pneustore"] },
   { id: "esporte", rotulo: "Esporte", icone: "👟", slugs: ["adidas","nike","centauro","netshoes","decathlon","olympikus","puma","fila","mizuno","growth-supplements","integralmedica","max-titanium"] },
   { id: "moda", rotulo: "Moda", icone: "👕", slugs: ["renner","cea","riachuelo","marisa","gaston","dafiti","zattini","havaianas","vivara","chilli-beans","sunglass-hut","oticas-carol","lenscope","calvin-klein"] },
-  { id: "tecnologia", rotulo: "Tecnologia", icone: "📱", slugs: ["samsung","dell","lenovo","fast-shop","pichau","apple","amazon","americanas","magalu","casas-bahia","ponto-frio","colombo","sony","lg","motorola","aliexpress","temu","kabum"] },
+  { id: "tecnologia", rotulo: "Tecnologia", icone: "📱", slugs: ["samsung","dell","lenovo","fast-shop","pichau","terabyte","apple","amazon","americanas","magalu","casas-bahia","ponto-frio","colombo","sony","lg","motorola","aliexpress","temu","kabum"] },
   { id: "passeios", rotulo: "Passeios", icone: "🎟️", slugs: ["beach-park","beto-carrero","snowland","acquamotion","civitatis","sympla","ticketmaster","eventim","cinemark","uci-cinemas","kinoplex"] },
   { id: "digital", rotulo: "Digital", icone: "💻", slugs: ["canva","adobe","microsoft-365","nordvpn","surfshark","hostinger"] },
   { id: "outros", rotulo: "Outros", icone: "✨", slugs: [] },
