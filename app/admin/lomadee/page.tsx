@@ -2,11 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+type EscopoLomadee = {
+  nome: string;
+  escopo: string;
+  ok: boolean;
+  status?: number | null;
+  total?: number | null;
+  detalhe?: string | null;
+};
+
 type Diagnostico = {
   configurada: boolean;
   apiRespondendo?: boolean;
   totalMarcas?: number;
   totalCanais?: number;
+  homologacaoTecnicaOk?: boolean;
+  escopos?: EscopoLomadee[];
   diagnosticoErro?: string;
 };
 
@@ -275,6 +286,77 @@ export default function AdminLomadeePage() {
               </div>
             ) : null}
 
+            <div className="mt-6 rounded-2xl border border-slate-200 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wide text-violet-700">
+                    Homologação técnica
+                  </p>
+                  <h3 className="mt-1 text-xl font-black">
+                    Escopos liberados para esta API Key
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Cada bloco testa um recurso real da Affiliate API. HTTP 403
+                    significa chave válida sem aquele escopo.
+                  </p>
+                </div>
+                {diagnostico?.escopos?.length ? (
+                  <span
+                    className={`w-fit rounded-full px-3 py-2 text-xs font-black ${
+                      diagnostico.homologacaoTecnicaOk
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-900"
+                    }`}
+                  >
+                    {diagnostico.homologacaoTecnicaOk
+                      ? "TODOS OS ESCOPOS OK"
+                      : "HÁ ESCOPO PENDENTE"}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(diagnostico?.escopos || []).map((item) => (
+                  <div
+                    key={item.escopo}
+                    className={`rounded-xl border p-4 ${
+                      item.ok
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-amber-200 bg-amber-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black">{item.nome}</p>
+                        <p className="mt-1 font-mono text-xs text-slate-500">
+                          {item.escopo}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                          item.ok
+                            ? "bg-emerald-200 text-emerald-900"
+                            : "bg-amber-200 text-amber-950"
+                        }`}
+                      >
+                        {item.ok ? "LIBERADO" : item.status === 403 ? "SEM ESCOPO" : "ATENÇÃO"}
+                      </span>
+                    </div>
+                    {item.total != null ? (
+                      <p className="mt-3 text-sm text-slate-700">
+                        Registros visíveis: <strong>{item.total}</strong>
+                      </p>
+                    ) : null}
+                    {item.detalhe ? (
+                      <p className="mt-2 text-xs leading-5 text-slate-600">
+                        {item.detalhe}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
                 <p className="text-sm font-black uppercase tracking-wide text-orange-700">
@@ -299,9 +381,10 @@ export default function AdminLomadeePage() {
                   Homologação + automações
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-slate-700">
-                  Com a chave respondendo, podemos usar a mesma integração para
-                  alimentar catálogos, atualizar ofertas e depois importar os
-                  relatórios de vendas da Lomadee para os Resultados Comerciais.
+                  Ordem recomendada para o Achados: primeiro campanhas e cupons,
+                  depois deeplinks com rastreamento, em seguida pedidos/comissões
+                  automáticos e, por último, catálogo de produtos apenas das
+                  marcas que realmente agregarem valor sem duplicar a AWIN.
                 </p>
 
                 <a

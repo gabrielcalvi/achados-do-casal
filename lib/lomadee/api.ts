@@ -90,20 +90,158 @@ export async function testarChaveLomadee(chave: string) {
   return { totalMarcas: Number(resposta.pagination?.total || resposta.data?.length || 0) };
 }
 
+type ResultadoEscopoLomadee = {
+  nome: string;
+  escopo: string;
+  ok: boolean;
+  status?: number | null;
+  total?: number | null;
+  detalhe?: string | null;
+};
+
+function statusDoErroLomadee(erro: unknown) {
+  const mensagem = erro instanceof Error ? erro.message : String(erro);
+  const match = mensagem.match(/Lomadee respondeu (\d{3})/);
+  return match?.[1] ? Number(match[1]) : null;
+}
+
+async function testarEscopoLomadee(
+  nome: string,
+  escopo: string,
+  executar: () => Promise<{ total?: number | null; detalhe?: string | null }>
+): Promise<ResultadoEscopoLomadee> {
+  try {
+    const resultado = await executar();
+    return {
+      nome,
+      escopo,
+      ok: true,
+      status: 200,
+      total: resultado.total ?? null,
+      detalhe: resultado.detalhe ?? null,
+    };
+  } catch (erro) {
+    const status = statusDoErroLomadee(erro);
+    return {
+      nome,
+      escopo,
+      ok: false,
+      status,
+      total: null,
+      detalhe:
+        status === 403
+          ? "Chave válida, mas este escopo não foi liberado."
+          : erro instanceof Error
+            ? erro.message
+            : String(erro),
+    };
+  }
+}
+
 export async function diagnosticarLomadee() {
-  const [marcas, canais] = await Promise.all([
-    lomadeeFetch<{ data?: LomadeeBrand[]; pagination?: { total?: number } }>(
-      "/affiliate/brands?page=1&limit=1"
-    ),
-    lomadeeFetch<{
-      data?: Array<{ id?: string; name?: string }>;
-      count?: number;
-    }>("/affiliate/channels"),
+  const marcas = await lomadeeFetch<{
+    data?: LomadeeBrand[];
+    pagination?: { total?: number };
+  }>("/affiliate/brands?page=1&limit=20");
+
+  const totalMarcas = Number(
+    marcas.pagination?.total || marcas.data?.length || 0
+  );
+  const marcaParaTeste =
+    (marcas.data || []).find((marca) =>
+      marca.channels?.some((canal) => !canal.message)
+    ) ||
+    marcas.data?.[0] ||
+    null;
+
+  const escopos = await Promise.all([
+    testarEscopoLomadee("Marcas", "brands:read", async () => ({
+      total: totalMarcas,
+    })),
+    testarEscopoLomadee("Canais", "channels:read", async () => {
+      const resposta = await lomadeeFetch<{
+        data?: Array<{ id?: string; name?: string }>;
+        count?: number;
+      }>("/affiliate/channels");
+      return {
+        total: Number(resposta.count || resposta.data?.length || 0),
+      };
+    }),
+    testarEscopoLomadee("Campanhas e cupons", "campaigns:read", async () => {
+      const resposta = await lomadeeFetch<{
+        data?: unknown[];
+        meta?: { total?: number };
+      }>("/affiliate/campaigns?page=1&limit=1");
+      return {
+        total: Number(resposta.meta?.total || resposta.data?.length || 0),
+      };
+    }),
+    testarEscopoLomadee("Produtos", "products:read", async () => {
+      const resposta = await lomadeeFetch<{
+        data?: LomadeeProduct[];
+        count?: number;
+      }>("/affiliate/products?page=1&limit=1");
+      return {
+        total: Number(resposta.count || resposta.data?.length || 0),
+      };
+    }),
+    testarEscopoLomadee("Pedidos e comissões", "orders:read", async () => {
+      const resposta = await lomadeeFetch<{
+        data?: unknown[];
+        meta?: { total?: number };
+      }>("/affiliate/orders?page=1&limit=1");
+      return {
+        total: Number(resposta.meta?.total || resposta.data?.length || 0),
+      };
+    }),
+    testarEscopoLomadee("Links existentes", "shortener:read", async () => {
+      const resposta = await lomadeeFetch<{
+        data?: unknown[];
+        meta?: { total?: number };
+      }>("/affiliate/shortener/urls?page=1&limit=1");
+      return {
+        total: Number(resposta.meta?.total || resposta.data?.length || 0),
+      };
+    }),
+    testarEscopoLomadee("Gerar deeplink", "shortener:write", async () => {
+      if (!marcaParaTeste?.id) {
+        throw new Error("Nenhuma marca acessível para testar deeplink.");
+      }
+
+      const resposta = await lomadeeFetch<
+        Array<{
+          shortUrls?: string[];
+          message?: string | null;
+        }>
+      >("/affiliate/shortener/url", {
+        method: "POST",
+        body: JSON.stringify({
+          organizationId: marcaParaTeste.id,
+          type: "Home",
+          mdasc: "homologacao-achados-do-casal",
+        }),
+      });
+
+      const urlGerada = (Array.isArray(resposta) ? resposta : [])
+        .flatMap((canal) => canal.shortUrls || [])
+        .find((url) => /^https?:\/\//i.test(url));
+
+      return {
+        total: urlGerada ? 1 : 0,
+        detalhe: urlGerada
+          ? "Deeplink de homologação gerado com sucesso."
+          : "Escopo respondeu, mas nenhum canal devolveu URL.",
+      };
+    }),
   ]);
 
+  const canais = escopos.find((item) => item.escopo === "channels:read");
+
   return {
-    totalMarcas: Number(marcas.pagination?.total || marcas.data?.length || 0),
-    totalCanais: Number(canais.count || canais.data?.length || 0),
+    totalMarcas,
+    totalCanais: canais?.total ?? 0,
+    escopos,
+    homologacaoTecnicaOk: escopos.every((item) => item.ok),
   };
 }
 
