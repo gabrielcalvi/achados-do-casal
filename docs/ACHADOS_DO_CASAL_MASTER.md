@@ -25,6 +25,8 @@
 9. **Não remover proteções, filtros, regras de deduplicação, affiliate guardrails, RLS ou watchdog sem entender por que foram criados.**
 10. **Quando houver dúvida entre memória de conversa e estado real do sistema, o código, o banco e a produção prevalecem.**
 
+11. **Toda alteração publicada deve ter acompanhamento visual de deploy.** Sempre que houver commit/deploy na Vercel, mostrar o status/timing na tela (ex.: BUILDING → READY/ERROR) usando o card/preview de deployment quando disponível, acompanhar até o estado final e informar o resultado real ao usuário. Não encerrar a tarefa apenas dizendo que o deploy foi disparado.
+
 ---
 
 ## 2. Infraestrutura atual
@@ -1172,6 +1174,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **25/11/2026** — regra permanente de acompanhamento visual de deploy: após alterações publicadas, exibir o status/timing da Vercel na tela, acompanhar BUILDING/QUEUED até READY ou ERROR e só então encerrar a tarefa com o resultado final real.
 - **25/11/2026** — Resultados Comerciais passou a separar **Comissão confirmada** de **Comissão estimada**. O novo KPI soma as comissões das vendas em status pendente/em revisão no período selecionado, preservando as confirmadas separadamente e exibindo a quantidade de vendas em revisão no topo do painel.
 - **17/11/2026** — Admin Saúde evoluído para central operacional: incluído bloco **Ações de hoje** (falhas de monitor, pendências ML, vídeos pendentes, pedidos de review e alertas de preço atingidos) e tabela **Saúde geral dos produtos**. Para Mercado Livre, a tela cruza os produtos ativos com a lista oficial `https://meli.la/1o6hF5T` e mostra preço/parcelamento do Achados versus lista, sinalizando atualizar, igual ou fora da lista; demais parceiros continuam no fluxo normal do monitor. Nenhuma mudança foi feita na Home.
 - **17/11/2026** — esclarecimento da regra de preços: a exigência **cadastrar no Achados → adicionar/favoritar na lista `https://meli.la/1o6hF5T` → atualizar por essa lista** vale **somente para produtos do Mercado Livre**. Para Amazon e demais parceiros/lojas já cobertos por monitoramento confiável, permanece o comportamento atual: preços podem ser atualizados automaticamente sempre que a integração/coleta válida identificar mudança, sem depender dessa lista do ML.
