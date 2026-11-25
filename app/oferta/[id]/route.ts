@@ -23,6 +23,7 @@ const ORIGENS_PERMITIDAS = new Set([
   "admin",
   "instagram",
   "black_friday",
+  "cupons",
 ]);
 const PADRAO_BOT = /(bot|crawler|spider|slurp|googlebot|bingbot|duckduckbot|yandex|baiduspider|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|applebot|gptbot|chatgpt-user|oai-searchbot|chrome-lighthouse|pagespeed|lighthouse|headlesschrome|readbot)/i;
 
@@ -128,7 +129,10 @@ function prepararDestinoAfiliado(
 }
 
 function voltarParaCentral(request: NextRequest, aviso: string) {
-  const url = new URL("/economize", request.url);
+  const origem = request.nextUrl.searchParams.get("origem")?.trim().toLowerCase();
+  const destino =
+    origem === "cupons" || origem === "black_friday" ? "/cupons" : "/economize";
+  const url = new URL(destino, request.url);
   url.searchParams.set("aviso", aviso);
   return NextResponse.redirect(url, 307);
 }
