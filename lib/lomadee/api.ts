@@ -90,6 +90,23 @@ export async function testarChaveLomadee(chave: string) {
   return { totalMarcas: Number(resposta.pagination?.total || resposta.data?.length || 0) };
 }
 
+export async function diagnosticarLomadee() {
+  const [marcas, canais] = await Promise.all([
+    lomadeeFetch<{ data?: LomadeeBrand[]; pagination?: { total?: number } }>(
+      "/affiliate/brands?page=1&limit=1"
+    ),
+    lomadeeFetch<{
+      data?: Array<{ id?: string; name?: string }>;
+      count?: number;
+    }>("/affiliate/channels"),
+  ]);
+
+  return {
+    totalMarcas: Number(marcas.pagination?.total || marcas.data?.length || 0),
+    totalCanais: Number(canais.count || canais.data?.length || 0),
+  };
+}
+
 export async function salvarChaveLomadee(chave: string) {
   const valor = chave.trim();
   if (valor.length < 20) throw new Error("A chave Lomadee informada parece inválida.");
