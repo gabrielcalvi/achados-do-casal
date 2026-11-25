@@ -374,15 +374,18 @@ async function salvar(
 }
 
 export async function sincronizarCampanhasLomadee() {
-  const [marcas, campanhas, lojasResp] = await Promise.all([
+  const [marcas, lojasResp] = await Promise.all([
     listarMarcasLomadee(),
-    listarCampanhasLomadeeAtivas(),
     supabaseAdmin.from("economize_lojas").select("id,nome,slug,dominio").eq("ativa", true),
   ]);
   if (lojasResp.error) throw new Error(lojasResp.error.message);
 
   const lojas = lojasResp.data || [];
   const marcasPorId = new Map(marcas.map((m) => [m.id, m]));
+  const marcaTerabyte = marcas.find((m) => normalizar(m.name) === "terabyte");
+  const campanhas = marcaTerabyte
+    ? await listarCampanhasLomadeeAtivas(marcaTerabyte.id)
+    : [];
   const grupos = new Map<string, LomadeeCampaign[]>();
   for (const c of campanhas) {
     if (!c.organizationId) continue;
