@@ -321,7 +321,7 @@ export default function Home() {
               ⭐ Reviews
             </Link>
             <Link
-              href="/black-friday"
+              href="/cupons"
               className="inline-flex h-12 w-[108px] shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-black text-white transition hover:bg-emerald-700"
             >
               💰 Cupons
@@ -386,7 +386,7 @@ export default function Home() {
           </div>
 
           <Link
-            href="/black-friday"
+            href="/cupons"
             className="inline-flex w-fit shrink-0 items-center justify-center rounded-2xl bg-yellow-400 px-8 py-4 text-base font-black uppercase tracking-wide text-black shadow-lg transition hover:-translate-y-0.5 hover:bg-yellow-300 sm:px-10 sm:py-5 sm:text-lg"
           >
             Ver cupons →
