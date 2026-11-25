@@ -33,6 +33,8 @@
 
 14. **Separar publicamente Produtos de Cupons.** A Central Economize deve ser tratada como o canal principal de **produtos/ofertas**. Cupons/campanhas devem ter um canal público próprio e permanente em `/cupons`, com identidade sazonal (ex.: Black Friday, Fim de Ano/Natal, Volta às Aulas etc.). A URL principal de cupons deve permanecer estável; muda o tema, o título e a comunicação conforme a campanha, evitando fragmentar SEO e navegação. Rotas sazonais como `/black-friday` podem existir como landing/atalho, mas devem apontar para a experiência central de cupons quando a campanha terminar.
 
+15. **Cupons servem também para gerar fluxo, não apenas comissão.** O canal `/cupons` deve aceitar cupons e campanhas realmente válidos de lojas parceiras e não parceiras. Em lojas parceiras, buscar e publicar o máximo possível de cupons/ofertas verificáveis usando o link afiliado correto da fonte principal. Em lojas sem parceria, publicar também quando o benefício for real e verificável, usando link oficial direto e mantendo o tracking de cliques do Achados; não inventar link afiliado nem esconder que aquele clique não gera comissão. A meta operacional inicial é chegar a pelo menos **200 cupons úteis, ativos e verificados**, independentemente de todos serem monetizados. Qualidade, validade, deduplicação e utilidade para o visitante prevalecem sobre preencher quantidade artificialmente.
+
 ---
 
 ## 2. Infraestrutura atual
@@ -288,6 +290,13 @@ Objetivo:
 - ampliar autoridade do Achados do Casal como central de economia;
 - monetizar quando existir parceria;
 - não descartar cupom bom de marca não parceira.
+
+Diretriz comercial permanente:
+- o inventário de cupons não é restrito ao portfólio de afiliados;
+- parceiros: procurar todos os cupons/campanhas válidos disponíveis e monetizar com a fonte principal definida para aquela loja;
+- não parceiros: aceitar cupons reais e verificáveis como aquisição de tráfego, apontando para a página oficial da loja e registrando o clique no Achados;
+- a meta de **200 cupons** considera o total de oportunidades úteis e ativas, não somente as que pagam comissão;
+- a meta de receita deve crescer em paralelo pela cobertura completa dos cupons dos parceiros, sem excluir oportunidades de tráfego de lojas não parceiras.
 
 Arquitetura:
 - página pública `/black-friday`;
@@ -1180,6 +1189,7 @@ Quando surgir informação nova e confirmada que contradiga algo aqui, **corrigi
 Toda mudança importante deve acrescentar uma nota curta em uma das seções acima ou numa seção de changelog abaixo.
 
 ### Changelog do MASTER
+- **25/11/2026** — regra comercial de Cupons explicitada: o canal aceita lojas parceiras e não parceiras. Parceiros devem ter cobertura ampla de todos os cupons/campanhas válidos e links afiliados da fonte principal; não parceiros podem entrar para gerar tráfego com link oficial direto e tracking de cliques. A meta de 200 cupons úteis/ativos/verificados não depende de todos serem monetizados; qualidade e validade continuam obrigatórias.
 - **25/11/2026** — TeraByte ativada como fonte principal Lomadee de cupons/campanhas, canal `www.achadosdocasal.com.br` confirmado pela API, comissão oficial retornada de 1,5% e campanha Black Friday “até 90% OFF” cadastrada com link monetizado específico `https://lmdee.link/WjeGsHLqtceC`, válida até 27/11/2026 23:30 BRT. A campanha é oferta de loja/produtos selecionados, não cupom de código; o percentual não foi gravado como desconto fixo. Sincronização automática Lomadee limitada inicialmente à TeraByte até curadoria de novas marcas. TeraByte incluída na categoria Tecnologia do canal Cupons.
 - **25/11/2026** — primeiro uso operacional da Lomadee implementado para **Cupons/Campanhas**. A sincronização consulta campanhas `onTime`, exige monetização via link do canal Lomadee, publica automaticamente apenas benefícios relevantes (>=10% OFF, >=R$20 OFF ou frete grátis), preserva AWIN quando ela já é a fonte principal e torna Lomadee a fonte principal onde acrescenta valor. O radar próprio passa a respeitar AWIN/Lomadee e não duplica essas lojas. Criado cron a cada 3h, rota de sincronização e canal público permanente `/cupons`; a home passa a apontar para esse canal, enquanto `/black-friday` permanece como landing sazonal.
 - **25/11/2026** — arquitetura pública refinada: **Economize = produtos/ofertas** e **Cupons = canal próprio permanente**. O hub de cupons deve viver em `/cupons` e receber identidade sazonal (Black Friday, Fim de Ano/Natal, Volta às Aulas etc.) sem trocar a URL principal. A página `/black-friday` passa a ser tratada como campanha/landing sazonal, não como o canal permanente de cupons.
