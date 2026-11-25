@@ -158,12 +158,32 @@ const CUPONATION_DIRETA: Record<string, string> = {
   adidas: "https://www.cuponation.com.br/codigo-promocional-adidas",
   samsung: "https://www.cuponation.com.br/cupom-desconto-samsung",
   nike: "https://www.cuponation.com.br/cupom-nike",
+  renner: "https://www.cuponation.com.br/cupom-renner",
   marisa: "https://www.cuponation.com.br/ofertas-marisa",
   amazon: "https://www.cuponation.com.br/cupom-desconto-amazon",
+  magalu: "https://www.cuponation.com.br/cupom-desconto-magazine-luiza",
+  "madeira-madeira": "https://www.cuponation.com.br/cupom-desconto-madeiramadeira",
   netshoes: "https://www.cuponation.com.br/cupom-desconto-netshoes",
   centauro: "https://www.cuponation.com.br/cupom-centauro",
   boticario: "https://www.cuponation.com.br/cupom-desconto-boticario",
   "casas-bahia": "https://www.cuponation.com.br/cupom-desconto-casas-bahia",
+  colombo: "https://www.cuponation.com.br/cupom-desconto-colombo",
+  nespresso: "https://www.cuponation.com.br/cupom-desconto-nespresso",
+  "dolce-gusto": "https://www.cuponation.com.br/cupom-desconto-dolce-gusto",
+  "ri-happy": "https://www.cuponation.com.br/cupom-desconto-ri-happy",
+  pbkids: "https://www.cuponation.com.br/cupom-desconto-pbkids",
+  cobasi: "https://www.cuponation.com.br/cupom-desconto-cobasi",
+  petz: "https://www.cuponation.com.br/cupom-desconto-petz",
+  petlove: "https://www.cuponation.com.br/cupom-de-desconto-petlove",
+  "pague-menos": "https://www.cuponation.com.br/cupom-desconto-pague-menos",
+  panvel: "https://www.cuponation.com.br/cupom-desconto-panvel",
+  "drogaria-sp": "https://www.cuponation.com.br/cupom-desconto-drogaria-sao-paulo",
+  "farmacia-preco-popular": "https://www.cuponation.com.br/cupom-farmacia-preco-popular",
+  electrolux: "https://www.cuponation.com.br/cupom-desconto-electrolux",
+  brastemp: "https://www.cuponation.com.br/cupom-de-desconto-brastemp",
+  rentcars: "https://www.cuponation.com.br/cupom-desconto-rentcars",
+  westwing: "https://www.cuponation.com.br/cupom-desconto-westwing",
+  natura: "https://www.cuponation.com.br/cupom-natura",
   sephora: "https://www.cuponation.com.br/desconto-sephora",
   decolar: "https://www.cuponation.com.br/cupom-de-desconto-decolar",
   "beach-park": "https://www.cuponation.com.br/cupom-beach-park",
@@ -345,8 +365,16 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
     const inicio = ultimoCampoAntes(texto, indice, "startTime", 2200) || null;
     const validade = ultimoCampoAntes(texto, indice, "endTime", 2200) || null;
     const publicado = ultimoBooleanAntes(texto, indice, "published", 2200) ?? false;
+    const exclusivo = ultimoBooleanAntes(texto, indice, "exclusive", 2200) ?? false;
     const ultimoUso = primeiroCampoDepois(texto, indice, "lastUsedDate", 1500) || null;
     const benef = beneficio(titulo, caption1, caption2);
+    const contextoRestricao = `${titulo} ${caption1} ${caption2}`;
+    if (
+      exclusivo ||
+      /p[aá]gina de influenciador do cuponation|exclusivo.*cuponation|cuponation.*exclusivo/i.test(contextoRestricao)
+    ) {
+      continue;
+    }
 
     const validadeMs = validade ? Date.parse(validade) : Number.NaN;
     const vigente = !validade || (Number.isFinite(validadeMs) && validadeMs > agora);
@@ -394,12 +422,18 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
 }
 
 
-const FONTES_OFICIAIS: Record<string, string> = {
+const FONTES_OFICIAIS: Record<string, string | string[]> = {
   renner: "https://www.lojasrenner.com.br/cupom-de-desconto",
   cea: "https://www.cea.com.br/cupons-de-desconto",
   marisa: "https://www.marisa.com.br/institucional/rules-promotions",
   nike: "https://www.nike.com.br/hotsite/cupom-nike",
-  nespresso: "https://www.nespresso.com/br/pt",
+  nespresso: "https://www.nespresso.com/br/pt/termos-condicoes",
+  "dolce-gusto": "https://www.nescafe-dolcegusto.com.br/sobre/regulamentos2026",
+  "ri-happy": [
+    "https://www.rihappy.com.br/ultimas-pecas",
+    "https://www.rihappy.com.br/regulamentos",
+  ],
+  "farmacia-preco-popular": "https://www.precopopular.com.br/institucional/cupons-promocoes",
   gocase: "https://www.gocase.com.br/degocase",
   decolar: "https://www.decolar.com/black-friday",
   "beach-park": "https://blackfriday.beachpark.com.br/",
@@ -431,6 +465,16 @@ function extrairValidadeOficial(trecho: string) {
   const segundo = trecho.match(padroes[1]);
   if (segundo) {
     return dataBrasiliaParaIso(segundo[1], segundo[2], segundo[3], segundo[4], segundo[5] || "00");
+  }
+
+  const terceiro = trecho.match(
+    /(?:v[aá]lido|v[aá]lida)\s+at[eé]\s+(\d{1,2})\/(\d{1,2})\/(\d{4})|\bat[eé]\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i
+  );
+  if (terceiro) {
+    const dia = terceiro[1] || terceiro[4];
+    const mes = terceiro[2] || terceiro[5];
+    const ano = terceiro[3] || terceiro[6];
+    return dataBrasiliaParaIso(dia, mes, ano);
   }
 
   return null;
@@ -578,60 +622,78 @@ export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
     return extrairCuponsDecolarOficial();
   }
 
-  const fonteUrl = FONTES_OFICIAIS[loja.slug];
-  if (!fonteUrl) return [] as CupomDescoberto[];
+  const configuradas = FONTES_OFICIAIS[loja.slug];
+  const fontes = !configuradas
+    ? []
+    : Array.isArray(configuradas)
+      ? configuradas
+      : [configuradas];
+  if (!fontes.length) return [] as CupomDescoberto[];
 
-  const resposta = await fetch(fonteUrl, {
-    cache: "no-store",
-    redirect: "follow",
-    signal: AbortSignal.timeout(20000),
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
-      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    },
-  });
-  if (!resposta.ok) throw new Error(`Fonte oficial respondeu HTTP ${resposta.status}`);
-
-  const html = await resposta.text();
-  const $ = load(html);
-  const texto = $.root().text().replace(/\s+/g, " ").trim();
   const agora = Date.now();
   const encontrados = new Map<string, CupomDescoberto>();
+  let fontesAcessiveis = 0;
   const regex = /(?:cupom\s*[:\-]?\s*|use\s+o\s+cupom\s*[:\-]?\s*)(?:["“”']?)([A-Z0-9_-]{4,24})(?:["“”']?)/gi;
 
-  for (const match of texto.matchAll(regex)) {
-    const codigo = String(match[1] || "").trim().toUpperCase();
-    if (!codigoAceitavel(codigo, loja)) continue;
+  for (const fonteUrl of fontes) {
+    try {
+      const resposta = await fetch(fonteUrl, {
+        cache: "no-store",
+        redirect: "follow",
+        signal: AbortSignal.timeout(20000),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        },
+      });
+      if (!resposta.ok) continue;
+      fontesAcessiveis += 1;
 
-    const indice = match.index ?? 0;
-    const contexto = texto.slice(Math.max(0, indice - 220), Math.min(texto.length, indice + 420));
-    const benef = beneficio(contexto, "", "");
-    const validade = extrairValidadeOficial(contexto);
-    const inicio = extrairInicioOficial(contexto);
-    const validadeMs = validade ? Date.parse(validade) : Number.NaN;
-    const vigente = !validade || (Number.isFinite(validadeMs) && validadeMs > agora);
+      const html = await resposta.text();
+      const $ = load(html);
+      const texto = $.root().text().replace(/\s+/g, " ").trim();
 
-    // Fonte oficial vale como confirmação forte. Ainda exigimos benefício relevante.
-    const autoAprovado = vigente && benef.bom;
-    const score = (vigente ? 35 : 0) + (benef.bom ? 35 : 0) + 30;
+      for (const match of texto.matchAll(regex)) {
+        const codigo = String(match[1] || "").trim().toUpperCase();
+        if (!codigoAceitavel(codigo, loja)) continue;
 
-    encontrados.set(codigo, {
-      codigo,
-      titulo: tituloOficial(loja, codigo, benef, contexto),
-      tipoDesconto: benef.tipo,
-      descontoPercentual: benef.percentual,
-      valorDesconto: benef.valor,
-      inicio,
-      validade,
-      ultimoUso: null,
-      publicadoNaFonte: true,
-      score,
-      autoAprovado,
-      fonteUrl,
-      fonteHost: new URL(fonteUrl).hostname,
-      fonteOficial: true,
-      fonteNome: `${loja.nome} oficial`,
-    });
+        const indice = match.index ?? 0;
+        const contexto = texto.slice(Math.max(0, indice - 220), Math.min(texto.length, indice + 420));
+        const benef = beneficio(contexto, "", "");
+        const validade = extrairValidadeOficial(contexto);
+        const inicio = extrairInicioOficial(contexto);
+        const validadeMs = validade ? Date.parse(validade) : Number.NaN;
+        const vigente = !validade || (Number.isFinite(validadeMs) && validadeMs > agora);
+
+        // Fonte oficial vale como confirmação forte. Ainda exigimos benefício relevante.
+        const autoAprovado = vigente && benef.bom;
+        const score = (vigente ? 35 : 0) + (benef.bom ? 35 : 0) + 30;
+
+        encontrados.set(codigo, {
+          codigo,
+          titulo: tituloOficial(loja, codigo, benef, contexto),
+          tipoDesconto: benef.tipo,
+          descontoPercentual: benef.percentual,
+          valorDesconto: benef.valor,
+          inicio,
+          validade,
+          ultimoUso: null,
+          publicadoNaFonte: true,
+          score,
+          autoAprovado,
+          fonteUrl,
+          fonteHost: new URL(fonteUrl).hostname,
+          fonteOficial: true,
+          fonteNome: `${loja.nome} oficial`,
+        });
+      }
+    } catch {
+      // Uma fonte oficial indisponível não impede a leitura das demais fontes da mesma loja.
+    }
+  }
+
+  if (fontesAcessiveis === 0) {
+    throw new Error("Nenhuma das fontes oficiais respondeu.");
   }
 
   return Array.from(encontrados.values()).sort((a, b) => b.score - a.score);
@@ -674,31 +736,59 @@ async function fontePrincipalExternaCupons(slug: string) {
     .maybeSingle();
   if (erroLoja || !loja?.id) return null;
 
-  const { data: fontes, error } = await supabaseAdmin
-    .from("economize_fontes")
-    .select("nome,configuracao")
-    .eq("loja_id", loja.id)
-    .eq("ativa", true);
-  if (error) return null;
+  const [fontesResp, parceiroResp] = await Promise.all([
+    supabaseAdmin
+      .from("economize_fontes")
+      .select("nome,configuracao")
+      .eq("loja_id", loja.id)
+      .eq("ativa", true),
+    supabaseAdmin
+      .from("afiliados_parceiros")
+      .select("automacao_status,integracoes")
+      .eq("slug", slug)
+      .maybeSingle(),
+  ]);
+  if (fontesResp.error) throw new Error(fontesResp.error.message);
+  if (parceiroResp.error) throw new Error(parceiroResp.error.message);
 
-  for (const fonte of fontes || []) {
+  const fontes = fontesResp.data || [];
+  const fonteLomadee = fontes.find((fonte) => {
     const cfg =
       fonte.configuracao && typeof fonte.configuracao === "object"
         ? (fonte.configuracao as Record<string, unknown>)
         : {};
-    const provedor = String(cfg.provedor || "").toLowerCase();
+    return (
+      String(cfg.provedor || "").toLowerCase() === "lomadee" &&
+      (cfg.finalidade === "cupons_campanhas" || cfg.fonte_principal === true)
+    );
+  });
+  if (fonteLomadee) return { lojaId: loja.id, provedor: "lomadee" };
 
-    if (provedor === "lomadee") {
-      return { lojaId: loja.id, provedor: "lomadee" };
-    }
-    if (
-      (provedor === "awin" || /awin/i.test(String(fonte.nome || ""))) &&
-      cfg.monitor_only !== true
-    ) {
-      return { lojaId: loja.id, provedor: "awin" };
-    }
+  const integracoes = Array.isArray(parceiroResp.data?.integracoes)
+    ? parceiroResp.data.integracoes.map((item) => String(item).toLowerCase())
+    : [];
+  const automacaoCuponsAtiva =
+    parceiroResp.data?.automacao_status === "ativa" &&
+    integracoes.some((item) => item.includes("cupom"));
+
+  const fonteAwinPrincipal = fontes.some((fonte) => {
+    const cfg =
+      fonte.configuracao && typeof fonte.configuracao === "object"
+        ? (fonte.configuracao as Record<string, unknown>)
+        : {};
+    return (
+      String(cfg.provedor || "").toLowerCase() === "awin" &&
+      cfg.monitor_only !== true &&
+      cfg.finalidade === "cupons_campanhas" &&
+      cfg.fonte_principal === true
+    );
+  });
+
+  if (automacaoCuponsAtiva || fonteAwinPrincipal) {
+    return { lojaId: loja.id, provedor: "awin" };
   }
 
+  // Fonte AWIN apenas de catálogo/produtos não bloqueia o radar de cupons.
   return null;
 }
 
@@ -958,11 +1048,21 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
   const oficiais = await extrairCuponsFonteOficial(lojaDef);
   let cupons = oficiais;
   let fonte = oficiais[0]?.fonteUrl || null;
+  const complementarCuponation = new Set([
+    "renner",
+    "marisa",
+    "nike",
+    "nespresso",
+    "dolce-gusto",
+    "ri-happy",
+    "farmacia-preco-popular",
+    "gocase",
+    "beach-park",
+  ]);
 
-  if (lojaDef.slug === "decolar") {
-    // Para a Decolar, combinamos a página oficial com a fonte pública
-    // verificada. A página oficial confirma códigos destacados, enquanto
-    // a Cuponation expõe um conjunto maior com validade e uso recente.
+  if (lojaDef.slug === "decolar" || complementarCuponation.has(lojaDef.slug)) {
+    // Fontes oficiais continuam vencendo em caso de duplicidade; Cuponation
+    // complementa com códigos publicados, vigentes e usados recentemente.
     const resultados = await buscarCuponation(lojaDef);
     const fonteCuponation = resultados[0]?.url || null;
     const externos = fonteCuponation
@@ -977,7 +1077,6 @@ export async function processarLojaBlackFriday(lojaDef: LojaBlackFriday) {
 
     const porCodigo = new Map<string, CupomDescoberto>();
     for (const cupom of vigentes) porCodigo.set(cupom.codigo, cupom);
-    // Se o mesmo código aparecer nas duas fontes, a confirmação oficial vence.
     for (const cupom of oficiais) porCodigo.set(cupom.codigo, cupom);
 
     cupons = Array.from(porCodigo.values()).sort((a, b) => b.score - a.score);

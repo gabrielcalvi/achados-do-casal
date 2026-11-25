@@ -97,6 +97,12 @@ export const LOJAS_BLACK_FRIDAY_EXTRAS: LojaBlackFriday[] = [
   { nome: "Surfshark", slug: "surfshark", dominio: "surfshark.com", homepage: "https://surfshark.com/pt-br" },
   { nome: "Hostinger", slug: "hostinger", dominio: "hostinger.com.br", homepage: "https://www.hostinger.com.br/" },
 
+  // Pet shops
+  { nome: "Petlove", slug: "petlove", dominio: "petlove.com.br", homepage: "https://www.petlove.com.br/" },
+
+  // Farmácias
+  { nome: "Farmácia Preço Popular", slug: "farmacia-preco-popular", dominio: "precopopular.com.br", homepage: "https://www.precopopular.com.br/" },
+
   // Fitness e suplementos
   { nome: "Growth Supplements", slug: "growth-supplements", dominio: "growthsupplements.com.br", homepage: "https://www.gsuplementos.com.br/" },
   { nome: "Integralmédica", slug: "integralmedica", dominio: "integralmedica.com.br", homepage: "https://www.integralmedica.com.br/" },
