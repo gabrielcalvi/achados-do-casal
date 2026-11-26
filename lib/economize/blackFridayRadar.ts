@@ -623,9 +623,139 @@ async function extrairCuponsDecolarOficial() {
   return Array.from(encontrados.values());
 }
 
+
+async function paginaOficialContemCodigo(url: string, codigo: string) {
+  const resposta = await fetch(url, {
+    cache: "no-store",
+    redirect: "follow",
+    signal: AbortSignal.timeout(20000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142 Safari/537.36",
+      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    },
+  });
+  if (!resposta.ok) return false;
+  const html = await resposta.text();
+  return html.toUpperCase().includes(codigo.toUpperCase());
+}
+
+async function extrairCuponsPanvelOficial() {
+  const loja: LojaBlackFriday = {
+    nome: "Panvel",
+    slug: "panvel",
+    dominio: "panvel.com",
+    homepage: "https://www.panvel.com/",
+  };
+  const encontrados: CupomDescoberto[] = [];
+  const home = "https://www.panvel.com/";
+  const dermo = "https://www.panvel.com/panvel/ofertas/cupom-dermo15/1097";
+
+  if (await paginaOficialContemCodigo(home, "PRIMEIRACOMPRA")) {
+    encontrados.push({
+      codigo: "PRIMEIRACOMPRA",
+      titulo: "Panvel: R$ 5 OFF no site e app com PRIMEIRACOMPRA",
+      tipoDesconto: "valor_fixo",
+      descontoPercentual: null,
+      valorDesconto: 5,
+      inicio: null,
+      validade: null,
+      ultimoUso: null,
+      publicadoNaFonte: true,
+      score: 100,
+      autoAprovado: true,
+      fonteUrl: home,
+      fonteHost: "www.panvel.com",
+      fonteOficial: true,
+      fonteNome: "Panvel oficial",
+    });
+  }
+
+  if (await paginaOficialContemCodigo(dermo, "DERMO15")) {
+    encontrados.push({
+      codigo: "DERMO15",
+      titulo: "Panvel: cupom DERMO15 em produtos participantes",
+      tipoDesconto: "outro",
+      descontoPercentual: null,
+      valorDesconto: null,
+      inicio: null,
+      validade: null,
+      ultimoUso: null,
+      publicadoNaFonte: true,
+      score: 100,
+      autoAprovado: true,
+      fonteUrl: dermo,
+      fonteHost: "www.panvel.com",
+      fonteOficial: true,
+      fonteNome: "Panvel oficial",
+    });
+  }
+
+  return encontrados;
+}
+
+async function extrairCuponsCobasiOficial() {
+  const url = "https://www.cobasi.com.br/regulamentos";
+  if (!(await paginaOficialContemCodigo(url, "APP10"))) return [] as CupomDescoberto[];
+  return [{
+    codigo: "APP10",
+    titulo: "Cobasi: 10% OFF na primeira compra pelo app com APP10",
+    tipoDesconto: "percentual" as const,
+    descontoPercentual: 10,
+    valorDesconto: null,
+    inicio: null,
+    validade: "2026-12-01T02:59:59.000Z",
+    ultimoUso: null,
+    publicadoNaFonte: true,
+    score: 100,
+    autoAprovado: true,
+    fonteUrl: url,
+    fonteHost: "www.cobasi.com.br",
+    fonteOficial: true,
+    fonteNome: "Cobasi oficial",
+  }];
+}
+
+async function extrairCuponsNikeOficial() {
+  const fontes = [
+    "https://www.nike.com.br/hotsite/antecipapromo",
+    "https://www.nike.com.br/hotsite/membros-lancamentos",
+  ];
+  for (const url of fontes) {
+    if (await paginaOficialContemCodigo(url, "NIKE40")) {
+      return [{
+        codigo: "NIKE40",
+        titulo: "Nike: cupom NIKE40 em produtos participantes",
+        tipoDesconto: "outro" as const,
+        descontoPercentual: null,
+        valorDesconto: null,
+        inicio: null,
+        validade: null,
+        ultimoUso: null,
+        publicadoNaFonte: true,
+        score: 100,
+        autoAprovado: true,
+        fonteUrl: url,
+        fonteHost: "www.nike.com.br",
+        fonteOficial: true,
+        fonteNome: "Nike oficial",
+      }];
+    }
+  }
+  return [] as CupomDescoberto[];
+}
+
 export async function extrairCuponsFonteOficial(loja: LojaBlackFriday) {
   if (loja.slug === "decolar") {
     return extrairCuponsDecolarOficial();
+  }
+  if (loja.slug === "panvel") {
+    return extrairCuponsPanvelOficial();
+  }
+  if (loja.slug === "cobasi") {
+    return extrairCuponsCobasiOficial();
+  }
+  if (loja.slug === "nike") {
+    return extrairCuponsNikeOficial();
   }
 
   const configuradas = FONTES_OFICIAIS[loja.slug];
