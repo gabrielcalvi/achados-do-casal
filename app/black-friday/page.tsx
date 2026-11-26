@@ -731,7 +731,7 @@ export default function BlackFridayPage() {
               <div className="mb-6 rounded-3xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/10 via-zinc-950 to-zinc-950 p-5 sm:p-6">
                 <div>
                   <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
-                    🔥 Melhores cupons agora
+                    🔥 Melhores descontos agora
                   </p>
                   <h2 className="mt-1 text-2xl font-black sm:text-3xl">
                     Os descontos que mais chamam atenção neste momento
@@ -742,9 +742,9 @@ export default function BlackFridayPage() {
                   {melhoresCupons.map((cupom) => (
                     <article
                       key={`destaque-${cupom.id}`}
-                      className="rounded-2xl border border-white/10 bg-black/40 p-4"
+                      className="flex h-full flex-col rounded-2xl border border-white/10 bg-black/40 p-4"
                     >
-                      <div className="min-h-[112px] flex items-start justify-between gap-3">
+                      <div className="flex min-h-[76px] items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-black uppercase tracking-wider text-zinc-400">
                             {cupom.loja?.nome || "Loja"}
@@ -758,27 +758,35 @@ export default function BlackFridayPage() {
                         </span>
                       </div>
 
-                      {cupom.codigo && (
+                      {cupom.codigo ? (
                         <button
                           type="button"
                           onClick={() => void copiar(cupom)}
-                          className="mt-4 w-full rounded-xl border border-dashed border-yellow-400/60 bg-yellow-400/10 px-3 py-3 text-center"
+                          className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border border-dashed border-yellow-400/60 bg-yellow-400/10 px-3 py-2 text-center"
                         >
                           <span className="text-xs font-black uppercase tracking-wider text-yellow-300">
                             {copiado === cupom.id ? "✅ Copiado!" : cupom.codigo}
                           </span>
                         </button>
+                      ) : (
+                        <div className="mt-3 flex min-h-[48px] items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-center">
+                          <span className="text-xs font-black uppercase tracking-wider text-sky-300">
+                            Oferta sem código · desconto direto
+                          </span>
+                        </div>
                       )}
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
                         <a
                           href={`/oferta/${cupom.id}?origem=${origemCanal}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => void copiar(cupom)}
+                          onClick={() => {
+                            if (cupom.codigo) void copiar(cupom);
+                          }}
                           className="rounded-xl bg-yellow-400 px-3 py-2.5 text-center text-sm font-black text-black hover:bg-yellow-300"
                         >
-                          Usar agora
+                          {cupom.codigo ? "Usar cupom" : "Ver oferta"}
                         </a>
                         <button
                           type="button"
