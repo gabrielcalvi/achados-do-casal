@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PartnerStorefront from "@/components/PartnerStorefront";
+import { carregarOfertasIniciais } from "@/lib/economize/storefrontServer";
 
 export const metadata: Metadata = {
   title: "Ofertas C&A: moda, beleza e lifestyle",
@@ -13,10 +14,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CeaPage() {
+export default async function CeaPage() {
+  const initialOffers = await carregarOfertasIniciais("cea");
   return (
     <PartnerStorefront
       slug="cea"
+      initialOffers={initialOffers}
       nome="C&A"
       descricao="Moda, beleza e lifestyle com as melhores oportunidades encontradas no catálogo oficial do parceiro."
       placeholder="Buscar roupas, acessórios, beleza..."

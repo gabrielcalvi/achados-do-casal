@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PartnerStorefront from "@/components/PartnerStorefront";
+import { carregarOfertasIniciais } from "@/lib/economize/storefrontServer";
 
 export const metadata: Metadata = {
   title: "Ofertas Cobasi: pet, ração e acessórios",
@@ -13,10 +14,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CobasiPage() {
+export default async function CobasiPage() {
+  const initialOffers = await carregarOfertasIniciais("cobasi");
   return (
     <PartnerStorefront
       slug="cobasi"
+      initialOffers={initialOffers}
       nome="Cobasi"
       descricao="Produtos para cães, gatos e outros pets selecionados no catálogo oficial do parceiro, sempre com página compartilhável do Achados e link afiliado oficial."
       placeholder="Buscar ração, petisco, higiene, brinquedos..."

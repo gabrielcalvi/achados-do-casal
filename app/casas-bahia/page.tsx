@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PartnerStorefront from "@/components/PartnerStorefront";
+import { carregarOfertasIniciais } from "@/lib/economize/storefrontServer";
 
 export const metadata: Metadata = {
   title: "Ofertas Casas Bahia: móveis e eletrodomésticos",
@@ -13,10 +14,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CasasBahiaPage() {
+export default async function CasasBahiaPage() {
+  const initialOffers = await carregarOfertasIniciais("casas-bahia");
   return (
     <PartnerStorefront
       slug="casas-bahia"
+      initialOffers={initialOffers}
       nome="Casas Bahia"
       descricao="Móveis, eletrodomésticos, TVs, cozinha, climatização, colchões e casa com oportunidades selecionadas no catálogo oficial do parceiro."
       placeholder="Buscar móveis, eletrodomésticos, TV, cozinha..."

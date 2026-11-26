@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PartnerStorefront from "@/components/PartnerStorefront";
+import { carregarOfertasIniciais } from "@/lib/economize/storefrontServer";
 
 export const metadata: Metadata = {
   title: "Ofertas Renner: moda, casa e lifestyle",
@@ -13,10 +14,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RennerPage() {
+export default async function RennerPage() {
+  const initialOffers = await carregarOfertasIniciais("renner");
   return (
     <PartnerStorefront
       slug="renner"
+      initialOffers={initialOffers}
       nome="Renner"
       descricao="Moda, casa e lifestyle com oportunidades selecionadas no catálogo oficial do parceiro, sempre com os melhores descontos primeiro."
       placeholder="Buscar moda, casa, acessórios..."

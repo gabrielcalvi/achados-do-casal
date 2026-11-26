@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type Oferta = {
+export type StorefrontOferta = {
   id: string;
   titulo: string;
   descricao: string | null;
@@ -15,11 +15,12 @@ type Oferta = {
   preco_oferta: number | null;
 };
 
-type Resposta = { ofertas?: Oferta[]; error?: string };
+type Resposta = { ofertas?: StorefrontOferta[]; error?: string };
 type Ordenacao = "relevancia" | "menor-preco" | "maior-preco" | "maior-desconto";
 
 type Props = {
   slug: string;
+  initialOffers?: StorefrontOferta[];
   nome: string;
   descricao: string;
   placeholder: string;
@@ -32,23 +33,23 @@ function moeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor));
 }
 
-function precoValido(oferta: Oferta) {
+function precoValido(oferta: StorefrontOferta) {
   const preco = Number(oferta.preco_oferta);
   return Number.isFinite(preco) && preco > 0 ? preco : null;
 }
 
-export default function PartnerStorefront({ slug, nome, descricao, placeholder, cor, rede = "AWIN" }: Props) {
-  const [ofertas, setOfertas] = useState<Oferta[]>([]);
+export default function PartnerStorefront({ slug, nome, descricao, placeholder, cor, rede = "AWIN", initialOffers = [] }: Props) {
+  const [ofertas, setOfertas] = useState<StorefrontOferta[]>(initialOffers);
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("relevancia");
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(initialOffers.length === 0);
   const [erro, setErro] = useState("");
 
   useEffect(() => {
     let ativo = true;
     async function carregar() {
       try {
-        setCarregando(true);
+        if (initialOffers.length === 0) setCarregando(true);
         setErro("");
         const resposta = await fetch(`/api/economize/ofertas?loja=${encodeURIComponent(slug)}`, { cache: "no-store" });
         const dados = (await resposta.json()) as Resposta;
@@ -62,7 +63,7 @@ export default function PartnerStorefront({ slug, nome, descricao, placeholder, 
     }
     carregar();
     return () => { ativo = false; };
-  }, [slug, nome]);
+  }, [slug, nome, initialOffers.length]);
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
