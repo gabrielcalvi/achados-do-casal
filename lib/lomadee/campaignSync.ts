@@ -127,6 +127,15 @@ function beneficio(campanha: LomadeeCampaign) {
   return { tipo: "outro" as const, percentual: null, valor: null, bom: false };
 }
 
+function codigoDaCampanha(campanha: LomadeeCampaign) {
+  const explicito = campanha.code?.trim();
+  if (explicito && /^[A-Z0-9][A-Z0-9_-]{2,39}$/i.test(explicito)) return explicito;
+
+  const texto = [campanha.name, campanha.description].filter(Boolean).join(" ");
+  const match = texto.match(/(?:use\s+o\s+cupom|cupom(?:\s+de\s+desconto)?[:\s-]+)([A-Z0-9][A-Z0-9_-]{2,39})/i);
+  return match?.[1]?.trim() || null;
+}
+
 function linkDaCampanha(campanha: LomadeeCampaign) {
   const canais = campanha.channels || [];
   const preferido =
@@ -262,8 +271,8 @@ async function salvar(
   const b = beneficio(campanha);
   if (!b.bom) return { salvo: false, motivo: "beneficio_baixo_ou_indefinido" };
 
-  const codigo = campanha.code?.trim() || null;
-  if (campanha.type !== "Offer" && (!codigo || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/i.test(codigo))) {
+  const codigo = codigoDaCampanha(campanha);
+  if (campanha.type !== "Offer" && !codigo) {
     return { salvo: false, motivo: "codigo_invalido" };
   }
 
@@ -458,10 +467,24 @@ export async function sincronizarCampanhasLomadee() {
   let lojasLomadee = 0;
   let erros = 0;
   const dedupesAtivos = new Set<string>();
+  const diagnosticoPorMarca: Record<string, {
+    recebidas: number;
+    publicadas: number;
+    rejeitadas: Record<string, number>;
+    erros: number;
+  }> = {};
 
   for (const [organizationId, lista] of grupos) {
     const marca = marcasPorId.get(organizationId);
     if (!marca || !MARCAS_LOMADEE_APROVADAS.has(normalizar(marca.name))) continue;
+
+    const diag = diagnosticoPorMarca[marca.name] || {
+      recebidas: lista.length,
+      publicadas: 0,
+      rejeitadas: {},
+      erros: 0,
+    };
+    diagnosticoPorMarca[marca.name] = diag;
 
     try {
       const loja = await garantirLoja(marca, lojas);
@@ -477,13 +500,17 @@ export async function sincronizarCampanhasLomadee() {
           if (r.salvo && r.dedupe) {
             publicadas += 1;
             salvas += 1;
+            diag.publicadas += 1;
             dedupesAtivos.add(r.dedupe);
             if (r.novo) novas += 1;
           } else {
             rejeitadas += 1;
+            const motivo = r.motivo || "rejeitada";
+            diag.rejeitadas[motivo] = (diag.rejeitadas[motivo] || 0) + 1;
           }
         } catch {
           erros += 1;
+          diag.erros += 1;
         }
       }
 
@@ -494,6 +521,7 @@ export async function sincronizarCampanhasLomadee() {
       }
     } catch {
       erros += 1;
+      diag.erros += 1;
     }
   }
 
@@ -531,6 +559,7 @@ export async function sincronizarCampanhasLomadee() {
       lojas_lomadee_principal: lojasLomadee,
       lomadee_desativados: ids.length,
       erros,
+      diagnostico_por_marca: diagnosticoPorMarca,
     },
   };
 }
