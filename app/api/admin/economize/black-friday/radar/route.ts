@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -21,13 +20,6 @@ const LOJAS_RADAR: LojaBlackFriday[] = Array.from(
   ).values(),
 );
 
-const TEMP_RUN_HASH = "c4accca5ee37fae6b2779a85170c39d78772f85f69cdc8472d11c6f58f2c272f";
-
-function autorizadoTemporario(request: NextRequest) {
-  const nonce = request.nextUrl.searchParams.get("run_nonce") || "";
-  return nonce !== "" && createHash("sha256").update(nonce).digest("hex") === TEMP_RUN_HASH;
-}
-
 function autorizadoCron(request: NextRequest) {
   const segredo = process.env.CRON_SECRET?.trim() || "";
   return Boolean(segredo) && request.headers.get("authorization") === `Bearer ${segredo}`;
@@ -47,12 +39,12 @@ async function usuarioAutenticado() {
 }
 
 async function autorizado(request: NextRequest) {
-  return autorizadoCron(request) || autorizadoTemporario(request) || usuarioAutenticado();
+  return autorizadoCron(request) || usuarioAutenticado();
 }
 
 async function executar(request: NextRequest) {
   const chamadaCron = autorizadoCron(request);
-  if (!(chamadaCron || autorizadoTemporario(request) || (await usuarioAutenticado()))) {
+  if (!(chamadaCron || (await usuarioAutenticado()))) {
     return NextResponse.json(
       { sucesso: false, erro: "Nao autorizado." },
       { status: 401 },
