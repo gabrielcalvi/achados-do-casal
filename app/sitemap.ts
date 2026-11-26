@@ -48,7 +48,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const [ofertas, produtos, pacotes] = await Promise.all([
-    supabaseAdmin.from("economize_ofertas").select("id,updated_at").eq("status", "ativo").or(`validade.is.null,validade.gt.${agora}`).limit(5000),
+    supabaseAdmin
+      .from("economize_ofertas")
+      .select("id,updated_at")
+      .eq("status", "ativo")
+      .eq("tipo", "promocao")
+      .not("imagem_url", "is", null)
+      .gt("preco_oferta", 0)
+      .or(`validade.is.null,validade.gt.${agora}`)
+      .limit(5000),
     supabaseAdmin.from("produtos").select("id,updated_at").or("ativo.eq.true,review_completa.eq.true").limit(5000),
     supabaseAdmin.from("viagens_pacotes").select("id,tipo,updated_at,disponibilidade_status").eq("status", "ativo").is("arquivado_em", null).or(`validade.is.null,validade.gt.${agora}`).limit(1000),
   ]);

@@ -104,11 +104,18 @@ export async function generateMetadata(
   const descricao = `${preco ? `${preco}. ` : ""}${desconto > 0 ? `${Math.round(desconto)}% OFF. ` : ""}${loja}. Confira a oferta e as condições atualizadas no Achados do Casal.`;
   const url = `https://achadosdocasal.com.br/achado/${id}`;
   const imagemSocial = `https://achadosdocasal.com.br/api/social/achado/${id}?v=2`;
+  const paginaForte =
+    oferta.tipo === "promocao" &&
+    Boolean(oferta.imagem_url) &&
+    Number(oferta.preco_oferta) > 0;
 
   return {
     title: { absolute: `${tituloSeo} | Achados do Casal` },
     description: descricao,
     alternates: { canonical: url },
+    robots: paginaForte
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
     openGraph: {
       title: tituloPreview,
       description: descricao,
