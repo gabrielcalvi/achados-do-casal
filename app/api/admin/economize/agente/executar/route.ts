@@ -179,6 +179,46 @@ async function consultarFonteGenerica(
     };
   }
 
+  try {
+    const url = new URL(fonte.url);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return {
+        ...resultadoBase,
+        modo: "consulta",
+        consultada: false,
+        sucesso: true,
+        status_http: null,
+        content_type: null,
+        duracao_ms: 0,
+        mensagem:
+          "Fonte virtual registrada; processamento delegado ao pipeline dedicado.",
+        ofertas_encontradas: 0,
+        ofertas_novas: 0,
+        ofertas_atualizadas: 0,
+        ofertas_sem_alteracao: 0,
+        total_erros: 0,
+        erros: [],
+      };
+    }
+  } catch {
+    return {
+      ...resultadoBase,
+      modo: "consulta",
+      consultada: false,
+      sucesso: false,
+      status_http: null,
+      content_type: null,
+      duracao_ms: 0,
+      mensagem: "A fonte possui uma URL invalida.",
+      ofertas_encontradas: 0,
+      ofertas_novas: 0,
+      ofertas_atualizadas: 0,
+      ofertas_sem_alteracao: 0,
+      total_erros: 1,
+      erros: ["A fonte possui uma URL invalida."],
+    };
+  }
+
   const inicio = Date.now();
 
   const controlador =
