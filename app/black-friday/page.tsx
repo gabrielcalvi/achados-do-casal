@@ -727,7 +727,7 @@ export default function BlackFridayPage() {
               </div>
             </div>
 
-            {melhoresCupons.length > 0 && (
+            {!haFiltros && melhoresCupons.length > 0 && (
               <div className="mb-6 rounded-3xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/10 via-zinc-950 to-zinc-950 p-5 sm:p-6">
                 <div>
                   <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
