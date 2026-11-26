@@ -838,9 +838,9 @@ export default function BlackFridayPage() {
               return (
                 <article
                   key={cupom.id}
-                  className="flex flex-col rounded-3xl border border-white/10 bg-zinc-950 p-5 shadow-lg transition hover:border-white/20"
+                  className="flex h-full flex-col rounded-3xl border border-white/10 bg-zinc-950 p-5 shadow-lg transition hover:border-white/20"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="h-[136px] overflow-hidden flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-xs font-black uppercase tracking-wider text-zinc-400">
                         {cupom.loja?.nome || "Loja"}
@@ -886,7 +886,7 @@ export default function BlackFridayPage() {
                     🕒 Atualizado {tempoRelativo(cupom.verificado_em || cupom.updated_at)}
                   </p>
 
-                  <div className="min-h-[142px]">
+                  <div className="h-[142px] overflow-hidden">
                     <h3 className="mt-2 line-clamp-3 text-xl font-black leading-7">
                       {cupom.titulo}
                     </h3>
@@ -902,7 +902,7 @@ export default function BlackFridayPage() {
                     <button
                       type="button"
                       onClick={() => void copiar(cupom)}
-                      className="mt-5 flex min-h-[116px] flex-col justify-center rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-400/10 px-4 py-4 text-center transition hover:bg-yellow-400/15"
+                      className="mt-5 flex h-[116px] flex-col justify-center overflow-hidden rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-400/10 px-4 py-4 text-center transition hover:bg-yellow-400/15"
                     >
                       <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-yellow-300">
                         Código do cupom
@@ -917,7 +917,7 @@ export default function BlackFridayPage() {
                       </span>
                     </button>
                   ) : (
-                    <div className="mt-5 flex min-h-[116px] flex-col justify-center rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-4">
+                    <div className="mt-5 flex h-[116px] flex-col justify-center overflow-hidden rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-4">
                       <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-sky-300">
                         Oferta sem código
                       </span>
@@ -927,7 +927,7 @@ export default function BlackFridayPage() {
                     </div>
                   )}
 
-                  <div className="mt-5 min-h-[78px] space-y-2 text-sm text-zinc-400">
+                  <div className="mt-5 h-[92px] overflow-hidden space-y-2 text-sm text-zinc-400">
                     <p>
                       ⏱️ Validade:{" "}
                       <strong className="text-zinc-200">{validade}</strong>
