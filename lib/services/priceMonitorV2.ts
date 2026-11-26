@@ -16,7 +16,7 @@ type ProdutoBanco = {
 };
 
 const TIMEOUT_PRODUTO_MS = 35_000;
-const ORCAMENTO_INICIO_NOVO_LOTE_MS = 220_000;
+const ORCAMENTO_INICIO_NOVO_LOTE_MS = 150_000;
 
 type DadosMonitor = {
   nome?: string;
@@ -420,9 +420,9 @@ export async function monitorarTodosProdutosV2() {
   }
 
   // Cada chamada ao worker tem timeout proprio de 35s e novos lotes deixam de
-  // iniciar depois de 220s. Assim a rota tem folga para persistir o historico
-  // e responder antes do teto de 300s da Vercel.
-  await processarEmLotes(produtosOutros, 3);
+  // iniciar depois de 150s. A margem maior evita 5xx por timeout e deixa tempo
+  // para persistir histórico, avaliar alertas e responder antes do teto da Vercel.
+  await processarEmLotes(produtosOutros, 2);
 
   // Mercado Livre automatico, se voltar a existir no futuro, continua por ultimo.
   if (!interrompidoPorTempo) {

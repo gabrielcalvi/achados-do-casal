@@ -43,7 +43,8 @@ async function autorizado(request: NextRequest) {
 }
 
 async function executar(request: NextRequest) {
-  if (!(await autorizado(request))) {
+  const chamadaCron = autorizadoCron(request);
+  if (!(chamadaCron || (await usuarioAutenticado()))) {
     return NextResponse.json(
       { sucesso: false, erro: "Nao autorizado." },
       { status: 401 },
@@ -52,9 +53,13 @@ async function executar(request: NextRequest) {
 
   const slug =
     request.nextUrl.searchParams.get("loja")?.trim().toLowerCase() || "";
+  const totalLotesCron = 4;
+  const loteCron = Math.floor(new Date().getUTCHours() / 3) % totalLotesCron;
   const lojas = slug
     ? LOJAS_RADAR.filter((loja) => loja.slug === slug)
-    : LOJAS_RADAR;
+    : chamadaCron
+      ? LOJAS_RADAR.filter((_, indice) => indice % totalLotesCron === loteCron)
+      : LOJAS_RADAR;
 
   if (slug && lojas.length === 0) {
     return NextResponse.json(
@@ -64,9 +69,9 @@ async function executar(request: NextRequest) {
   }
 
   const resultados: any[] = [];
-  // A cobertura cresceu bastante; oito lojas por lote mantém a ronda completa
-  // dentro da janela da função sem concentrar todas as requisições de uma vez.
-  const concorrencia = 8;
+  // O cron cobre 1/4 das lojas por execução e roda a cada 3h.
+  // Cada loja é revisitada duas vezes ao dia sem encostar no teto de 300s.
+  const concorrencia = 6;
 
   for (let indice = 0; indice < lojas.length; indice += concorrencia) {
     const lote = lojas.slice(indice, indice + concorrencia);
@@ -119,6 +124,13 @@ async function executar(request: NextRequest) {
       campanha: Date.now() < Date.parse("2026-12-03T03:00:00.000Z") ? "black-friday-2026" : "radar-cupons-permanente",
       executado_em: new Date().toISOString(),
       resumo,
+      ...(chamadaCron && !slug
+        ? {
+            lote_cron: loteCron + 1,
+            total_lotes_cron: totalLotesCron,
+            lojas_totais_radar: LOJAS_RADAR.length,
+          }
+        : {}),
       resultados,
     },
     { headers: { "Cache-Control": "no-store" } },
