@@ -166,7 +166,7 @@ async function garantirLoja(
   );
   if (existente) return existente;
 
-  const base = slugify(marca.slug || marca.name);
+  const base = slugify(marca.name);
   let slug = base;
   let n = 2;
   while (lojas.some((l) => l.slug === slug)) slug = `${base}-${n++}`;
