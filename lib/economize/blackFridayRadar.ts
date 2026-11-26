@@ -396,8 +396,9 @@ export async function extrairCuponsCuponation(loja: LojaBlackFriday, fonteUrl: s
     if (beneficioBom) score += 20;
     if (usoRecente) score += 35;
 
-    const autoAprovado =
-      publicado && vigente && beneficioBom && usoRecente && score >= 95;
+    // Fonte pública de terceiros serve apenas para descoberta.
+    // Nunca promove automaticamente a "verificado" sem confirmação oficial/rede afiliada.
+    const autoAprovado = false;
 
     descobertos.set(codigo, {
       codigo,
@@ -876,7 +877,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     auto_aprovado: cupom.autoAprovado,
     regra_auto_aprovacao: cupom.fonteOficial
       ? "fonte_oficial+vigente+beneficio_bom"
-      : "publicado+vigente+beneficio_bom+uso_ultimas_72h",
+      : "fonte_terceira_apenas_candidata",
   };
 
   const { data: cupomExistente, error: erroBuscaCupom } = await supabaseAdmin
@@ -893,7 +894,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     titulo: cupom.titulo,
     descricao: cupom.fonteOficial
       ? `Cupom ${lojaDef.nome} confirmado diretamente em fonte oficial da loja.`
-      : `Cupom ${lojaDef.nome} encontrado pelo Radar de Cupons e verificado em fonte pública com registro de uso recente.`,
+      : `Cupom ${lojaDef.nome} encontrado pelo Radar de Cupons e mantido como candidato até confirmação forte.`,
     regras: "Confira as condições finais no carrinho da loja. Cupom monitorado e revalidado automaticamente.",
     tipo_desconto: cupom.tipoDesconto,
     desconto_percentual: cupom.descontoPercentual,
@@ -938,7 +939,7 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     titulo: cupom.titulo,
     descricao: cupom.fonteOficial
       ? `Código ${cupom.codigo} confirmado na fonte oficial da ${lojaDef.nome}.`
-      : `Código ${cupom.codigo} com uso recente registrado. Confira as condições na ${lojaDef.nome}.`,
+      : `Código ${cupom.codigo} encontrado em fonte de terceiros e aguardando confirmação forte.`,
     codigo: cupom.codigo,
     categoria: Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? "Black Friday" : "Cupons",
     regras: "Confira elegibilidade e condições no carrinho da loja.",
@@ -950,7 +951,9 @@ export async function salvarCupomBlackFriday(lojaDef: LojaBlackFriday, cupom: Cu
     data_inicio: cupom.inicio,
     validade,
     destaque: (cupom.descontoPercentual ?? 0) >= 20 || (cupom.valorDesconto ?? 0) >= 50,
-    selos: Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? ["BLACK FRIDAY", "VERIFICADO", "TRÁFEGO"] : ["CUPOM", "VERIFICADO", "TRÁFEGO"],
+    selos: cupom.fonteOficial
+      ? (Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? ["BLACK FRIDAY", "VERIFICADO", "TRÁFEGO"] : ["CUPOM", "VERIFICADO", "TRÁFEGO"])
+      : (Date.now() < Date.parse(BLACK_FRIDAY_FIM) ? ["BLACK FRIDAY", "CANDIDATO"] : ["CUPOM", "CANDIDATO"]),
     origem: BLACK_FRIDAY_ORIGEM,
     origem_url: cupom.fonteUrl,
     dedupe_key: dedupe,
