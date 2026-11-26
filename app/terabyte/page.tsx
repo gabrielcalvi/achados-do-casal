@@ -1,4 +1,17 @@
+import type { Metadata } from "next";
 import PartnerStorefront from "@/components/PartnerStorefront";
+
+export const metadata: Metadata = {
+  title: "Ofertas TeraByte: hardware, PC Gamer e periféricos",
+  description: "Ofertas TeraByte de hardware, PC Gamer, monitores, componentes e periféricos com preços atualizados pelo Achados do Casal.",
+  alternates: { canonical: "/terabyte" },
+  openGraph: {
+    title: "Ofertas TeraByte | Achados do Casal",
+    description: "Ofertas TeraByte de hardware, PC Gamer, monitores, componentes e periféricos com preços atualizados pelo Achados do Casal.",
+    url: "/terabyte",
+    type: "website",
+  },
+};
 
 export default function TerabytePage() {
   return (
