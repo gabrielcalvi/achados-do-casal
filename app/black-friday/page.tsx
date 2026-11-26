@@ -496,11 +496,11 @@ export default function BlackFridayPage() {
                 🖤 Black Friday Achados do Casal
               </h1>
               <p className="mt-4 text-xl font-black text-white sm:text-2xl">
-                Cupons que encontramos e verificamos para você
+                Cupons e ofertas oficiais que monitoramos para você
               </p>
               <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-300 sm:text-lg">
-                Nosso radar procura novas oportunidades, revalida os códigos e
-                retira automaticamente o que deixa de funcionar.
+                Nosso radar procura oportunidades em fontes oficiais e parceiros,
+                atualiza as condições e retira automaticamente o que expira.
               </p>
             </div>
 
@@ -888,7 +888,7 @@ export default function BlackFridayPage() {
                     </p>
                   )}
 
-                  {cupom.codigo && (
+                  {cupom.codigo ? (
                     <button
                       type="button"
                       onClick={() => void copiar(cupom)}
@@ -906,6 +906,15 @@ export default function BlackFridayPage() {
                           : "Clique para copiar"}
                       </span>
                     </button>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-4">
+                      <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-sky-300">
+                        Oferta sem código
+                      </span>
+                      <p className="mt-2 text-sm font-bold leading-6 text-zinc-300">
+                        Esta campanha não possui cupom para copiar. O desconto vale nos produtos participantes da oferta.
+                      </p>
+                    </div>
                   )}
 
                   <div className="mt-5 space-y-2 text-sm text-zinc-400">
@@ -942,12 +951,14 @@ export default function BlackFridayPage() {
                       href={`/oferta/${cupom.id}?origem=${origemCanal}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => void copiar(cupom)}
+                      onClick={() => {
+                        if (cupom.codigo) void copiar(cupom);
+                      }}
                       className="rounded-xl bg-yellow-400 px-5 py-3.5 text-center font-black uppercase tracking-wide text-black transition hover:bg-yellow-300 sm:col-span-2"
                     >
-                      {copiado === cupom.id
-                        ? "✅ Copiado · Ir para a loja"
-                        : "Usar cupom"}
+                      {cupom.codigo
+                        ? (copiado === cupom.id ? "✅ Copiado · Ir para a loja" : "Usar cupom")
+                        : "Ver oferta"}
                     </a>
                     <button
                       type="button"
@@ -968,7 +979,9 @@ export default function BlackFridayPage() {
                           ? "✅ Aviso recebido"
                           : relato === "erro"
                             ? "Tentar novamente"
-                            : "Não funcionou"}
+                            : cupom.codigo
+                              ? "Não funcionou"
+                              : "Oferta não disponível"}
                     </button>
                   </div>
                 </article>
