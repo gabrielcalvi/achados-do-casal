@@ -490,6 +490,11 @@ function extrairInicioOficial(trecho: string) {
 }
 
 function tituloOficial(loja: LojaBlackFriday, codigo: string, benef: ReturnType<typeof beneficio>, contexto: string) {
+  const rennerBlack = loja.slug === "renner" ? codigo.match(/^BLACK(10|15|20|25|30)$/i) : null;
+  if (rennerBlack) {
+    return `Renner: até 60% OFF + ${rennerBlack[1]}% OFF extra na seleção`;
+  }
+
   const limpo = contexto.replace(/\s+/g, " ").trim();
   const parte = limpo
     .split(/V[aá]lido|Ofertas v[aá]lidas|Promo[cç][aã]o v[aá]lida/i)[0]
@@ -784,7 +789,10 @@ async function fontePrincipalExternaCupons(slug: string) {
     );
   });
 
-  if (automacaoCuponsAtiva || fonteAwinPrincipal) {
+  if (
+    automacaoCuponsAtiva ||
+    (fonteAwinPrincipal && parceiroResp.data?.automacao_status === "ativa")
+  ) {
     return { lojaId: loja.id, provedor: "awin" };
   }
 
