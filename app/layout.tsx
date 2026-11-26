@@ -24,9 +24,6 @@ export const metadata: Metadata = {
   description:
     "Ofertas, cupons, promoções, produtos e inteligência de viagem para ajudar você a economizar.",
   applicationName: "Achados do Casal",
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "pt_BR",
@@ -34,12 +31,30 @@ export const metadata: Metadata = {
     title: "Achados do Casal",
     description:
       "Ofertas, cupons, promoções, produtos e inteligência de viagem para ajudar você a economizar.",
-    url: "/",
   },
   robots: {
     index: true,
     follow: true,
   },
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://achadosdocasal.com.br/#organization",
+  name: "Achados do Casal",
+  url: "https://achadosdocasal.com.br",
+  logo: "https://achadosdocasal.com.br/logo-achados-do-casal.png",
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://achadosdocasal.com.br/#website",
+  name: "Achados do Casal",
+  url: "https://achadosdocasal.com.br",
+  publisher: { "@id": "https://achadosdocasal.com.br/#organization" },
+  inLanguage: "pt-BR",
 };
 
 export const viewport: Viewport = {
@@ -59,6 +74,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-950">
+        <script id="organization-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c") }} />
+        <script id="website-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c") }} />
         <PartnerPromoBar />
         {children}
         <WhatsAppGrupoFlutuante />

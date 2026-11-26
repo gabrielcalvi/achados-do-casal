@@ -7,7 +7,7 @@ import PedidoReviewForm from "@/components/PedidoReviewForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Reviews do Casal | Achados do Casal",
+  title: "Reviews do Casal",
   description:
     "Avaliações reais de produtos que usamos em casa, com nota do casal, tempo de uso, pontos positivos, pontos negativos e vídeo quando disponível.",
   alternates: {
