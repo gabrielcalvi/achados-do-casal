@@ -25,7 +25,7 @@ const estilos: Record<string, string> = {
   renner: "bg-[#d71920] text-white hover:bg-[#b9151a]",
   "casas-bahia": "bg-[#163f8c] text-white hover:bg-[#123574]",
   kappesberg: "bg-[#7c2d12] text-white hover:bg-[#65240f]",
-  terabyte: "bg-[#b91c1c] text-white hover:bg-[#991b1b]",
+  terabyte: "bg-[#6d28d9] text-white hover:bg-[#5b21b6]",
 };
 
 export default function PartnerPromoBar() {
