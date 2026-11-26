@@ -80,7 +80,11 @@ export async function GET() {
         ...parceiro,
         quantidade: contagem.get(parceiro.slug) ?? 0,
       }))
-      .filter((parceiro) => parceiro.quantidade >= 5);
+      .filter(
+        (parceiro) =>
+          parceiro.quantidade >= 5 ||
+          (parceiro.slug === "terabyte" && parceiro.quantidade > 0),
+      );
 
     return NextResponse.json(
       {
