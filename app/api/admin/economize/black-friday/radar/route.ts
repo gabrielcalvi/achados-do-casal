@@ -21,7 +21,7 @@ const LOJAS_RADAR: LojaBlackFriday[] = Array.from(
   ).values(),
 );
 
-const TEMP_RUN_HASH = "1fdaf013a187833ccf5eb60b645facdbf31ba60d1dcae27f4bdd5a963c88c542";
+const TEMP_RUN_HASH = "c4accca5ee37fae6b2779a85170c39d78772f85f69cdc8472d11c6f58f2c272f";
 
 function autorizadoTemporario(request: NextRequest) {
   const nonce = request.nextUrl.searchParams.get("run_nonce") || "";
