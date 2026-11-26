@@ -550,6 +550,122 @@ export default function BlackFridayPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
+<div className="rounded-3xl border border-white/10 bg-zinc-950 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
+                Busca inteligente
+              </p>
+              <h2 className="mt-1 text-2xl font-black">
+                {filtrados.length} cupom{filtrados.length === 1 ? "" : "s"} neste filtro
+              </h2>
+            </div>
+            {haFiltros && (
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="w-fit text-sm font-black text-yellow-300 hover:text-yellow-200"
+              >
+                Limpar todos os filtros
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="grid gap-2 md:col-span-2 xl:col-span-1">
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Procurar
+              </span>
+              <input
+                type="search"
+                value={busca}
+                onChange={(event) => setBusca(event.target.value)}
+                placeholder="Loja, código, produto ou categoria..."
+                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Loja
+              </span>
+              <select
+                value={lojaSelecionada}
+                onChange={(event) => setLojaSelecionada(event.target.value)}
+                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
+              >
+                <option value="todas">Todas as lojas</option>
+                {lojas.map((loja) => (
+                  <option key={loja.id} value={loja.slug}>
+                    {loja.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Categoria
+              </span>
+              <select
+                value={categoriaSelecionada}
+                onChange={(event) =>
+                  setCategoriaSelecionada(event.target.value)
+                }
+                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
+              >
+                <option value="todas">Todas as categorias</option>
+                {categoriasDisponiveis.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.icone} {categoria.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Ordenar
+              </span>
+              <select
+                value={ordenacao}
+                onChange={(event) =>
+                  setOrdenacao(event.target.value as Ordenacao)
+                }
+                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
+              >
+                <option value="relevancia">Mais relevantes</option>
+                <option value="maior-desconto">Maior desconto</option>
+                <option value="recentes">Verificados recentemente</option>
+                <option value="vencimento">Vencem primeiro</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[
+              ["todos", "Todos"],
+              ["verificados", "✅ Verificados em 24h"],
+              ["vencendo", "⏳ Vencendo em 48h"],
+              ["parceiros", "💰 Só parceiros"],
+              ["radar", "🔎 Descobertos pelo radar"],
+            ].map(([valor, rotulo]) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setFiltroRapido(valor as FiltroRapido)}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${
+                  filtroRapido === valor
+                    ? "bg-yellow-400 text-black"
+                    : "border border-white/10 bg-white/5 text-zinc-300 hover:border-yellow-400/60"
+                }`}
+              >
+                {rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {!carregando && !erro && (
           <>
             <div className="mb-6">
@@ -680,121 +796,6 @@ export default function BlackFridayPage() {
           </>
         )}
 
-        <div className="rounded-3xl border border-white/10 bg-zinc-950 p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-black uppercase tracking-wider text-yellow-400">
-                Busca inteligente
-              </p>
-              <h2 className="mt-1 text-2xl font-black">
-                {filtrados.length} cupom{filtrados.length === 1 ? "" : "s"} neste filtro
-              </h2>
-            </div>
-            {haFiltros && (
-              <button
-                type="button"
-                onClick={limparFiltros}
-                className="w-fit text-sm font-black text-yellow-300 hover:text-yellow-200"
-              >
-                Limpar todos os filtros
-              </button>
-            )}
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label className="grid gap-2 md:col-span-2 xl:col-span-1">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Procurar
-              </span>
-              <input
-                type="search"
-                value={busca}
-                onChange={(event) => setBusca(event.target.value)}
-                placeholder="Loja, código, produto ou categoria..."
-                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Loja
-              </span>
-              <select
-                value={lojaSelecionada}
-                onChange={(event) => setLojaSelecionada(event.target.value)}
-                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
-              >
-                <option value="todas">Todas as lojas</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.slug}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Categoria
-              </span>
-              <select
-                value={categoriaSelecionada}
-                onChange={(event) =>
-                  setCategoriaSelecionada(event.target.value)
-                }
-                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
-              >
-                <option value="todas">Todas as categorias</option>
-                {categoriasDisponiveis.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.icone} {categoria.rotulo}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Ordenar
-              </span>
-              <select
-                value={ordenacao}
-                onChange={(event) =>
-                  setOrdenacao(event.target.value as Ordenacao)
-                }
-                className="h-12 rounded-xl border border-white/10 bg-zinc-900 px-4 font-bold text-white outline-none focus:border-yellow-400"
-              >
-                <option value="relevancia">Mais relevantes</option>
-                <option value="maior-desconto">Maior desconto</option>
-                <option value="recentes">Verificados recentemente</option>
-                <option value="vencimento">Vencem primeiro</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {[
-              ["todos", "Todos"],
-              ["verificados", "✅ Verificados em 24h"],
-              ["vencendo", "⏳ Vencendo em 48h"],
-              ["parceiros", "💰 Só parceiros"],
-              ["radar", "🔎 Descobertos pelo radar"],
-            ].map(([valor, rotulo]) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setFiltroRapido(valor as FiltroRapido)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${
-                  filtroRapido === valor
-                    ? "bg-yellow-400 text-black"
-                    : "border border-white/10 bg-white/5 text-zinc-300 hover:border-yellow-400/60"
-                }`}
-              >
-                {rotulo}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {carregando ? (
           <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950 p-10 text-center text-zinc-400">
