@@ -744,7 +744,7 @@ export default function BlackFridayPage() {
                       key={`destaque-${cupom.id}`}
                       className="rounded-2xl border border-white/10 bg-black/40 p-4"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="min-h-[112px] flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-black uppercase tracking-wider text-zinc-400">
                             {cupom.loja?.nome || "Loja"}
@@ -874,25 +874,27 @@ export default function BlackFridayPage() {
                     </span>
                   </div>
 
-                  <p className="mt-4 text-xs font-bold text-sky-300">
+                  <p className="mt-4 min-h-[20px] text-xs font-bold text-sky-300">
                     🕒 Atualizado {tempoRelativo(cupom.verificado_em || cupom.updated_at)}
                   </p>
 
-                  <h3 className="mt-2 line-clamp-3 text-xl font-black leading-7">
-                    {cupom.titulo}
-                  </h3>
+                  <div className="min-h-[142px]">
+                    <h3 className="mt-2 line-clamp-3 text-xl font-black leading-7">
+                      {cupom.titulo}
+                    </h3>
 
-                  {cupom.descricao && (
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                      {cupom.descricao}
-                    </p>
-                  )}
+                    {cupom.descricao && (
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
+                        {cupom.descricao}
+                      </p>
+                    )}
+                  </div>
 
                   {cupom.codigo ? (
                     <button
                       type="button"
                       onClick={() => void copiar(cupom)}
-                      className="mt-5 rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-400/10 px-4 py-4 text-center transition hover:bg-yellow-400/15"
+                      className="mt-5 flex min-h-[116px] flex-col justify-center rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-400/10 px-4 py-4 text-center transition hover:bg-yellow-400/15"
                     >
                       <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-yellow-300">
                         Código do cupom
@@ -907,7 +909,7 @@ export default function BlackFridayPage() {
                       </span>
                     </button>
                   ) : (
-                    <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-4">
+                    <div className="mt-5 flex min-h-[116px] flex-col justify-center rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-4">
                       <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-sky-300">
                         Oferta sem código
                       </span>
@@ -917,7 +919,7 @@ export default function BlackFridayPage() {
                     </div>
                   )}
 
-                  <div className="mt-5 space-y-2 text-sm text-zinc-400">
+                  <div className="mt-5 min-h-[78px] space-y-2 text-sm text-zinc-400">
                     <p>
                       ⏱️ Validade:{" "}
                       <strong className="text-zinc-200">{validade}</strong>
@@ -937,14 +939,16 @@ export default function BlackFridayPage() {
                     )}
                   </div>
 
-                  {cupom.regras && (
-                    <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-400">
-                      <summary className="cursor-pointer font-black text-zinc-200">
-                        Ver condições
-                      </summary>
-                      <p className="mt-2 leading-6">{cupom.regras}</p>
-                    </details>
-                  )}
+                  <div className="mt-4 min-h-[52px]">
+                    {cupom.regras && (
+                      <details className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-400">
+                        <summary className="cursor-pointer font-black text-zinc-200">
+                          Ver condições
+                        </summary>
+                        <p className="mt-2 leading-6">{cupom.regras}</p>
+                      </details>
+                    )}
+                  </div>
 
                   <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
                     <a
