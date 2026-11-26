@@ -540,7 +540,7 @@ export default function BlackFridayPage() {
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-zinc-400">
-            <span>✅ Verificados automaticamente</span>
+            <span>🏷️ Cupons oficiais e parceiros monitorados</span>
             <span>🕒 Última verificação {tempoRelativo(statusRadar?.ultimaVerificacao)}</span>
             <span>🔄 Próxima ronda {formatarHora(statusRadar?.proximaExecucao)}</span>
             <span>🔎 {radar.length} encontrados pelo radar</span>
@@ -636,7 +636,7 @@ export default function BlackFridayPage() {
               >
                 <option value="relevancia">Mais relevantes</option>
                 <option value="maior-desconto">Maior desconto</option>
-                <option value="recentes">Verificados recentemente</option>
+                <option value="recentes">Atualizados recentemente</option>
                 <option value="vencimento">Vencem primeiro</option>
               </select>
             </label>
@@ -645,7 +645,7 @@ export default function BlackFridayPage() {
           <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               ["todos", "Todos"],
-              ["verificados", "✅ Verificados em 24h"],
+              ["verificados", "🕒 Atualizados em 24h"],
               ["vencendo", "⏳ Vencendo em 48h"],
               ["parceiros", "💰 Só parceiros"],
               ["radar", "🔎 Descobertos pelo radar"],
@@ -845,7 +845,7 @@ export default function BlackFridayPage() {
                           </span>
                         )}
                         <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-300">
-                          ✅ VERIFICADO
+                          🏷️ OFICIAL/PARCEIRO
                         </span>
                         {terminaHoje && (
                           <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-black text-orange-300">
@@ -875,7 +875,7 @@ export default function BlackFridayPage() {
                   </div>
 
                   <p className="mt-4 text-xs font-bold text-sky-300">
-                    ✅ Verificado {tempoRelativo(cupom.verificado_em || cupom.updated_at)}
+                    🕒 Atualizado {tempoRelativo(cupom.verificado_em || cupom.updated_at)}
                   </p>
 
                   <h3 className="mt-2 line-clamp-3 text-xl font-black leading-7">
