@@ -25,23 +25,11 @@ type OfertaParceiro = {
 };
 
 const PARCEIROS_COM_VITRINE: ConfiguracaoParceiro[] = [
-  { slug: "kabum", nome: "KaBuM!", href: "/kabum", tema: "kabum" },
-  { slug: "cea", nome: "C&A", href: "/cea", tema: "cea" },
   { slug: "cobasi", nome: "Cobasi", href: "/cobasi", tema: "cobasi" },
+  { slug: "cea", nome: "C&A", href: "/cea", tema: "cea" },
+  { slug: "kabum", nome: "KaBuM!", href: "/kabum", tema: "kabum" },
   { slug: "nike", nome: "Nike", href: "/nike", tema: "nike" },
-  { slug: "renner", nome: "Renner", href: "/renner", tema: "renner" },
-  {
-    slug: "casas-bahia",
-    nome: "Casas Bahia",
-    href: "/casas-bahia",
-    tema: "casas-bahia",
-  },
-  {
-    slug: "kappesberg",
-    nome: "Kappesberg",
-    href: "/kappesberg",
-    tema: "kappesberg",
-  },
+  { slug: "terabyte", nome: "TeraByte", href: "/terabyte", tema: "terabyte" },
 ];
 
 function normalizarLoja(
@@ -92,13 +80,7 @@ export async function GET() {
         ...parceiro,
         quantidade: contagem.get(parceiro.slug) ?? 0,
       }))
-      .filter((parceiro) => parceiro.quantidade >= 5)
-      .sort((a, b) => {
-        if (a.quantidade !== b.quantidade) {
-          return b.quantidade - a.quantidade;
-        }
-        return a.nome.localeCompare(b.nome, "pt-BR");
-      });
+      .filter((parceiro) => parceiro.quantidade >= 5);
 
     return NextResponse.json(
       {

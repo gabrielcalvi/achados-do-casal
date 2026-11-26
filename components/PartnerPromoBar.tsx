@@ -25,6 +25,7 @@ const estilos: Record<string, string> = {
   renner: "bg-[#d71920] text-white hover:bg-[#b9151a]",
   "casas-bahia": "bg-[#163f8c] text-white hover:bg-[#123574]",
   kappesberg: "bg-[#7c2d12] text-white hover:bg-[#65240f]",
+  terabyte: "bg-[#ff4b1f] text-white hover:bg-[#e64118]",
 };
 
 export default function PartnerPromoBar() {
@@ -42,7 +43,7 @@ export default function PartnerPromoBar() {
         if (!resposta.ok) return;
 
         const dados = (await resposta.json()) as RespostaParceiros;
-        if (ativo) setParceiros((dados.parceiros ?? []).slice(0, 6));
+        if (ativo) setParceiros((dados.parceiros ?? []).slice(0, 5));
       } catch {
         // A barra permanece oculta quando não há destaques carregados.
       }
