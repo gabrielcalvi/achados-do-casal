@@ -166,7 +166,7 @@ export default function Home() {
           "id,titulo,categoria,imagem_url,preco_original,preco_oferta,desconto_percentual,loja_id",
         )
         .eq("status", "ativo")
-        .like("origem", "agente_produtos_awin_%")
+        .or("origem.like.agente_produtos_awin_%,origem.eq.agente_produtos_terabyte")
         .or(`data_inicio.is.null,data_inicio.lte.${agora}`)
         .or(`validade.is.null,validade.gt.${agora}`)
         .not("link_afiliado", "is", null)

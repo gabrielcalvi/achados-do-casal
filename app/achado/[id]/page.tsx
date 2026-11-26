@@ -78,6 +78,9 @@ function normalizarOrigem(valor: string | string[] | undefined) {
 function rotaVitrine(slug: string | undefined) {
   if (slug === "nike") return "/nike";
   if (slug === "kabum") return "/kabum";
+  if (slug === "terabyte") return "/terabyte";
+  if (slug === "cobasi") return "/cobasi";
+  if (slug === "cea") return "/cea";
   return "/economize";
 }
 
