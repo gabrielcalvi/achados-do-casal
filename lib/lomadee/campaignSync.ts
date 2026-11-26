@@ -10,6 +10,23 @@ import {
 const ORIGEM = "lomadee_api";
 const ORIGEM_RADAR = "black_friday_radar_2026";
 
+const MARCAS_LOMADEE_APROVADAS = new Set([
+  "terabyte",
+  "zupper",
+  "lojasrede",
+  "gazin",
+  "pneustore",
+  "candide",
+  "funko",
+  "dyson",
+  "casadasaliancas",
+  "rovitex",
+  "casadofitness",
+]);
+
+const CUPOM_PRIORITARIO_PERCENTUAL = 10;
+const CUPOM_PRIORITARIO_VALOR = 20;
+
 function normalizar(valor: string | null | undefined) {
   return (valor || "")
     .normalize("NFD")
@@ -57,6 +74,24 @@ function beneficio(campanha: LomadeeCampaign) {
     .join(" ")
     .replace(/\s+/g, " ");
 
+  const dePor = texto.match(
+    /de\s+R\$\s*([\d.]+(?:,\d{1,2})?)\s+por\s+R\$\s*([\d.]+(?:,\d{1,2})?)/i,
+  );
+  if (dePor) {
+    const original = Number(dePor[1].replace(/\./g, "").replace(",", "."));
+    const atual = Number(dePor[2].replace(/\./g, "").replace(",", "."));
+    if (Number.isFinite(original) && Number.isFinite(atual) && original > atual && atual > 0) {
+      const economia = original - atual;
+      const percentual = Math.round((economia / original) * 10000) / 100;
+      return {
+        tipo: "percentual" as const,
+        percentual,
+        valor: null,
+        bom: percentual >= CUPOM_PRIORITARIO_PERCENTUAL,
+      };
+    }
+  }
+
   if (/frete\s+gr[aá]tis/i.test(texto)) {
     return { tipo: "frete_gratis" as const, percentual: null, valor: null, bom: true };
   }
@@ -67,7 +102,12 @@ function beneficio(campanha: LomadeeCampaign) {
   ).filter((v) => Number.isFinite(v) && v > 0 && v <= 90);
   if (ps.length) {
     const percentual = Math.min(...ps);
-    return { tipo: "percentual" as const, percentual, valor: null, bom: percentual >= 10 };
+    return {
+      tipo: "percentual" as const,
+      percentual,
+      valor: null,
+      bom: percentual >= CUPOM_PRIORITARIO_PERCENTUAL,
+    };
   }
 
   const vs = Array.from(
@@ -76,7 +116,12 @@ function beneficio(campanha: LomadeeCampaign) {
   ).filter((v) => Number.isFinite(v) && v > 0);
   if (vs.length) {
     const valor = Math.min(...vs);
-    return { tipo: "valor_fixo" as const, percentual: null, valor, bom: valor >= 20 };
+    return {
+      tipo: "valor_fixo" as const,
+      percentual: null,
+      valor,
+      bom: valor >= CUPOM_PRIORITARIO_VALOR,
+    };
   }
 
   return { tipo: "outro" as const, percentual: null, valor: null, bom: false };
@@ -332,7 +377,11 @@ async function salvar(
     valor_desconto: b.valor,
     data_inicio: campanha.period?.startAt || null,
     validade: campanha.period?.endAt || null,
-    destaque: Boolean(campanha.isHighlight) || (b.percentual || 0) >= 20 || (b.valor || 0) >= 50,
+    destaque:
+      Boolean(campanha.isHighlight) ||
+      Boolean(codigo) ||
+      (b.percentual || 0) >= 20 ||
+      (b.valor || 0) >= 50,
     selos: ["LOMADEE", "AFILIADO", "VERIFICADO"],
     origem: ORIGEM,
     origem_url: "https://api.lomadee.com.br/affiliate/campaigns",
@@ -382,10 +431,18 @@ export async function sincronizarCampanhasLomadee() {
 
   const lojas = lojasResp.data || [];
   const marcasPorId = new Map(marcas.map((m) => [m.id, m]));
-  const marcaTerabyte = marcas.find((m) => normalizar(m.name) === "terabyte");
-  const campanhas = marcaTerabyte
-    ? await listarCampanhasLomadeeAtivas(marcaTerabyte.id)
-    : [];
+  const marcasAprovadas = marcas.filter((marca) =>
+    MARCAS_LOMADEE_APROVADAS.has(normalizar(marca.name)),
+  );
+
+  const campanhasPorMarca = await Promise.all(
+    marcasAprovadas.map(async (marca) => ({
+      marca,
+      campanhas: await listarCampanhasLomadeeAtivas(marca.id),
+    })),
+  );
+
+  const campanhas = campanhasPorMarca.flatMap((grupo) => grupo.campanhas);
   const grupos = new Map<string, LomadeeCampaign[]>();
   for (const c of campanhas) {
     if (!c.organizationId) continue;
@@ -404,10 +461,7 @@ export async function sincronizarCampanhasLomadee() {
 
   for (const [organizationId, lista] of grupos) {
     const marca = marcasPorId.get(organizationId);
-    // Importação inicial controlada: somente TeraByte foi aprovada para
-    // operação Lomadee. Outras marcas exigem curadoria explícita para evitar
-    // transformar as 133 marcas acessíveis em um catálogo indiscriminado.
-    if (!marca || normalizar(marca.name) !== "terabyte") continue;
+    if (!marca || !MARCAS_LOMADEE_APROVADAS.has(normalizar(marca.name))) continue;
 
     try {
       const loja = await garantirLoja(marca, lojas);
@@ -468,6 +522,7 @@ export async function sincronizarCampanhasLomadee() {
     executado_em: new Date().toISOString(),
     resumo: {
       marcas_acessiveis: marcas.length,
+      marcas_aprovadas: marcasAprovadas.length,
       campanhas_recebidas: campanhas.length,
       campanhas_publicadas: publicadas,
       campanhas_novas: novas,
